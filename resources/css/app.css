@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* Tailwind v4 default-nya dark: ikut prefers-color-scheme (media query).
+   Diganti ke class-strategy supaya bisa di-toggle manual + tersimpan di
+   localStorage (pola sama seperti Dompis Cons: <html class="dark">). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Brand & ink scale - dipakai di seluruh app (login page, dan halaman
+       berikutnya) supaya konsisten satu design system, bukan hardcode
+       per-halaman. Diangkat dari eksplorasi awal login page. */
+    --color-brand-50: #fdf2f3;
+    --color-brand-100: #fbdfe1;
+    --color-brand-200: #f5b6ba;
+    --color-brand-300: #ea8288;
+    --color-brand-400: #dc4e57;
+    --color-brand-500: #c62633;
+    --color-brand-600: #a91d29;
+    --color-brand-700: #861621;
+    --color-brand-800: #5c0f17;
+    --color-brand-900: #3a0a0f;
+
+    /* ink-50/100 dipakai untuk background halaman & border input/card -
+       tidak ada di eksplorasi awal (cuma didefinisikan lewat inline style/
+       kelas yang sebenarnya tidak ter-generate di versi CDN), ditambahkan
+       di sini supaya border-ink-100 dkk benar-benar valid. */
+    --color-ink-50: #f7f8f9;
+    --color-ink-100: #e4e7ec;
+    --color-ink-300: #b6bec9;
+    --color-ink-400: #9aa4b1;
+    --color-ink-500: #6b7686;
+    --color-ink-600: #4a5567;
+    --color-ink-700: #2c3644;
+    --color-ink-800: #1f2733;
+    --color-ink-900: #161b22;
+
+    /* ink-950 khusus dark mode - background halaman paling gelap, beda
+       satu tingkat dari ink-900 (dipakai sidebar/card) supaya tetap ada
+       kontras layer, sama seperti gray-950 vs gray-900 di Dompis Cons. */
+    --color-ink-950: #0d1117;
+}
