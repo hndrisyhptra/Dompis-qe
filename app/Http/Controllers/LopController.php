@@ -74,7 +74,7 @@ class LopController extends Controller
     {
         $this->authorize('view', $qe_lop);
 
-        $qe_lop->load(['creator', 'assignments.technician', 'histories.user']);
+        $qe_lop->load(['creator', 'assignments.technician', 'histories.user', 'evidences.designator', 'evidences.uploader']);
 
         $technicians = \App\Models\User::query()
             ->whereHas('role', fn ($q) => $q->where('code', \App\Enums\UserRole::TEKNISI->value))
@@ -82,7 +82,13 @@ class LopController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('lop.show', ['lop' => $qe_lop, 'technicians' => $technicians]);
+        $designators = \App\Models\Designator::orderBy('code')->get();
+
+        return view('lop.show', [
+            'lop' => $qe_lop,
+            'technicians' => $technicians,
+            'designators' => $designators,
+        ]);
     }
 
     public function edit(QeLop $qe_lop): View

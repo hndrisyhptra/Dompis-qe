@@ -92,6 +92,92 @@
         </x-card>
     @endcan
 
+    @can('uploadEvidence', $lop)
+        <x-card>
+            <h2 class="text-sm font-semibold text-ink-900 dark:text-ink-50 mb-1">Upload Evidence</h2>
+            <p class="text-sm text-ink-500 dark:text-ink-400 mb-4">Upload foto/dokumen bukti pekerjaan per step.</p>
+
+            <form method="POST" action="{{ route('lop.evidence.store', $lop) }}" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <x-select name="step" label="Step" placeholder="Pilih step">
+                        @foreach (\App\Enums\EvidenceStep::cases() as $step)
+                            <option value="{{ $step->value }}" @selected(old('step') === $step->value)>{{ $step->label() }}</option>
+                        @endforeach
+                    </x-select>
+
+                    <x-select name="type" label="Tipe" placeholder="Pilih tipe">
+                        @foreach (\App\Enums\EvidenceType::cases() as $type)
+                            <option value="{{ $type->value }}" @selected(old('type') === $type->value)>{{ $type->label() }}</option>
+                        @endforeach
+                    </x-select>
+                </div>
+
+                <x-select name="designator_id" label="Item Designator (opsional)" placeholder="Tanpa item designator">
+                    @foreach ($designators as $designator)
+                        <option value="{{ $designator->id_designator }}" @selected(old('designator_id') == $designator->id_designator)>
+                            {{ $designator->code }} — {{ $designator->item_name }}
+                        </option>
+                    @endforeach
+                </x-select>
+
+                <div>
+                    <label for="file" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">File (JPG/PNG/PDF, maks 10MB)</label>
+                    <input
+                        type="file"
+                        id="file"
+                        name="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        class="w-full rounded-lg border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 px-3.5 py-2.5 text-sm text-ink-900 dark:text-ink-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+                    >
+                    @error('file')
+                        <p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <x-input name="note" label="Catatan (opsional)" />
+
+                <x-button>Upload</x-button>
+            </form>
+
+            @if ($lop->evidences->isNotEmpty())
+                <div class="mt-6 pt-6 border-t border-ink-100 dark:border-ink-700 space-y-3">
+                    @foreach ($lop->evidences as $evidence)
+                        <div class="flex items-start justify-between gap-3 py-2">
+                            <div class="min-w-0">
+                                <p class="text-sm text-ink-900 dark:text-ink-50 font-medium">
+                                    {{ $evidence->step->label() }} · {{ $evidence->type->label() }}
+                                    @if ($evidence->designator)
+                                        <span class="text-ink-500 dark:text-ink-400 font-normal">— {{ $evidence->designator->code }}</span>
+                                    @endif
+                                </p>
+                                <p class="text-xs text-ink-400 dark:text-ink-500 mt-0.5">
+                                    {{ $evidence->uploader?->name }} · {{ $evidence->created_at->format('d M Y H:i') }}
+                                </p>
+                                @if ($evidence->status->value === 'rejected' && $evidence->review_note)
+                                    <p class="text-xs text-brand-600 dark:text-brand-400 mt-1">Ditolak: {{ $evidence->review_note }}</p>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <x-badge :variant="$evidence->status->badgeVariant()">{{ $evidence->status->label() }}</x-badge>
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($evidence->file_path) }}" target="_blank" class="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium">Lihat</a>
+                                @can('delete', $evidence)
+                                    <form method="POST" action="{{ route('lop.evidence.destroy', [$lop, $evidence]) }}"
+                                          onsubmit="return confirm('Hapus evidence ini?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-sm text-ink-500 dark:text-ink-400 hover:text-brand-600 dark:hover:text-brand-400 font-medium">Hapus</button>
+                                    </form>
+                                @endcan
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-card>
+    @endcan
+
     <x-card>
         <h2 class="text-sm font-semibold text-ink-900 dark:text-ink-50 mb-4">Riwayat</h2>
 

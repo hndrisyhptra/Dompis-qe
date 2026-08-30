@@ -114,9 +114,9 @@
             </div>
 
             {{-- Master Designator: khusus role dengan permission manage_master_data
-                 (saat ini cuma SUPER_ADMIN) - belum ada route sungguhan. --}}
+                 (saat ini cuma SUPER_ADMIN). --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))
-                <div x-data="{ open: false }">
+                <div x-data="{ open: {{ request()->routeIs(['designators.*', 'designator-prices.*', 'packages.*']) ? 'true' : 'false' }} }">
                     <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -128,15 +128,27 @@
                         {!! $chevron !!}
                     </button>
                     <div x-show="open" x-transition class="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
-                        @foreach (['Designator', 'KHS', 'Paket KHS'] as $label)
-                            <span class="{{ $navDisabled }} pl-3">
-                                <span class="flex items-center gap-2.5">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-ink-600 shrink-0"></span>
-                                    {{ $label }}
-                                </span>
-                                <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
-                            </span>
-                        @endforeach
+                        <a href="{{ route('designators.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('designators.*') ? $navSubLinkActive : $navSubLinkInactive }}">
+                            @if (request()->routeIs('designators.*'))
+                                <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                            @endif
+                            <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                            Designator
+                        </a>
+                        <a href="{{ route('designator-prices.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('designator-prices.*') ? $navSubLinkActive : $navSubLinkInactive }}">
+                            @if (request()->routeIs('designator-prices.*'))
+                                <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                            @endif
+                            <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                            KHS
+                        </a>
+                        <a href="{{ route('packages.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('packages.*') ? $navSubLinkActive : $navSubLinkInactive }}">
+                            @if (request()->routeIs('packages.*'))
+                                <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                            @endif
+                            <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                            Paket KHS
+                        </a>
                     </div>
                 </div>
             @endif
@@ -151,15 +163,20 @@
                 <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
             </div>
 
-            <div class="{{ $navDisabled }}">
-                <span class="flex items-center gap-2.5">
-                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                    </svg>
+            @if (auth()->user()?->hasPermission('approve_evidence'))
+                <a href="{{ route('evidence-approval.index') }}"
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('evidence-approval.*') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                    @if (request()->routeIs('evidence-approval.*'))
+                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                    @endif
+                    <div class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                        </svg>
+                    </div>
                     Approval Evidence
-                </span>
-                <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
-            </div>
+                </a>
+            @endif
 
             @if (auth()->user()?->hasPermission('manage_users'))
                 <a href="{{ route('users.index') }}"

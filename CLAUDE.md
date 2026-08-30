@@ -785,5 +785,1154 @@ Analisa:
 Kemudian buat implementasi.
 
 
+# Master Designator Management
+
+
+## Purpose
+
+Master Designator adalah modul pusat untuk mengelola seluruh item pekerjaan QE.
+
+Designator digunakan sebagai referensi untuk:
+
+- Reservasi material teknisi
+- Penyusunan BOQ pekerjaan
+- Perhitungan harga pekerjaan
+- Evidence berdasarkan item pekerjaan
+- Reporting pekerjaan
+- Integrasi KHS / Paket pekerjaan
+- Generate RAB / Cost Calculation
+
+
+Designator TIDAK boleh dibuat secara hardcoded di aplikasi.
+
+Semua item pekerjaan harus berasal dari database.
+
+
+---
+
+# Designator Data Flow
+
+
+Flow utama:
+
+
+Customer
+
+    |
+
+    |
+
+Package
+
+    |
+
+    |
+
+Designator
+
+    |
+
+    |
+
+Designator Price
+
+
+Kemudian digunakan:
+
+
+LOP
+
+    |
+
+    |
+
+BOQ Items
+
+    |
+
+    |
+
+Evidence berdasarkan Designator
+
+
+
+---
+
+# Database Structure
+
+
+## 1. customers
+
+
+## Purpose
+
+Master customer atau owner pekerjaan.
+
+
+Contoh:
+
+- Telkom
+- PLN
+- Customer lainnya
+
+
+
+Table:
+
+
+customers
+
+
+Fields:
+
+
+id_customer
+
+
+customer_code
+
+
+customer_name
+
+
+description
+
+
+is_active
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Customer
+
+hasMany
+
+Packages
+
+
+
+Customer
+
+hasMany
+
+Designators
+
+
+
+Rules:
+
+
+- customer_code harus unique
+- customer yang sudah digunakan tidak boleh dihapus
+- gunakan is_active untuk deaktivasi
+
+
+
+---
+
+# 2. packages
+
+
+## Purpose
+
+
+Master paket pekerjaan.
+
+
+Package digunakan untuk menentukan kelompok pekerjaan dan harga.
+
+
+Contoh:
+
+
+Package:
+
+QE Recovery Paket 5
+
+
+Package:
+
+QE Preventive Paket A
+
+
+Package:
+
+Relokasi Utilitas CAPEX
+
+
+
+Table:
+
+
+packages
+
+
+Fields:
+
+
+id_package
+
+
+customer_id
+
+
+package_code
+
+
+package_name
+
+
+description
+
+
+is_active
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Package belongsTo Customer
+
+
+Package hasMany Designator Prices
+
+
+
+Rules:
+
+
+- package_code unique dalam customer
+- package tidak boleh dihapus jika sudah digunakan BOQ
+- gunakan soft delete atau is_active
+
+
+
+---
+
+# 3. designators
+
+
+## Purpose
+
+
+Master item pekerjaan.
+
+
+Designator menyimpan informasi dasar pekerjaan tanpa harga.
+
+
+Harga TIDAK disimpan pada tabel ini.
+
+
+Contoh:
+
+
+Designator:
+
+M-Rak Pasif spliter 1:4
+
+
+Uraian:
+
+19 inch 24 core Pull type optical fiber distribution frame 24 port Rack Mounted Indoor fiber patch panel
+
+
+
+Satuan:
+
+pcs
+
+
+Type:
+
+jasa
+
+
+Kategori:
+
+Passive Optical Component
+
+
+
+Table:
+
+
+designators
+
+
+Fields:
+
+
+id_designator
+
+
+customer_id
+
+
+designator
+
+
+uraian_pekerjaan
+
+
+satuan
+
+
+type
+
+
+category_id
+
+
+is_active
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Designator belongsTo Customer
+
+
+Designator belongsTo Category
+
+
+Designator hasMany Designator Prices
+
+
+Designator hasMany BOQ Items
+
+
+
+Rules:
+
+
+- designator harus unique berdasarkan customer
+- jangan menyimpan harga pada tabel designators
+- uraian pekerjaan menjadi master description
+
+
+
+---
+
+# 4. designator_categories
+
+
+## Purpose
+
+
+Master kategori designator.
+
+
+Jangan menggunakan text bebas untuk kategori.
+
+
+Contoh:
+
+
+- ODP
+- ODC
+- Kabel
+- Material
+- Jasa
+- Testing
+- Dismantle
+
+
+
+Table:
+
+
+designator_categories
+
+
+Fields:
+
+
+id_category
+
+
+name
+
+
+description
+
+
+is_active
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Category hasMany Designators
+
+
+
+---
+
+# 5. designator_types
+
+
+## Purpose
+
+
+Master tipe pekerjaan.
+
+
+Digunakan agar type tidak berupa text bebas.
+
+
+Contoh:
+
+
+- Material
+- Jasa
+- Instalasi
+- Pengukuran
+- Dismantle
+
+
+
+Table:
+
+
+designator_types
+
+
+Fields:
+
+
+id_type
+
+
+name
+
+
+description
+
+
+is_active
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Type hasMany Designators
+
+
+
+---
+
+# 6. designator_prices
+
+
+## Purpose
+
+
+Menyimpan harga designator berdasarkan paket.
+
+
+Satu designator dapat memiliki harga berbeda tergantung package.
+
+
+Contoh:
+
+
+Designator:
+
+M-Rak Pasif spliter 1:4
+
+
+Package:
+
+5
+
+
+Price:
+
+397068
+
+
+
+Table:
+
+
+designator_prices
+
+
+Fields:
+
+
+id_price
+
+
+designator_id
+
+
+package_id
+
+
+price
+
+
+effective_date
+
+
+expired_date
+
+
+created_by
+
+
+updated_by
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+Designator Price belongsTo Designator
+
+
+Designator Price belongsTo Package
+
+
+
+Rules:
+
+
+- harga tidak boleh disimpan di designators
+- satu kombinasi designator + package hanya boleh memiliki satu harga aktif
+- perubahan harga harus memiliki histori
+
+
+
+---
+
+# Excel Import Designator
+
+
+## Purpose
+
+
+Master Designator dapat diimport menggunakan Excel.
+
+
+Template Excel wajib:
+
+
+
+Header:
+
+
+designator
+
+uraian pekerjaan
+
+satuan
+
+type
+
+paket
+
+harga
+
+
+
+Example:
+
+
+designator:
+
+M-Rak Pasif spliter 1:4
+
+
+
+uraian pekerjaan:
+
+19 inch 24 core Pull type optical fiber distribution frame 24 port Rack Mounted Indoor fiber patch panel, Include RS232 Passive Splitter Rackmount Chassis - 2U
+
+
+
+satuan:
+
+pcs
+
+
+
+type:
+
+jasa
+
+
+
+paket:
+
+5
+
+
+
+harga:
+
+397068
+
+
+
+---
+
+# Import Process
+
+
+Saat upload Excel:
+
+
+## Step 1
+
+Validasi template.
+
+
+System harus memastikan:
+
+
+- Semua header tersedia
+- Format file benar
+- Data tidak kosong
+
+
+
+Jika gagal:
+
+tampilkan error import.
+
+
+
+---
+
+## Step 2
+
+Validasi Customer
+
+
+Import harus memiliki customer_id.
+
+
+Semua designator berada dalam customer tertentu.
+
+
+
+---
+
+## Step 3
+
+Process Package
+
+
+Kolom:
+
+
+paket
+
+
+digunakan sebagai:
+
+
+packages.package_code
+
+
+
+Jika package belum tersedia:
+
+
+Option:
+
+
+1. Auto create package
+
+
+atau
+
+
+2. Tampilkan error untuk dibuat manual
+
+
+
+---
+
+## Step 4
+
+Process Designator
+
+
+Cari berdasarkan:
+
+
+customer_id
+
++
+
+designator
+
+
+
+Jika belum ada:
+
+
+Create designator baru.
+
+
+
+Jika sudah ada:
+
+
+Update:
+
+
+- uraian pekerjaan
+- satuan
+- type
+
+
+
+---
+
+## Step 5
+
+Process Price
+
+
+Insert/update:
+
+
+designator_prices
+
+
+
+Mapping:
+
+
+designator_id
+
+
+package_id
+
+
+price
+
+
+
+---
+
+# Import History
+
+
+Setiap import harus tercatat.
+
+
+Table:
+
+
+designator_import_logs
+
+
+
+Fields:
+
+
+id_import
+
+
+customer_id
+
+
+file_name
+
+
+total_row
+
+
+success_row
+
+
+failed_row
+
+
+uploaded_by
+
+
+created_at
+
+
+
+---
+
+# Import Error Log
+
+
+Untuk menyimpan data gagal.
+
+
+Table:
+
+
+designator_import_errors
+
+
+
+Fields:
+
+
+id
+
+
+import_id
+
+
+row_number
+
+
+column_name
+
+
+value
+
+
+message
+
+
+created_at
+
+
+
+Example:
+
+
+Row:
+
+15
+
+
+Column:
+
+paket
+
+
+Message:
+
+Package 5 tidak ditemukan
+
+
+
+---
+
+# BOQ Integration
+
+
+Designator digunakan saat membuat BOQ.
+
+
+Flow:
+
+
+LOP
+
+↓
+
+Pilih Package
+
+↓
+
+Load Designator berdasarkan Package
+
+↓
+
+Input Quantity
+
+↓
+
+Generate BOQ
+
+
+
+---
+
+# boq_items
+
+
+## Purpose
+
+
+Menyimpan snapshot pekerjaan pada LOP.
+
+
+BOQ tidak boleh mengambil harga realtime dari master.
+
+
+Saat BOQ dibuat:
+
+
+copy:
+
+
+- designator
+- uraian pekerjaan
+- satuan
+- harga
+
+
+
+Table:
+
+
+boq_items
+
+
+Fields:
+
+
+id_boq
+
+
+lop_id
+
+
+designator_id
+
+
+designator
+
+
+uraian_pekerjaan
+
+
+satuan
+
+
+quantity_actual
+
+
+unit_price
+
+
+total_price
+
+
+created_at
+
+
+updated_at
+
+
+
+Relationship:
+
+
+BOQ belongsTo LOP
+
+
+BOQ belongsTo Designator
+
+
+
+---
+
+# BOQ Template (Recommended)
+
+
+Untuk mempercepat input pekerjaan.
+
+
+## boq_templates
+
+
+Fields:
+
+
+id_template
+
+
+package_id
+
+
+name
+
+
+description
+
+
+is_active
+
+
+
+Relationship:
+
+
+Package hasMany Templates
+
+
+
+---
+
+## boq_template_items
+
+
+Fields:
+
+
+id
+
+
+template_id
+
+
+designator_id
+
+
+default_quantity
+
+
+
+Relationship:
+
+
+Template hasMany Designator
+
+
+
+Example:
+
+
+Package:
+
+QE Recovery
+
+
+Template:
+
+
+Standard Recovery
+
+
+
+Items:
+
+
+ODP
+
+Kabel FO
+
+Closure
+
+Accessory
+
+
+
+---
+
+# Security Rules
+
+
+Master Designator hanya dapat dikelola:
+
+
+SUPER_ADMIN
+
+
+
+Admin hanya dapat:
+
+
+- menggunakan designator
+- membuat BOQ
+
+
+
+Teknisi:
+
+
+- melihat designator dari LOP
+- upload evidence berdasarkan designator
+
+
+
+---
+
+# Audit Rules
+
+
+Semua perubahan master harus tercatat:
+
+
+- create
+- update
+- delete
+- import excel
+- perubahan harga
+
+
+
+Gunakan:
+
+
+audit_logs
+
+
+
+---
+
+# Future Development
+
+
+Struktur harus siap untuk:
+
+
+- Import Excel KHS
+- Import harga periodik
+- Generate BOQ otomatis
+- Generate RAB
+- Material warehouse integration
+- Evidence requirement berdasarkan designator
+- DXF/GIS integration
+- Dashboard cost analysis
 
 

@@ -73,6 +73,12 @@ class QeLop extends Model
             ->orderBy('created_at');
     }
 
+    public function evidences(): HasMany
+    {
+        return $this->hasMany(QeEvidence::class, 'qe_lop_id', 'id_qe_lops')
+            ->latest();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | HELPERS

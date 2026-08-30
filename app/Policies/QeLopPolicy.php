@@ -51,6 +51,29 @@ class QeLopPolicy
         return $user->hasRole(...UserRole::adminLevel());
     }
 
+    /**
+     * Upload evidence untuk LOP ini. Aturan sama seperti transitionStatus:
+     * teknisi cuma boleh untuk LOP yang di-assign ke dia & masih berjalan
+     * (bukan completed/rejected).
+     */
+    public function uploadEvidence(User $user, QeLop $lop): bool
+    {
+        if ($user->hasRole(...UserRole::adminLevel())) {
+            return true;
+        }
+
+        if ($user->hasRole(UserRole::TEKNISI)) {
+            $isAssignedToMe = $lop->assignments()
+                ->where('technician_id', $user->id_user)
+                ->where('status', 'active')
+                ->exists();
+
+            return $isAssignedToMe && ! in_array($lop->status_lop->value, ['completed', 'rejected'], true);
+        }
+
+        return false;
+    }
+
     public function transitionStatus(User $user, QeLop $lop): bool
     {
         if ($user->hasRole(...UserRole::adminLevel())) {
