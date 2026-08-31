@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(BranchSeeder::class);
+
         $accounts = [
             UserRole::SUPER_ADMIN->value => 'superadmin',
             UserRole::ADMIN->value => 'admin',

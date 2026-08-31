@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\QeLop;
 use App\Models\QeEvidence;
+use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -18,11 +18,21 @@ class EvidencePermissionTest extends TestCase
     private function makeLop(User $admin, string $status = 'assigned'): QeLop
     {
         return QeLop::create([
-            'kode_lop' => 'LOP-EVD-'.uniqid(),
+            'incident' => 'LOP-EVD-'.uniqid(),
             'nama_lop' => 'Evidence Test',
             'wbs_type' => 'recovery',
             'status_lop' => $status,
             'created_by' => $admin->id_user,
+        ]);
+    }
+
+    private function assignLop(QeLop $lop, User $admin, User $technician): void
+    {
+        $lop->assignments()->create([
+            'technician_id' => $technician->id_user,
+            'assigned_by' => $admin->id_user,
+            'assigned_at' => now(),
+            'status' => 'active',
         ]);
     }
 
@@ -64,6 +74,7 @@ class EvidencePermissionTest extends TestCase
         $manager = User::factory()->role(UserRole::MANAGER->value)->create();
 
         $lop = $this->makeLop($admin);
+        $this->assignLop($lop, $admin, $teknisi);
         $evidence = QeEvidence::create([
             'qe_lop_id' => $lop->id_qe_lops,
             'uploaded_by' => $teknisi->id_user,
@@ -78,5 +89,95 @@ class EvidencePermissionTest extends TestCase
 
         $this->actingAs($approver)->get(route('evidence-approval.index'))->assertOk();
         $this->actingAs($admin)->get(route('evidence-approval.index'))->assertOk();
+    }
+
+    public function test_approval_index_groups_multiple_evidences_by_lop(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin);
+        $this->assignLop($lop, $admin, $teknisi);
+
+        foreach (['progress-1.jpg', 'progress-2.jpg'] as $fileName) {
+            QeEvidence::create([
+                'qe_lop_id' => $lop->id_qe_lops,
+                'uploaded_by' => $teknisi->id_user,
+                'step' => 'PROGRESS',
+                'type' => 'PHOTO',
+                'category' => 'progress',
+                'file_path' => "evidences/{$fileName}",
+                'status' => 'pending',
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.index'))
+            ->assertOk()
+            ->assertSee('Review Evidence')
+            ->assertSee('2 file')
+            ->assertViewHas('lops', fn ($lops) => $lops->count() === 1
+                && $lops->first()->evidences->count() === 2
+                && $lops->first()->evidences_count === 2);
+
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
+            ->assertOk()
+            ->assertSee('2 file')
+            ->assertSee('Evidence global untuk step ini');
+    }
+
+    public function test_admin_only_reviews_lops_they_assigned_while_super_admin_reviews_all(): void
+    {
+        $adminA = User::factory()->role(UserRole::ADMIN->value)->create();
+        $adminB = User::factory()->role(UserRole::ADMIN->value)->create();
+        $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+
+        $lopA = $this->makeLop($adminA);
+        $lopB = $this->makeLop($adminB);
+        $this->assignLop($lopA, $adminA, $technician);
+        $this->assignLop($lopB, $adminB, $technician);
+
+        $evidenceA = QeEvidence::create([
+            'qe_lop_id' => $lopA->id_qe_lops,
+            'uploaded_by' => $technician->id_user,
+            'step' => 'BEFORE',
+            'type' => 'PHOTO',
+            'file_path' => 'evidences/a.jpg',
+            'status' => 'pending',
+        ]);
+        $evidenceB = QeEvidence::create([
+            'qe_lop_id' => $lopB->id_qe_lops,
+            'uploaded_by' => $technician->id_user,
+            'step' => 'AFTER',
+            'type' => 'PHOTO',
+            'file_path' => 'evidences/b.jpg',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($adminA)
+            ->get(route('evidence-approval.index'))
+            ->assertViewHas('lops', fn ($lops) => $lops->count() === 1
+                && $lops->first()->is($lopA));
+        $this->actingAs($adminA)
+            ->get(route('evidence-approval.lop.review', $lopA))
+            ->assertOk()
+            ->assertSee('Survey &amp; Material', false);
+        $this->actingAs($adminA)
+            ->get(route('evidence-approval.lop.review', $lopB))
+            ->assertForbidden();
+        $this->actingAs($adminA)
+            ->post(route('evidence-approval.approve', $evidenceB))
+            ->assertForbidden();
+
+        $this->actingAs($superAdmin)
+            ->get(route('evidence-approval.index'))
+            ->assertViewHas('lops', fn ($lops) => $lops->count() === 2);
+        $this->actingAs($superAdmin)
+            ->get(route('evidence-approval.lop.review', $lopB))
+            ->assertOk();
+        $this->actingAs($adminA)
+            ->post(route('evidence-approval.approve', $evidenceA))
+            ->assertRedirect();
     }
 }

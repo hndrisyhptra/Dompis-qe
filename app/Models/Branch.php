@@ -12,6 +12,7 @@ class Branch extends Model
     protected $fillable = [
         'code',
         'name',
+        'region',
     ];
 
     public function users(): HasMany

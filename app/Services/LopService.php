@@ -8,6 +8,7 @@ use App\Models\QeLop;
 use App\Models\QeLopAssignment;
 use App\Models\QeLopHistory;
 use App\Models\User;
+use App\Notifications\TechnicianActivityNotification;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -20,6 +21,8 @@ use InvalidArgumentException;
  */
 class LopService
 {
+    public function __construct(private readonly LopNamingService $namingService) {}
+
     /**
      * Membuat LOP baru dengan status awal draft.
      */
@@ -27,11 +30,18 @@ class LopService
     {
         return DB::transaction(function () use ($data, $creator) {
             $lop = QeLop::create([
-                'kode_lop' => $data['kode_lop'],
-                'nama_lop' => $data['nama_lop'],
+                'incident' => $data['incident'],
+                'nama_lop' => filled($data['nama_lop'] ?? null)
+                    ? $data['nama_lop']
+                    : $this->namingService->generate($data),
                 'wbs_type' => $data['wbs_type'],
-                'sto' => $data['sto'] ?? null,
-                'branch' => $data['branch'] ?? null,
+                'sto' => $data['sto'],
+                'branch' => $data['branch'],
+                'area' => $data['area'],
+                'segment' => $data['segment'],
+                'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+                'job_description' => $data['job_description'],
+                'ihld_id' => $data['ihld_id'] ?? null,
                 'package_id' => $data['package_id'] ?? null,
                 'status_lop' => LopStatus::DRAFT,
                 'created_by' => $creator->id_user,
@@ -41,6 +51,26 @@ class LopService
 
             return $lop;
         });
+    }
+
+    public function update(QeLop $lop, array $data): QeLop
+    {
+        $lop->update([
+            'incident' => $data['incident'],
+            'nama_lop' => filled($data['nama_lop'] ?? null)
+                ? $data['nama_lop']
+                : $this->namingService->generate($data),
+            'wbs_type' => $data['wbs_type'],
+            'sto' => $data['sto'],
+            'branch' => $data['branch'],
+            'area' => $data['area'],
+            'segment' => $data['segment'],
+            'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+            'job_description' => $data['job_description'],
+            'ihld_id' => $data['ihld_id'] ?? null,
+        ]);
+
+        return $lop->refresh();
     }
 
     /**
@@ -64,6 +94,13 @@ class LopService
                 'status' => AssignmentStatus::ACTIVE,
             ]);
 
+            $technician->notify(new TechnicianActivityNotification(
+                'Project baru ditugaskan',
+                "{$lop->incident} · {$lop->nama_lop}",
+                $lop->id_qe_lops,
+                'assignment'
+            ));
+
             // draft -> assigned adalah transisi normal. Kalau LOP sedang
             // di-reassign saat status sudah lebih maju (mis. picked_up),
             // status LOP TIDAK dipaksa mundur - hanya assignment yang berubah.
@@ -81,6 +118,35 @@ class LopService
             }
 
             return $assignment;
+        });
+    }
+
+    public function unassign(QeLop $lop, User $actor): void
+    {
+        DB::transaction(function () use ($lop, $actor) {
+            $assignment = $lop->activeAssignment()->with('technician')->firstOrFail();
+            $technician = $assignment->technician;
+
+            $assignment->update([
+                'status' => AssignmentStatus::REPLACED,
+                'unassigned_at' => now(),
+            ]);
+
+            if ($lop->status_lop === LopStatus::ASSIGNED) {
+                $this->transitionStatus(
+                    $lop,
+                    LopStatus::DRAFT,
+                    $actor,
+                    "Assignment {$technician->name} dibatalkan"
+                );
+            }
+
+            $technician->notify(new TechnicianActivityNotification(
+                'Assignment project dibatalkan',
+                "{$lop->incident} · {$lop->nama_lop}",
+                $lop->id_qe_lops,
+                'assignment_cancelled'
+            ));
         });
     }
 

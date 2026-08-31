@@ -16,4 +16,13 @@ enum WbsType: string
             self::RELOK_UTILITAS => 'QE Relok Utilitas',
         };
     }
+
+    public function code(): string
+    {
+        return match ($this) {
+            self::RECOVERY => 'QEREC',
+            self::PREVENTIVE => 'QEPREV',
+            self::RELOK_UTILITAS => 'QEREL',
+        };
+    }
 }

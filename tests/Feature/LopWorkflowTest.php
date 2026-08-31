@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\LopStatus;
 use App\Enums\UserRole;
-use App\Models\QeLop;
 use App\Models\User;
 use App\Services\LopService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class LopWorkflowTest extends TestCase
@@ -19,9 +19,11 @@ class LopWorkflowTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
 
         $lop = app(LopService::class)->create([
-            'kode_lop' => 'LOP-200',
+            'incident' => 'LOP-200',
             'nama_lop' => 'Recovery Jl. Diponegoro',
             'wbs_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
+            'segment' => 'odp', 'job_description' => 'Recovery Jl. Diponegoro',
         ], $admin);
 
         $this->assertEquals(LopStatus::DRAFT, $lop->status_lop);
@@ -38,9 +40,11 @@ class LopWorkflowTest extends TestCase
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $lop = app(LopService::class)->create([
-            'kode_lop' => 'LOP-201',
+            'incident' => 'LOP-201',
             'nama_lop' => 'Preventive Jl. Kebon Jeruk',
             'wbs_type' => 'preventive',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
+            'segment' => 'feeder', 'job_description' => 'Preventive Jl. Kebon Jeruk',
         ], $admin);
 
         $assignment = app(LopService::class)->assign($lop, $teknisi, $admin);
@@ -52,7 +56,7 @@ class LopWorkflowTest extends TestCase
         $this->assertEquals($teknisi->id_user, $lop->currentTechnician()->id_user);
 
         // technician_id sengaja tidak ada sebagai kolom di qe_lops.
-        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('qe_lops', 'technician_id'));
+        $this->assertFalse(Schema::hasColumn('qe_lops', 'technician_id'));
     }
 
     public function test_invalid_status_transition_is_rejected(): void
@@ -60,9 +64,11 @@ class LopWorkflowTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
 
         $lop = app(LopService::class)->create([
-            'kode_lop' => 'LOP-202',
+            'incident' => 'LOP-202',
             'nama_lop' => 'Recovery Jl. Asia Afrika',
             'wbs_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
+            'segment' => 'odp', 'job_description' => 'Recovery Jl. Asia Afrika',
         ], $admin);
 
         $this->expectException(\InvalidArgumentException::class);
@@ -80,9 +86,12 @@ class LopWorkflowTest extends TestCase
         $service = app(LopService::class);
 
         $lop = $service->create([
-            'kode_lop' => 'LOP-203',
+            'incident' => 'LOP-203',
             'nama_lop' => 'Relok Utilitas Jl. Cihampelas',
             'wbs_type' => 'relok_utilitas',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
+            'segment' => 'distribusi', 'budget_type' => 'CAPEX',
+            'job_description' => 'Relok Utilitas Jl. Cihampelas',
         ], $admin);
 
         $service->assign($lop, $teknisi, $admin);

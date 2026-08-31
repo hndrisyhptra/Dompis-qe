@@ -31,8 +31,11 @@ class AssignLopRequest extends FormRequest
             'technician_id' => [
                 'required',
                 'integer',
-                Rule::exists('users', 'id_user')->where('role_id', $teknisiRoleId),
+                Rule::exists('users', 'id_user')
+                    ->where('role_id', $teknisiRoleId)
+                    ->where('status', 'active'),
             ],
+            'return_to' => ['nullable', Rule::in(['index', 'show'])],
         ];
     }
 }

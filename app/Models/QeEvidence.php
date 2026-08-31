@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\EvidenceStep;
 use App\Enums\EvidenceType;
@@ -24,6 +25,7 @@ class QeEvidence extends Model
         'uploaded_by',
         'step',
         'type',
+        'category',
         'file_path',
         'metadata',
         'note',
@@ -38,6 +40,7 @@ class QeEvidence extends Model
         return [
             'step' => EvidenceStep::class,
             'type' => EvidenceType::class,
+            'category' => EvidenceCategory::class,
             'status' => EvidenceStatus::class,
             'metadata' => 'array',
             'reviewed_at' => 'datetime',

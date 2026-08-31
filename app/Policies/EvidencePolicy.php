@@ -30,7 +30,11 @@ class EvidencePolicy
      */
     public function view(User $user, QeEvidence $evidence): bool
     {
-        if ($user->hasRole(...[...UserRole::adminLevel(), ...UserRole::broadVisibility()])) {
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->isAssignedBy($user, $evidence);
+        }
+
+        if ($user->hasRole(UserRole::SUPER_ADMIN, ...UserRole::broadVisibility())) {
             return true;
         }
 
@@ -54,11 +58,45 @@ class EvidencePolicy
 
     public function approve(User $user, QeEvidence $evidence): bool
     {
-        return $user->hasPermission('approve_evidence');
+        return $this->canReview($user, $evidence)
+            && $evidence->status === EvidenceStatus::PENDING;
     }
 
     public function reject(User $user, QeEvidence $evidence): bool
     {
-        return $user->hasPermission('approve_evidence');
+        return $this->canReview($user, $evidence)
+            && $evidence->status === EvidenceStatus::PENDING;
+    }
+
+    public function replace(User $user, QeEvidence $evidence): bool
+    {
+        if (! $user->hasRole(UserRole::TEKNISI) || $evidence->status !== EvidenceStatus::REJECTED) {
+            return false;
+        }
+
+        return $evidence->lop->assignments()
+            ->where('technician_id', $user->id_user)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    private function canReview(User $user, QeEvidence $evidence): bool
+    {
+        if (! $user->hasPermission('approve_evidence')) {
+            return false;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->isAssignedBy($user, $evidence);
+        }
+
+        return $user->hasRole(UserRole::SUPER_ADMIN, UserRole::APPROVER);
+    }
+
+    private function isAssignedBy(User $user, QeEvidence $evidence): bool
+    {
+        return $evidence->lop->activeAssignment()
+            ->where('assigned_by', $user->id_user)
+            ->exists();
     }
 }

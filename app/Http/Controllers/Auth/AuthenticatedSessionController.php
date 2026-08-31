@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +29,12 @@ class AuthenticatedSessionController extends Controller
         $request->user()->forceFill([
             'last_login_at' => now(),
         ])->saveQuietly();
+
+        // Workspace teknisi bersifat mobile-first dan tidak boleh ditimpa
+        // intended URL lama (mis. /lop dari session sebelum login).
+        if ($request->user()->hasRole(UserRole::TEKNISI)) {
+            return redirect()->route('technician.dashboard');
+        }
 
         return redirect()->intended(route($request->user()->postLoginRouteName(), absolute: false));
     }

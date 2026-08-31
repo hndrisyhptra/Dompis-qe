@@ -60,7 +60,8 @@
                 <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
             </div>
 
-            {{-- Inbox --}}
+            {{-- Inbox operasional hanya untuk role selain Super Admin. --}}
+            @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
             <div x-data="{ open: {{ request()->routeIs('lop.*') ? 'true' : 'false' }} }">
                 <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                     <span class="flex items-center gap-2.5">
@@ -88,6 +89,35 @@
                     </a>
                 </div>
             </div>
+            @endunless
+
+            @can('create', \App\Models\QeLop::class)
+                <a href="{{ route('lop.create') }}"
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                    @if (request()->routeIs('lop.create'))
+                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                    @endif
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </div>
+                    Input LOP Baru
+                </a>
+            @endcan
+
+            @can('manage-master-data')
+                <a href="{{ route('lop-name-format.edit') }}"
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop-name-format.*') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                    @if (request()->routeIs('lop-name-format.*'))
+                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                    @endif
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 12h9.75m-9.75 6h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>
+                    </div>
+                    Format Nama LOP
+                </a>
+            @endcan
 
             {{-- WBS (belum ada route sungguhan - placeholder per jenis WBS) --}}
             <div x-data="{ open: false }">

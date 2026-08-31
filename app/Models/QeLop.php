@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\LopBudgetType;
+use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\WbsType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,11 +29,16 @@ class QeLop extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'kode_lop',
+        'incident',
         'nama_lop',
         'wbs_type',
         'sto',
         'branch',
+        'area',
+        'segment',
+        'budget_type',
+        'job_description',
+        'ihld_id',
         'package_id',
         'status_lop',
         'created_by',
@@ -41,6 +48,8 @@ class QeLop extends Model
     {
         return [
             'wbs_type' => WbsType::class,
+            'segment' => LopSegment::class,
+            'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
         ];
     }
@@ -77,6 +86,16 @@ class QeLop extends Model
     {
         return $this->hasMany(QeEvidence::class, 'qe_lop_id', 'id_qe_lops')
             ->latest();
+    }
+
+    public function materialReservation(): HasOne
+    {
+        return $this->hasOne(QeMaterialReservation::class, 'qe_lop_id', 'id_qe_lops');
+    }
+
+    public function survey(): HasOne
+    {
+        return $this->hasOne(QeSurvey::class, 'qe_lop_id', 'id_qe_lops');
     }
 
     /*

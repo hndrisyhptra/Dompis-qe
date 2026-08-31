@@ -7,12 +7,11 @@ use App\Models\QeLop;
 use App\Models\User;
 use App\Services\LopService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class LopAssignmentController extends Controller
 {
-    public function __construct(private readonly LopService $lopService)
-    {
-    }
+    public function __construct(private readonly LopService $lopService) {}
 
     public function store(AssignLopRequest $request, QeLop $qe_lop): RedirectResponse
     {
@@ -20,8 +19,22 @@ class LopAssignmentController extends Controller
 
         $this->lopService->assign($qe_lop, $technician, $request->user());
 
+        $route = $request->validated('return_to') === 'index' ? 'lop.index' : 'lop.show';
+
         return redirect()
-            ->route('lop.show', $qe_lop)
+            ->route($route, $route === 'lop.show' ? $qe_lop : [])
             ->with('status', "Teknisi {$technician->name} berhasil ditugaskan.");
+    }
+
+    public function destroy(Request $request, QeLop $qe_lop): RedirectResponse
+    {
+        $this->authorize('unassign', $qe_lop);
+
+        $technicianName = $qe_lop->activeAssignment?->technician?->name ?? 'Teknisi';
+        $this->lopService->unassign($qe_lop, $request->user());
+
+        return redirect()
+            ->route('lop.index')
+            ->with('status', "Assignment {$technicianName} berhasil dibatalkan.");
     }
 }

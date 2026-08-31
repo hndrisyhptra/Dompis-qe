@@ -2,50 +2,117 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EvidenceStatus;
+use App\Enums\LopBudgetType;
+use App\Enums\LopSegment;
 use App\Enums\LopStatus;
+use App\Enums\UserRole;
+use App\Enums\WbsType;
 use App\Http\Requests\StoreLopRequest;
 use App\Http\Requests\TransitionLopStatusRequest;
 use App\Http\Requests\UpdateLopRequest;
+use App\Models\Branch;
 use App\Models\QeLop;
+use App\Models\User;
+use App\Services\EvidenceApprovalService;
+use App\Services\LopNamingService;
 use App\Services\LopService;
+use App\Services\ProjectProgressService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class LopController extends Controller
 {
-    public function __construct(private readonly LopService $lopService)
-    {
-    }
+    public function __construct(
+        private readonly LopService $lopService,
+        private readonly LopNamingService $namingService,
+        private readonly ProjectProgressService $progressService,
+        private readonly EvidenceApprovalService $approvalService,
+    ) {}
 
     /**
-     * Inbox - Active LOP (status belum completed/rejected).
+     * Inbox - Active LOP (semua status selain completed).
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
+        if ($request->user()->hasRole(UserRole::TEKNISI)) {
+            return redirect()->route('technician.inbox');
+        }
+
+        if ($request->user()->hasRole(UserRole::SUPER_ADMIN)) {
+            return redirect()->route('evidence-approval.index');
+        }
+
         $this->authorize('viewAny', QeLop::class);
 
         $query = QeLop::query()
-            ->with(['creator', 'activeAssignment.technician'])
-            ->whereNotIn('status_lop', [LopStatus::COMPLETED->value, LopStatus::REJECTED->value]);
+            ->with([
+                'creator', 'activeAssignment.technician', 'assignments.technician',
+                'assignments.assigner', 'histories.user', 'materialReservation.items',
+                'survey', 'evidences',
+            ])
+            ->where('status_lop', '!=', LopStatus::COMPLETED->value);
 
         $query = $this->scopeForUser($query, $request);
 
+        $statsQuery = clone $query;
+
+        if ($search = $request->string('q')->trim()->value()) {
+            $query->where(fn ($builder) => $builder
+                ->where('incident', 'like', "%{$search}%")
+                ->orWhere('nama_lop', 'like', "%{$search}%")
+                ->orWhere('sto', 'like', "%{$search}%")
+                ->orWhere('branch', 'like', "%{$search}%"));
+        }
+
+        if ($status = $request->string('status')->trim()->value()) {
+            $query->where('status_lop', $status);
+        }
+
+        if ($wbs = $request->string('wbs')->trim()->value()) {
+            $query->where('wbs_type', $wbs);
+        }
+
+        $lops = $query->latest()->paginate(20)->withQueryString();
+        foreach ($lops->getCollection() as $lop) {
+            $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
+            $lop->setAttribute('approval_summary', $this->approvalService->summary($lop));
+        }
+
         return view('lop.index', [
-            'lops' => $query->latest()->paginate(20),
+            'lops' => $lops,
+            'technicians' => $this->activeTechnicians(),
+            'search' => $search,
+            'statusFilter' => $status,
+            'wbsFilter' => $wbs,
+            'stats' => [
+                'active' => (clone $statsQuery)->count(),
+                'waiting' => (clone $statsQuery)->where('status_lop', LopStatus::WAITING_APPROVAL->value)->count(),
+                'rejected' => (clone $statsQuery)->where('status_lop', LopStatus::REJECTED->value)->count(),
+                'review' => (clone $statsQuery)->whereHas('evidences', fn ($query) => $query->where('status', EvidenceStatus::PENDING))->count(),
+            ],
         ]);
     }
 
     /**
-     * Inbox - History (LOP yang sudah completed/rejected).
+     * Inbox - History (LOP yang sudah completed).
      */
-    public function history(Request $request): View
+    public function history(Request $request): View|RedirectResponse
     {
+        if ($request->user()->hasRole(UserRole::TEKNISI)) {
+            return redirect()->route('technician.inbox', ['tab' => 'complete']);
+        }
+
+        if ($request->user()->hasRole(UserRole::SUPER_ADMIN)) {
+            return redirect()->route('evidence-approval.index');
+        }
+
         $this->authorize('viewAny', QeLop::class);
 
         $query = QeLop::query()
             ->with(['creator', 'activeAssignment.technician'])
-            ->whereIn('status_lop', [LopStatus::COMPLETED->value, LopStatus::REJECTED->value]);
+            ->where('status_lop', LopStatus::COMPLETED->value);
 
         $query = $this->scopeForUser($query, $request);
 
@@ -58,7 +125,10 @@ class LopController extends Controller
     {
         $this->authorize('create', QeLop::class);
 
-        return view('lop.create');
+        return view('lop.create', [
+            'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
+            ...$this->formOptions(),
+        ]);
     }
 
     public function store(StoreLopRequest $request): RedirectResponse
@@ -66,44 +136,42 @@ class LopController extends Controller
         $lop = $this->lopService->create($request->validated(), $request->user());
 
         return redirect()
-            ->route('lop.show', $lop)
+            ->route('lop.index')
             ->with('status', 'LOP berhasil dibuat.');
     }
 
-    public function show(QeLop $qe_lop): View
+    public function show(QeLop $qe_lop): View|RedirectResponse
     {
+        if (request()->user()->hasRole(UserRole::TEKNISI)) {
+            return redirect()->route('technician.projects.show', $qe_lop);
+        }
+
         $this->authorize('view', $qe_lop);
 
-        $qe_lop->load(['creator', 'assignments.technician', 'histories.user', 'evidences.designator', 'evidences.uploader']);
+        if (request()->user()->hasRole(UserRole::SUPER_ADMIN)) {
+            return redirect()->route('evidence-approval.index');
+        }
 
-        $technicians = \App\Models\User::query()
-            ->whereHas('role', fn ($q) => $q->where('code', \App\Enums\UserRole::TEKNISI->value))
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
-
-        $designators = \App\Models\Designator::orderBy('code')->get();
-
-        return view('lop.show', [
-            'lop' => $qe_lop,
-            'technicians' => $technicians,
-            'designators' => $designators,
-        ]);
+        return redirect()->route('lop.index');
     }
 
     public function edit(QeLop $qe_lop): View
     {
         $this->authorize('update', $qe_lop);
 
-        return view('lop.edit', ['lop' => $qe_lop]);
+        return view('lop.edit', [
+            'lop' => $qe_lop,
+            'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
+            ...$this->formOptions(),
+        ]);
     }
 
     public function update(UpdateLopRequest $request, QeLop $qe_lop): RedirectResponse
     {
-        $qe_lop->update($request->validated());
+        $this->lopService->update($qe_lop, $request->validated());
 
         return redirect()
-            ->route('lop.show', $qe_lop)
+            ->route('lop.index')
             ->with('status', 'LOP berhasil diperbarui.');
     }
 
@@ -124,24 +192,50 @@ class LopController extends Controller
         );
 
         return redirect()
-            ->route('lop.show', $qe_lop)
+            ->route('lop.index')
             ->with('status', "Status LOP diubah ke {$target->label()}.");
     }
 
     /**
-     * Scoping data per-role: teknisi hanya melihat LOP yang ditugaskan
-     * padanya, role lain melihat semua sesuai policy viewAny.
+     * Scoping data per-role untuk seluruh daftar LOP.
      */
     private function scopeForUser($query, Request $request)
     {
         $user = $request->user();
 
-        if ($user->hasRole(\App\Enums\UserRole::TEKNISI)) {
+        if ($user->hasRole(UserRole::TEKNISI)) {
             $query->whereHas('assignments', function ($q) use ($user) {
                 $q->where('technician_id', $user->id_user);
             });
         }
 
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $query->where('created_by', $user->id_user);
+        }
+
         return $query;
+    }
+
+    private function formOptions(): array
+    {
+        return [
+            'segments' => LopSegment::cases(),
+            'budgetTypes' => LopBudgetType::cases(),
+            'wbsTypes' => WbsType::cases(),
+            'nameTemplate' => $this->namingService->activeTemplate(),
+            'wbsCodes' => collect(WbsType::cases())->mapWithKeys(
+                fn (WbsType $type) => [$type->value => $type->code()]
+            ),
+        ];
+    }
+
+    private function activeTechnicians()
+    {
+        return User::query()
+            ->with('branch')
+            ->whereHas('role', fn ($query) => $query->where('code', UserRole::TEKNISI->value))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
     }
 }

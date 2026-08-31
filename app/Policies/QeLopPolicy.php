@@ -48,7 +48,30 @@ class QeLopPolicy
 
     public function assign(User $user, QeLop $lop): bool
     {
-        return $user->hasRole(...UserRole::adminLevel());
+        return $user->hasRole(UserRole::ADMIN)
+            && $lop->created_by === $user->id_user;
+    }
+
+    public function unassign(User $user, QeLop $lop): bool
+    {
+        return $this->assign($user, $lop)
+            && $lop->status_lop->value === 'assigned'
+            && $lop->activeAssignment()->exists();
+    }
+
+    public function reviewEvidence(User $user, QeLop $lop): bool
+    {
+        if (! $user->hasPermission('approve_evidence')) {
+            return false;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $lop->activeAssignment()
+                ->where('assigned_by', $user->id_user)
+                ->exists();
+        }
+
+        return $user->hasRole(UserRole::SUPER_ADMIN, UserRole::APPROVER);
     }
 
     /**
@@ -68,7 +91,7 @@ class QeLopPolicy
                 ->where('status', 'active')
                 ->exists();
 
-            return $isAssignedToMe && ! in_array($lop->status_lop->value, ['completed', 'rejected'], true);
+            return $isAssignedToMe && $lop->status_lop->value !== 'completed';
         }
 
         return false;

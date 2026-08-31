@@ -36,6 +36,11 @@ class Designator extends Model
         return $this->hasMany(DesignatorPackagePrice::class, 'designator_id');
     }
 
+    public function reservationItems(): HasMany
+    {
+        return $this->hasMany(QeMaterialReservationItem::class, 'designator_id', 'id_designator');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

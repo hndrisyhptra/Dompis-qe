@@ -44,7 +44,7 @@ enum LopStatus: string
     {
         return [
             self::DRAFT->value => [self::ASSIGNED->value],
-            self::ASSIGNED->value => [self::PICKED_UP->value, self::REJECTED->value],
+            self::ASSIGNED->value => [self::DRAFT->value, self::PICKED_UP->value, self::REJECTED->value],
             self::PICKED_UP->value => [self::SURVEY->value, self::REJECTED->value],
             self::SURVEY->value => [self::PROGRESS->value, self::REJECTED->value],
             self::PROGRESS->value => [self::WAITING_APPROVAL->value, self::REJECTED->value],

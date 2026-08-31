@@ -1,18 +1,48 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Http\Controllers\DesignatorController;
 use App\Http\Controllers\DesignatorPriceController;
 use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\LopAssignmentController;
 use App\Http\Controllers\LopController;
+use App\Http\Controllers\LopNameFormatController;
 use App\Http\Controllers\PackageController;
+use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\TechnicianWorkflowController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
 
+Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technician.')->group(function () {
+    Route::get('/', [TechnicianController::class, 'dashboard'])->name('dashboard');
+    Route::get('/inbox', [TechnicianController::class, 'inbox'])->name('inbox');
+    Route::get('/projects/{qe_lop}', [TechnicianController::class, 'project'])->name('projects.show');
+    Route::post('/projects/{qe_lop}/pickup', [TechnicianWorkflowController::class, 'pickup'])->name('projects.pickup');
+    Route::post('/projects/{qe_lop}/resume', [TechnicianWorkflowController::class, 'resume'])->name('projects.resume');
+    Route::put('/projects/{qe_lop}/materials', [TechnicianWorkflowController::class, 'materials'])->name('projects.materials');
+    Route::put('/projects/{qe_lop}/location', [TechnicianWorkflowController::class, 'location'])->name('projects.location');
+    Route::post('/projects/{qe_lop}/evidence', [TechnicianWorkflowController::class, 'evidence'])->name('projects.evidence');
+    Route::put('/projects/{qe_lop}/evidence/{evidence}/replace', [TechnicianWorkflowController::class, 'replaceEvidence'])->name('projects.evidence.replace');
+    Route::post('/projects/{qe_lop}/survey-complete', [TechnicianWorkflowController::class, 'completeSurvey'])->name('projects.survey-complete');
+    Route::post('/projects/{qe_lop}/submit', [TechnicianWorkflowController::class, 'submitApproval'])->name('projects.submit');
+    Route::get('/notifications', [TechnicianController::class, 'notifications'])->name('notifications');
+    Route::post('/notifications/read-all', [TechnicianController::class, 'readAllNotifications'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/read', [TechnicianController::class, 'readNotification'])->name('notifications.read');
+    Route::get('/profile', [TechnicianController::class, 'profile'])->name('profile');
+});
+
 Route::get('/', function () {
+    if (request()->user()->hasRole(UserRole::TEKNISI)) {
+        return redirect()->route('technician.dashboard');
+    }
+
+    if (request()->user()->hasRole(UserRole::SUPER_ADMIN)) {
+        return redirect()->route('evidence-approval.index');
+    }
+
     return redirect()->route('lop.index');
 })->middleware('auth');
 
@@ -26,8 +56,14 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::put('/{qe_lop}', [LopController::class, 'update'])->name('update');
     Route::post('/{qe_lop}/transition', [LopController::class, 'transitionStatus'])->name('transition');
     Route::post('/{qe_lop}/assign', [LopAssignmentController::class, 'store'])->name('assign');
+    Route::delete('/{qe_lop}/assign', [LopAssignmentController::class, 'destroy'])->name('unassign');
     Route::post('/{qe_lop}/evidence', [EvidenceController::class, 'store'])->name('evidence.store');
     Route::delete('/{qe_lop}/evidence/{evidence}', [EvidenceController::class, 'destroy'])->name('evidence.destroy');
+});
+
+Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {
+    Route::get('/', [LopNameFormatController::class, 'edit'])->name('edit');
+    Route::put('/', [LopNameFormatController::class, 'update'])->name('update');
 });
 
 Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () {
@@ -76,6 +112,7 @@ Route::middleware(['auth'])->prefix('designator-prices')->name('designator-price
 
 Route::middleware(['auth'])->prefix('evidence-approval')->name('evidence-approval.')->group(function () {
     Route::get('/', [EvidenceApprovalController::class, 'index'])->name('index');
+    Route::get('/lop/{qe_lop}', [EvidenceApprovalController::class, 'reviewLop'])->name('lop.review');
     Route::get('/{evidence}', [EvidenceApprovalController::class, 'show'])->name('show');
     Route::post('/{evidence}/approve', [EvidenceApprovalController::class, 'approve'])->name('approve');
     Route::post('/{evidence}/reject', [EvidenceApprovalController::class, 'reject'])->name('reject');

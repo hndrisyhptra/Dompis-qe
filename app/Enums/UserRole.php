@@ -53,9 +53,9 @@ enum UserRole: string
     public function dashboardRouteName(): string
     {
         return match ($this) {
-            self::SUPER_ADMIN => 'lop.index', // TODO: Dashboard Admin
+            self::SUPER_ADMIN => 'evidence-approval.index',
             self::ADMIN => 'lop.index', // TODO: Dashboard Operasional
-            self::TEKNISI => 'lop.index', // My Assigned LOP
+            self::TEKNISI => 'technician.dashboard',
             self::MANAGER => 'lop.index', // TODO: Dashboard Monitoring
             self::APPROVER => 'lop.index', // TODO: Approval Evidence
         };

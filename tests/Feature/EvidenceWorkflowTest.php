@@ -23,7 +23,7 @@ class EvidenceWorkflowTest extends TestCase
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $lop = QeLop::create([
-            'kode_lop' => 'LOP-WF-01',
+            'incident' => 'LOP-WF-01',
             'nama_lop' => 'Workflow Test',
             'wbs_type' => 'recovery',
             'status_lop' => 'progress',
@@ -52,7 +52,7 @@ class EvidenceWorkflowTest extends TestCase
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $lop = QeLop::create([
-            'kode_lop' => 'LOP-WF-02',
+            'incident' => 'LOP-WF-02',
             'nama_lop' => 'Workflow Test 2',
             'wbs_type' => 'recovery',
             'status_lop' => 'progress',
@@ -83,7 +83,7 @@ class EvidenceWorkflowTest extends TestCase
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $lop = QeLop::create([
-            'kode_lop' => 'LOP-WF-03',
+            'incident' => 'LOP-WF-03',
             'nama_lop' => 'Workflow Test 3',
             'wbs_type' => 'recovery',
             'status_lop' => 'progress',

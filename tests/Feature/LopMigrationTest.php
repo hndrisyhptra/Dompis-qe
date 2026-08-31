@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\QeLop;
+use App\Models\QeLopAssignment;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -16,8 +19,14 @@ class LopMigrationTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('qe_lops'));
         $this->assertTrue(Schema::hasColumns('qe_lops', [
-            'id_qe_lops', 'kode_lop', 'nama_lop', 'wbs_type', 'sto', 'branch',
+            'id_qe_lops', 'incident', 'nama_lop', 'wbs_type', 'sto', 'branch',
+            'area', 'segment', 'budget_type', 'job_description', 'ihld_id',
             'package_id', 'status_lop', 'created_by', 'deleted_at',
+        ]));
+
+        $this->assertTrue(Schema::hasTable('lop_name_formats'));
+        $this->assertTrue(Schema::hasColumns('lop_name_formats', [
+            'id_lop_name_format', 'template', 'is_active', 'created_by', 'updated_by',
         ]));
 
         $this->assertTrue(Schema::hasTable('qe_lop_assignments'));
@@ -48,15 +57,15 @@ class LopMigrationTest extends TestCase
         $teknisiA = User::factory()->role(UserRole::TEKNISI->value)->create();
         $teknisiB = User::factory()->role(UserRole::TEKNISI->value)->create();
 
-        $lop = \App\Models\QeLop::create([
-            'kode_lop' => 'LOP-001',
+        $lop = QeLop::create([
+            'incident' => 'LOP-001',
             'nama_lop' => 'Test LOP',
             'wbs_type' => 'recovery',
             'status_lop' => 'draft',
             'created_by' => $creator->id_user,
         ]);
 
-        \App\Models\QeLopAssignment::create([
+        QeLopAssignment::create([
             'qe_lop_id' => $lop->id_qe_lops,
             'technician_id' => $teknisiA->id_user,
             'assigned_by' => $creator->id_user,
@@ -64,9 +73,9 @@ class LopMigrationTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
-        \App\Models\QeLopAssignment::create([
+        QeLopAssignment::create([
             'qe_lop_id' => $lop->id_qe_lops,
             'technician_id' => $teknisiB->id_user,
             'assigned_by' => $creator->id_user,

@@ -1,35 +1,39 @@
 @extends('layouts.app')
 
-@section('title', 'Buat LOP')
+@section('title', 'Input LOP Baru')
 
 @section('content')
-<div class="max-w-2xl mx-auto">
-    <div class="mb-6">
-        <h1 class="text-xl font-bold text-ink-900 dark:text-ink-50">Buat LOP Baru</h1>
-        <p class="text-sm text-ink-500 dark:text-ink-400 mt-1">Isi data LOP sesuai jenis pekerjaan.</p>
-    </div>
+@php
+    $initial = [
+        'incident' => old('incident', ''), 'sto' => old('sto', ''),
+        'branch' => old('branch', ''), 'area' => old('area', '3'),
+        'segment' => old('segment', ''), 'wbs_type' => old('wbs_type', ''),
+        'budget_type' => old('budget_type', ''),
+        'job_description' => old('job_description', ''),
+        'ihld_id' => old('ihld_id', ''), 'nama_lop' => old('nama_lop', ''),
+    ];
+    $formAction = route('lop.store');
+    $formMethod = 'POST';
+    $submitLabel = 'Simpan LOP';
+    $cancelUrl = route('lop.index');
+@endphp
 
-    <x-card>
-        <form method="POST" action="{{ route('lop.store') }}" class="space-y-5">
-            @csrf
-
-            <x-input name="kode_lop" label="Kode LOP" placeholder="mis. LOP-001" />
-            <x-input name="nama_lop" label="Nama LOP" placeholder="mis. Recovery Jl. Merdeka" />
-
-            <x-select name="wbs_type" label="WBS Type" placeholder="Pilih jenis WBS">
-                @foreach (\App\Enums\WbsType::cases() as $type)
-                    <option value="{{ $type->value }}" @selected(old('wbs_type') === $type->value)>{{ $type->label() }}</option>
-                @endforeach
-            </x-select>
-
-            <x-input name="sto" label="STO (opsional)" />
-            <x-input name="branch" label="Branch (opsional)" />
-
-            <div class="flex items-center gap-3 pt-2">
-                <x-button>Simpan</x-button>
-                <a href="{{ route('lop.index') }}" class="text-sm text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50">Batal</a>
+<div class="mx-auto max-w-5xl">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <div class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400">
+                <span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span> Administrasi Project
             </div>
-        </form>
-    </x-card>
+            <h1 class="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Input LOP Baru</h1>
+            <p class="mt-1.5 max-w-2xl text-sm text-ink-500 dark:text-ink-400">Lengkapi informasi pekerjaan. Nama LOP akan tersusun otomatis dan tetap bisa Anda sesuaikan sebelum disimpan.</p>
+        </div>
+        @can('manage-master-data')
+            <a href="{{ route('lop-name-format.edit') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 12h9.75m-9.75 6h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>
+                Atur Format Nama
+            </a>
+        @endcan
+    </div>
+    @include('lop._form')
 </div>
 @endsection

@@ -115,11 +115,7 @@ class LoginTest extends TestCase
 
     public function test_each_role_redirects_via_role_based_resolution_after_login(): void
     {
-        // Semua role saat ini masih ke lop.index (dashboard per-role belum
-        // dibangun - lihat UserRole::dashboardRouteName()). Test ini bukan
-        // sekadar duplikat test login sukses: ini memaksa setiap penambahan
-        // dashboard baru meng-update baris role terkait di sini juga,
-        // supaya perubahan mapping tidak lolos tanpa sengaja.
+        // Redirect login wajib mengikuti workspace masing-masing role.
         foreach (UserRole::cases() as $role) {
             $user = User::factory()->role($role->value)->create([
                 'username' => 'role-'.strtolower($role->value),
@@ -131,10 +127,29 @@ class LoginTest extends TestCase
                 'password' => 'rahasia123',
             ]);
 
-            $response->assertRedirect(route('lop.index'));
+            $expectedRoute = match ($role) {
+                UserRole::TEKNISI => route('technician.dashboard'),
+                UserRole::SUPER_ADMIN => route('evidence-approval.index'),
+                default => route('lop.index'),
+            };
+
+            $response->assertRedirect($expectedRoute);
 
             $this->post(route('logout'));
         }
+    }
+
+    public function test_super_admin_has_no_inbox_menu_and_cannot_open_active_lop_inbox(): void
+    {
+        $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+
+        $this->actingAs($superAdmin)
+            ->get(route('lop.index'))
+            ->assertRedirect(route('evidence-approval.index'));
+
+        $this->get(route('evidence-approval.index'))
+            ->assertOk()
+            ->assertDontSee('Active LOP');
     }
 
     public function test_user_without_role_falls_back_to_lop_index_after_login(): void
