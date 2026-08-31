@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\DesignatorController;
 use App\Http\Controllers\DesignatorPriceController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\LopAssignmentController;
@@ -34,13 +35,17 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
     Route::get('/profile', [TechnicianController::class, 'profile'])->name('profile');
 });
 
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('dashboard');
+
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {
         return redirect()->route('technician.dashboard');
     }
 
-    if (request()->user()->hasRole(UserRole::SUPER_ADMIN)) {
-        return redirect()->route('evidence-approval.index');
+    if (request()->user()->hasRole(UserRole::SUPER_ADMIN, UserRole::ADMIN)) {
+        return redirect()->route('dashboard');
     }
 
     return redirect()->route('lop.index');
@@ -116,4 +121,5 @@ Route::middleware(['auth'])->prefix('evidence-approval')->name('evidence-approva
     Route::get('/{evidence}', [EvidenceApprovalController::class, 'show'])->name('show');
     Route::post('/{evidence}/approve', [EvidenceApprovalController::class, 'approve'])->name('approve');
     Route::post('/{evidence}/reject', [EvidenceApprovalController::class, 'reject'])->name('reject');
+    Route::post('/{evidence}/reset', [EvidenceApprovalController::class, 'resetReview'])->name('reset');
 });

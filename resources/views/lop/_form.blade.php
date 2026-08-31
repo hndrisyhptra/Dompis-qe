@@ -12,10 +12,10 @@
     @endif
 
     <section class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div class="border-b border-ink-100 bg-gradient-to-r from-brand-50 to-white px-5 py-4 dark:border-ink-800 dark:from-brand-950/30 dark:to-ink-900 sm:px-6">
+        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">01</span>
-                <div><h2 class="font-semibold text-ink-900 dark:text-white">Identitas pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Informasi utama untuk mengenali lokasi dan lingkup LOP.</p></div>
+                <div><h2 class="font-semibold text-ink-900 dark:text-white">Data pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Informasi utama untuk mengenali lokasi dan lingkup LOP.</p></div>
             </div>
         </div>
         <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
@@ -80,7 +80,7 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm dark:border-brand-900/60 dark:bg-ink-900">
-        <div class="border-b border-brand-100 bg-brand-50/70 px-5 py-4 dark:border-brand-900/50 dark:bg-brand-950/20 sm:px-6">
+        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-sm font-bold text-white">03</span>
                 <div><h2 class="font-semibold text-ink-900 dark:text-white">Nama LOP</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Dibuat otomatis dari data di atas, tetapi masih dapat disesuaikan.</p></div>

@@ -44,12 +44,13 @@
         </section>
     @else
         <section>
-            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[.14em] text-brand-600">Step {{ $currentStep }}</p><h2 class="mt-1 text-xl font-extrabold">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Klik setiap item untuk membuka preview dan memberikan keputusan.</p></div><p class="text-xs font-bold text-ink-500">{{ $currentEvidence->count() }} evidence</p></div>
+            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[.14em] text-brand-600">Step {{ $currentStep }}</p><h2 class="mt-1 text-xl font-extrabold">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Buka kelompok evidence untuk melihat seluruh foto, lalu approve, reject, atau reset review per foto.</p></div><p class="text-xs font-bold text-ink-500">{{ $currentGroups->count() }} kelompok · {{ $currentEvidence->count() }} file</p></div>
             <div class="space-y-3">
                 @forelse($currentGroups as $items)
                     @php
                         $first = $items->first();
                         $groupTitle = $first->category?->label() ?? $first->step->label();
+                        if (in_array($first->category, [\App\Enums\EvidenceCategory::BEFORE, \App\Enums\EvidenceCategory::AFTER], true)) $groupTitle = 'Evidence '.$groupTitle;
                         if ($first->designator) $groupTitle .= ' · '.$first->designator->code;
                         $groupDescription = $first->designator?->item_name ?? 'Evidence global untuk step ini';
                     @endphp

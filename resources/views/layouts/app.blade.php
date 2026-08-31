@@ -31,34 +31,68 @@
            class="hidden peer-checked:block lg:hidden fixed inset-0 bg-black/30 z-30"
            aria-hidden="true"></label>
 
-    <aside class="fixed inset-y-0 left-0 z-40 w-64 bg-ink-900 flex flex-col
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-100/70 bg-white shadow-[4px_0_24px_rgba(16,24,40,0.04)] dark:border-ink-800 dark:bg-ink-900 dark:shadow-none
                   -translate-x-full peer-checked:translate-x-0 transition-transform duration-200
                   lg:translate-x-0">
-        <div class="p-5 border-b border-white/10">
-            <x-brand-mark variant="dark" />
+        <div class="border-b border-ink-100/70 p-5 dark:border-ink-800">
+            <x-brand-mark variant="adaptive" />
         </div>
 
         <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1.5">
             @php
-                $navDisabled = 'flex items-center justify-between rounded-lg px-3 py-2 text-sm text-ink-500 cursor-not-allowed';
-                $navGroupHeader = 'w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-ink-300 hover:bg-white/5 hover:text-white transition';
+                $navDisabled = 'flex items-center justify-between rounded-lg px-3 py-2 text-sm text-ink-400 dark:text-ink-500 cursor-not-allowed';
+                $navGroupHeader = 'w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white transition';
                 $navSubLink = 'relative flex items-center gap-2.5 rounded-lg pl-3 pr-3 py-2 text-sm transition';
-                $navSubLinkActive = 'bg-brand-600/90 text-white';
-                $navSubLinkInactive = 'text-ink-300 hover:bg-white/5 hover:text-white';
+                $navSubLinkActive = 'bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 font-semibold';
+                $navSubLinkInactive = 'text-ink-600 hover:bg-ink-50 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white';
+                $navLinkActive = 'bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 font-semibold';
+                $navLinkInactive = 'text-ink-600 hover:bg-ink-50 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white';
+                $navIcon = 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300';
+                $navIconActive = 'bg-brand-100 text-brand-700 dark:bg-brand-950/70 dark:text-brand-300';
+                $navDivider = 'border-ink-100 dark:border-ink-700';
+                $navBadge = '!border-ink-200 !bg-ink-50 !text-ink-400 dark:!border-ink-700 dark:!bg-ink-800 dark:!text-ink-500';
                 $chevron = '<svg class="w-3.5 h-3.5 shrink-0 transition-transform" :class="open ? \'rotate-180\' : \'\'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
             @endphp
 
-            {{-- Dashboard: belum punya halaman tersendiri, tampilkan non-aktif
-                 daripada mengarahkan ke tempat yang membingungkan. --}}
-            <div class="{{ $navDisabled }}">
+            @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
+            <a href="{{ route('dashboard') }}"
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('dashboard') ? $navLinkActive : $navLinkInactive }}">
+                @if (request()->routeIs('dashboard'))
+                    <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                @endif
                 <span class="flex items-center gap-2.5">
-                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('dashboard') ? $navIconActive : $navIcon }}">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 012 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                     </svg>
+                    </span>
                     Dashboard
                 </span>
-                <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
+            </a>
+            @else
+            <div class="{{ $navDisabled }}">
+                <span class="flex items-center gap-2.5">
+                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 0 1 2 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z"/></svg>
+                    Dashboard
+                </span>
+                <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
             </div>
+            @endif
+
+            @can('create', \App\Models\QeLop::class)
+                <a href="{{ route('lop.create') }}"
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? $navLinkActive : $navLinkInactive }}">
+                    @if (request()->routeIs('lop.create'))
+                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                    @endif
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('lop.create') ? $navIconActive : $navIcon }}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </div>
+                    Input LOP Baru
+                </a>
+            @endcan
 
             {{-- Inbox operasional hanya untuk role selain Super Admin. --}}
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
@@ -72,7 +106,7 @@
                     </span>
                     {!! $chevron !!}
                 </button>
-                <div x-show="open" x-transition class="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                     <a href="{{ route('lop.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.index') ? $navSubLinkActive : $navSubLinkInactive }}">
                         @if (request()->routeIs('lop.index'))
                             <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -91,28 +125,13 @@
             </div>
             @endunless
 
-            @can('create', \App\Models\QeLop::class)
-                <a href="{{ route('lop.create') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
-                    @if (request()->routeIs('lop.create'))
-                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                    @endif
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                    </div>
-                    Input LOP Baru
-                </a>
-            @endcan
-
             @can('manage-master-data')
                 <a href="{{ route('lop-name-format.edit') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop-name-format.*') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop-name-format.*') ? $navLinkActive : $navLinkInactive }}">
                     @if (request()->routeIs('lop-name-format.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('lop-name-format.*') ? $navIconActive : $navIcon }}">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 12h9.75m-9.75 6h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>
                     </div>
                     Format Nama LOP
@@ -130,14 +149,14 @@
                     </span>
                     {!! $chevron !!}
                 </button>
-                <div x-show="open" x-transition class="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                     @foreach (['QE Recovery', 'QE Preventive', 'QE Relok Utilitas'] as $label)
                         <span class="{{ $navDisabled }} pl-3">
                             <span class="flex items-center gap-2.5">
-                                <span class="w-1.5 h-1.5 rounded-full bg-ink-600 shrink-0"></span>
+                                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-ink-300 dark:bg-ink-600"></span>
                                 {{ $label }}
                             </span>
-                            <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
+                            <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
                         </span>
                     @endforeach
                 </div>
@@ -157,7 +176,7 @@
                         </span>
                         {!! $chevron !!}
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 pl-3 border-l border-white/10 space-y-1">
+                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         <a href="{{ route('designators.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('designators.*') ? $navSubLinkActive : $navSubLinkInactive }}">
                             @if (request()->routeIs('designators.*'))
                                 <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -190,16 +209,16 @@
                     </svg>
                     Master Data
                 </span>
-                <x-badge variant="neutral" class="!bg-white/5 !text-ink-400 !border-white/10">Segera</x-badge>
+                <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
             </div>
 
             @if (auth()->user()?->hasPermission('approve_evidence'))
                 <a href="{{ route('evidence-approval.index') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('evidence-approval.*') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('evidence-approval.*') ? $navLinkActive : $navLinkInactive }}">
                     @if (request()->routeIs('evidence-approval.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
-                    <div class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('evidence-approval.*') ? $navIconActive : $navIcon }}">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                         </svg>
@@ -210,11 +229,11 @@
 
             @if (auth()->user()?->hasPermission('manage_users'))
                 <a href="{{ route('users.index') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('users.*') ? 'bg-brand-600 text-white' : 'text-ink-300 hover:bg-white/5 hover:text-white' }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('users.*') ? $navLinkActive : $navLinkInactive }}">
                     @if (request()->routeIs('users.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
-                    <div class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('users.*') ? $navIconActive : $navIcon }}">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                         </svg>
@@ -224,7 +243,7 @@
             @endif
         </nav>
 
-        <div class="p-4 border-t border-white/10 text-xs text-ink-500">
+        <div class="border-t border-ink-100/70 p-4 text-xs text-ink-400 dark:border-ink-800 dark:text-ink-500">
             &copy; {{ date('Y') }} {{ config('app.name') }}
         </div>
     </aside>

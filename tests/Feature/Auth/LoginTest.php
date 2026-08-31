@@ -32,7 +32,7 @@ class LoginTest extends TestCase
             'password' => 'rahasia123',
         ]);
 
-        $response->assertRedirect(route('lop.index'));
+        $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($user);
 
         $this->assertNotNull($user->fresh()->last_login_at);
@@ -129,7 +129,7 @@ class LoginTest extends TestCase
 
             $expectedRoute = match ($role) {
                 UserRole::TEKNISI => route('technician.dashboard'),
-                UserRole::SUPER_ADMIN => route('evidence-approval.index'),
+                UserRole::SUPER_ADMIN, UserRole::ADMIN => route('dashboard'),
                 default => route('lop.index'),
             };
 

@@ -62,4 +62,13 @@ class EvidenceApprovalController extends Controller
 
         return back()->with('status', 'Evidence ditolak.');
     }
+
+    public function resetReview(Request $request, QeEvidence $evidence): RedirectResponse
+    {
+        $this->authorize('resetReview', $evidence);
+
+        $this->evidenceService->resetReview($evidence, $request->user());
+
+        return back()->with('status', 'Keputusan review direset ke Pending.');
+    }
 }

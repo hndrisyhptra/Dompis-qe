@@ -68,6 +68,12 @@ class EvidencePolicy
             && $evidence->status === EvidenceStatus::PENDING;
     }
 
+    public function resetReview(User $user, QeEvidence $evidence): bool
+    {
+        return $this->canReview($user, $evidence)
+            && $evidence->status !== EvidenceStatus::PENDING;
+    }
+
     public function replace(User $user, QeEvidence $evidence): bool
     {
         if (! $user->hasRole(UserRole::TEKNISI) || $evidence->status !== EvidenceStatus::REJECTED) {

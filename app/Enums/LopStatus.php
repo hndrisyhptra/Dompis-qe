@@ -50,8 +50,10 @@ enum LopStatus: string
             self::PROGRESS->value => [self::WAITING_APPROVAL->value, self::REJECTED->value],
             self::WAITING_APPROVAL->value => [self::COMPLETED->value, self::REJECTED->value],
             self::COMPLETED->value => [],
-            // Dari rejected, admin bisa kembalikan LOP ke progress untuk dikerjakan ulang.
-            self::REJECTED->value => [self::PROGRESS->value],
+            // Dari rejected, pekerjaan dapat dikembalikan ke progress untuk
+            // perbaikan atau ke waiting approval saat reviewer membatalkan
+            // keputusan reject terakhir untuk memeriksa ulang evidence.
+            self::REJECTED->value => [self::PROGRESS->value, self::WAITING_APPROVAL->value],
         ];
     }
 

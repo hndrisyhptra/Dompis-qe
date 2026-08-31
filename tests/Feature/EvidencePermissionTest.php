@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Designator;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
@@ -179,5 +180,79 @@ class EvidencePermissionTest extends TestCase
         $this->actingAs($adminA)
             ->post(route('evidence-approval.approve', $evidenceA))
             ->assertRedirect();
+    }
+
+    public function test_step_review_groups_multiple_photos_by_category_and_designator(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin);
+        $this->assignLop($lop, $admin, $technician);
+        $designator = Designator::create([
+            'code' => 'ODP-CLOSURE-01',
+            'item_name' => 'Optical Distribution Point Closure',
+            'unit' => 'unit',
+            'type' => 'material',
+            'created_by' => $admin->id_user,
+        ]);
+
+        $evidences = collect(['before-wide.jpg', 'before-close.jpg'])->map(fn (string $fileName) => QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops,
+            'designator_id' => $designator->id_designator,
+            'uploaded_by' => $technician->id_user,
+            'step' => 'BEFORE',
+            'type' => 'PHOTO',
+            'category' => 'before',
+            'file_path' => "evidences/{$fileName}",
+            'metadata' => ['original_name' => $fileName, 'mime' => 'image/jpeg'],
+            'status' => 'pending',
+        ]));
+
+        $response = $this->actingAs($admin)
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 2]))
+            ->assertOk()
+            ->assertSee('Evidence Before · ODP-CLOSURE-01')
+            ->assertSee('Optical Distribution Point Closure')
+            ->assertSee('before-wide.jpg')
+            ->assertSee('before-close.jpg')
+            ->assertSee('Klik foto untuk preview')
+            ->assertSee("evidence-preview-{$evidences->first()->id_evidence}", false)
+            ->assertSee("evidence-detail-{$evidences->first()->id_evidence}", false);
+
+        $this->assertSame(1, substr_count($response->getContent(), 'Evidence Before · ODP-CLOSURE-01'));
+    }
+
+    public function test_only_authorized_reviewer_can_reset_a_reviewed_evidence(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $otherAdmin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin);
+        $this->assignLop($lop, $admin, $technician);
+        $evidence = QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops,
+            'uploaded_by' => $technician->id_user,
+            'step' => 'PROGRESS',
+            'type' => 'PHOTO',
+            'category' => 'progress',
+            'file_path' => 'evidences/reviewed.jpg',
+            'status' => 'approved',
+            'reviewed_by' => $admin->id_user,
+            'reviewed_at' => now(),
+        ]);
+
+        $this->actingAs($otherAdmin)
+            ->post(route('evidence-approval.reset', $evidence))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->post(route('evidence-approval.reset', $evidence))
+            ->assertRedirect();
+
+        $this->assertSame('pending', $evidence->fresh()->status->value);
+
+        $this->actingAs($admin)
+            ->post(route('evidence-approval.reset', $evidence))
+            ->assertForbidden();
     }
 }

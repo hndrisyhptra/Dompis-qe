@@ -45,16 +45,16 @@ enum UserRole: string
     /**
      * Nama route tujuan setelah login, sesuai matriks "Redirect After
      * Login" di CLAUDE.md. Dashboard per-role (Dashboard Admin, Dashboard
-     * Operasional, Dashboard Monitoring, Approval Evidence) belum dibangun
-     * - semua case masih ke lop.index sebagai placeholder. Ditulis eksplisit
+     * Operasional, Dashboard Monitoring, Approval Evidence) dibangun
+     * bertahap. Ditulis eksplisit
      * per-case (bukan default tunggal) supaya begitu satu dashboard selesai
      * dibangun, tinggal ganti satu baris tanpa menyentuh case lain.
      */
     public function dashboardRouteName(): string
     {
         return match ($this) {
-            self::SUPER_ADMIN => 'evidence-approval.index',
-            self::ADMIN => 'lop.index', // TODO: Dashboard Operasional
+            self::SUPER_ADMIN => 'dashboard',
+            self::ADMIN => 'dashboard',
             self::TEKNISI => 'technician.dashboard',
             self::MANAGER => 'lop.index', // TODO: Dashboard Monitoring
             self::APPROVER => 'lop.index', // TODO: Approval Evidence

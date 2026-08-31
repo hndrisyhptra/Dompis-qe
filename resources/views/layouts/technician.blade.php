@@ -17,10 +17,19 @@
     <div class="mx-auto min-h-screen max-w-lg bg-ink-50 dark:bg-ink-950 shadow-2xl shadow-ink-900/5">
         <header class="sticky top-0 z-30 border-b border-ink-100/80 dark:border-ink-800 bg-white/95 dark:bg-ink-900/95 backdrop-blur">
             <div class="flex h-16 items-center justify-between px-4">
-                <div class="min-w-0">
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600 dark:text-brand-400">Dompis QE Field</p>
-                    <p class="truncate text-sm font-bold text-ink-900 dark:text-white">@yield('header', 'Workspace Teknisi')</p>
+                <div class="flex min-w-0 items-center gap-3"> <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white p-1.5 shadow-sm dark:bg-ink-800"> <img src="{{ asset('images/logo-dompis-qe.webp') }}" alt="Dompis QE" class="h-full w-full object-contain" > </div>
+
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600 dark:text-brand-400">
+                            Dompis QE Field
+                        </p>
+                        <p class="truncate text-sm font-bold text-ink-900 dark:text-white">
+                            @yield('header', 'Workspace Teknisi')
+                        </p>
+                    </div>
+
                 </div>
+
                 <div class="flex items-center gap-2">
                     <button type="button" @click="darkMode = !darkMode"
                             class="grid h-10 w-10 place-items-center rounded-full bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-amber-400"

@@ -197,6 +197,60 @@ class EvidenceService
         return $evidence;
     }
 
+    public function resetReview(QeEvidence $evidence, User $actor): QeEvidence
+    {
+        $previousStatus = $evidence->status;
+
+        $evidence = DB::transaction(function () use ($evidence, $actor, $previousStatus) {
+            $metadata = $evidence->metadata ?? [];
+            $reviewResets = $metadata['review_resets'] ?? [];
+            $reviewResets[] = [
+                'previous_status' => $previousStatus->value,
+                'previous_note' => $evidence->review_note,
+                'previous_reviewer_id' => $evidence->reviewed_by,
+                'previous_reviewed_at' => $evidence->reviewed_at?->toIso8601String(),
+                'reset_by' => $actor->id_user,
+                'reset_at' => now()->toIso8601String(),
+            ];
+
+            $evidence->update([
+                'status' => EvidenceStatus::PENDING,
+                'review_note' => null,
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+                'metadata' => [...$metadata, 'review_resets' => $reviewResets],
+            ]);
+
+            $lop = $evidence->lop()->first();
+            if (
+                $previousStatus === EvidenceStatus::REJECTED
+                && $lop?->status_lop === LopStatus::REJECTED
+                && ! $lop->evidences()
+                    ->where('id_evidence', '!=', $evidence->id_evidence)
+                    ->where('status', EvidenceStatus::REJECTED)
+                    ->exists()
+            ) {
+                $this->lopService->transitionStatus(
+                    $lop,
+                    LopStatus::WAITING_APPROVAL,
+                    $actor,
+                    'Keputusan reject evidence direset untuk pemeriksaan ulang'
+                );
+            }
+
+            return $evidence->refresh();
+        });
+
+        $evidence->uploader?->notify(new TechnicianActivityNotification(
+            'Evidence diperiksa ulang',
+            "Keputusan review {$evidence->category?->label()} pada {$evidence->lop->incident} dikembalikan ke pending.",
+            $evidence->qe_lop_id,
+            'info'
+        ));
+
+        return $evidence;
+    }
+
     public function delete(QeEvidence $evidence): void
     {
         DB::transaction(function () use ($evidence) {

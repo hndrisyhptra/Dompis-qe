@@ -16,9 +16,15 @@
         <span class="flex shrink-0 items-center gap-2"><span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $items->count() }} file</span><svg class="h-5 w-5 text-ink-400 transition-transform" :class="open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25L12 15.75 4.5 8.25"/></svg></span>
     </button>
 
-    <div x-show="open" x-cloak x-transition.opacity class="space-y-3 border-t border-ink-100 bg-ink-50/50 p-3 dark:border-ink-800 dark:bg-ink-950/30 sm:p-4">
+    <div x-show="open" x-cloak x-transition.opacity class="border-t border-ink-100 bg-ink-50/50 p-3 dark:border-ink-800 dark:bg-ink-950/30 sm:p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Daftar foto evidence</p>
+            <p class="text-[10px] text-ink-400">Klik foto untuk preview</p>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         @foreach ($items as $evidence)
             <x-approval-evidence-item :evidence="$evidence" />
         @endforeach
+        </div>
     </div>
 </section>

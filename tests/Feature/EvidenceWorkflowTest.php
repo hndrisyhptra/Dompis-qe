@@ -98,4 +98,45 @@ class EvidenceWorkflowTest extends TestCase
         Storage::disk('public')->assertMissing($path);
         $this->assertSoftDeleted('qe_evidences', ['id_evidence' => $evidence->id_evidence]);
     }
+
+    public function test_reset_review_preserves_audit_and_restores_waiting_approval_after_last_reject(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $approver = User::factory()->role(UserRole::APPROVER->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = QeLop::create([
+            'incident' => 'LOP-WF-RESET',
+            'nama_lop' => 'Reset Review Workflow',
+            'wbs_type' => 'recovery',
+            'status_lop' => 'waiting_approval',
+            'created_by' => $admin->id_user,
+        ]);
+        $service = app(EvidenceService::class);
+        $evidence = $service->upload(
+            $lop,
+            ['step' => 'AFTER', 'type' => 'PHOTO', 'category' => 'after'],
+            UploadedFile::fake()->image('reset.jpg'),
+            $technician,
+        );
+
+        $service->reject($evidence, $approver, 'Objek belum terlihat jelas');
+        $this->assertSame('rejected', $lop->fresh()->status_lop->value);
+
+        $reset = $service->resetReview($evidence->fresh(), $approver);
+
+        $this->assertSame('pending', $reset->status->value);
+        $this->assertNull($reset->review_note);
+        $this->assertNull($reset->reviewed_by);
+        $this->assertNull($reset->reviewed_at);
+        $this->assertSame('rejected', $reset->metadata['review_resets'][0]['previous_status']);
+        $this->assertSame('Objek belum terlihat jelas', $reset->metadata['review_resets'][0]['previous_note']);
+        $this->assertSame('waiting_approval', $lop->fresh()->status_lop->value);
+        $this->assertDatabaseHas('qe_lop_histories', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'status_before' => 'rejected',
+            'status_after' => 'waiting_approval',
+        ]);
+    }
 }

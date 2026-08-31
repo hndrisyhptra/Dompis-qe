@@ -4,21 +4,50 @@
 
 <x-modal :id="$id" title="Detail LOP" size="lg">
     <div class="space-y-5">
-        <section class="overflow-hidden rounded-2xl bg-gradient-to-br from-ink-950 via-ink-900 to-brand-950 p-5 text-white">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div class="min-w-0">
-                    <p class="text-xs font-extrabold uppercase tracking-[.16em] text-brand-300">{{ $lop->incident }}</p>
-                    <h3 class="mt-2 text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h3>
-                    <p class="mt-2 text-xs text-ink-300">Dibuat oleh {{ $lop->creator?->name ?? '—' }} · {{ $lop->created_at->format('d M Y, H:i') }}</p>
-                </div>
-                <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
-            </div>
-            <div class="mt-5">
-                <div class="mb-2 flex items-center justify-between text-xs"><span class="text-ink-300">Progress pekerjaan</span><strong>{{ $summary['percentage'] }}%</strong></div>
-                <div class="h-2 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-brand-400" style="width: {{ $summary['percentage'] }}%"></div></div>
-                <p class="mt-2 text-[10px] text-ink-400">{{ $summary['completed_steps'] }} dari 4 step · {{ $summary['evidence_count'] }} evidence</p>
-            </div>
-        </section>
+       <section class="overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+            <p class="text-xs font-extrabold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">
+                {{ $lop->incident }}
+            </p>
+        <h3 class="mt-2 text-lg font-extrabold leading-6 text-ink-900 dark:text-white">
+            {{ $lop->nama_lop }}
+        </h3>
+
+        <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">
+            Dibuat oleh {{ $lop->creator?->name ?? '—' }} · {{ $lop->created_at->format('d M Y, H:i') }}
+        </p>
+    </div>
+
+    <x-badge :variant="$lop->status_lop->badgeVariant()">
+        {{ $lop->status_lop->label() }}
+    </x-badge>
+</div>
+
+<div class="mt-5">
+    <div class="mb-2 flex items-center justify-between text-xs">
+        <span class="text-ink-500 dark:text-ink-400">
+            Progress pekerjaan
+        </span>
+
+        <strong class="font-extrabold text-ink-900 dark:text-white">
+            {{ $summary['percentage'] }}%
+        </strong>
+    </div>
+
+    <div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
+        <div
+            class="h-full rounded-full bg-brand-500 dark:bg-brand-400"
+            style="width: {{ $summary['percentage'] }}%"
+        ></div>
+    </div>
+
+    <p class="mt-2 text-[10px] text-ink-400 dark:text-ink-500">
+        {{ $summary['completed_steps'] }} dari 4 step · {{ $summary['evidence_count'] }} evidence
+    </p>
+</div>
+</section>
+
 
         <section class="grid grid-cols-2 gap-3 sm:grid-cols-3">
             @foreach ([
@@ -27,7 +56,7 @@
                 ['Area', $lop->area ? 'Area '.$lop->area : '—'],
                 ['Segmen', $lop->segment?->label() ?? '—'],
                 ['WBS', $lop->wbs_type->label()],
-                ['Anggaran', $lop->budget_type?->label() ?? 'Tidak berlaku'],
+                ['Program', $lop->budget_type?->label() ?? 'Tidak berlaku'],
                 ['ID IHLD', $lop->ihld_id ?: 'Belum tersedia'],
                 ['Review', $summary['review_label']],
                 ['Update terakhir', $lop->updated_at->diffForHumans()],
