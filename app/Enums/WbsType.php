@@ -25,12 +25,8 @@ enum WbsType: string
             self::RELOK_UTILITAS => 'QEREL',
         };
     }
-<<<<<<< HEAD
 
-    /**
-     * Urutan numerik WBS untuk penomoran tiket manual (INP...):
-     * 1 = recovery, 2 = preventive, 3 = relok_utilitas.
-     */
+  
     public function order(): int
     {
         return match ($this) {
@@ -39,6 +35,4 @@ enum WbsType: string
             self::RELOK_UTILITAS => 3,
         };
     }
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 }
