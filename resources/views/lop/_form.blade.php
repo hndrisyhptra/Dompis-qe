@@ -19,7 +19,6 @@
             </div>
         </div>
         <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
-<<<<<<< HEAD
             @if (($formMethod ?? 'POST') === 'POST')
                 {{-- Input LOP Baru: incident memicu lookup ke DB tiket untuk auto-fill STO/Branch/Segmen. --}}
                 <div>
@@ -57,9 +56,6 @@
             @else
                 <x-input name="incident" label="Incident" placeholder="Contoh: INC123456" x-model="form.incident" autocomplete="off" />
             @endif
-=======
-            <x-input name="incident" label="Incident" placeholder="Contoh: INC123456" x-model="form.incident" autocomplete="off" />
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
             <x-input name="sto" label="STO" placeholder="Contoh: SDA" x-model="form.sto" autocomplete="off" />
 
             <x-select name="branch" label="Branch" placeholder="Pilih region dan branch" x-model="form.branch">

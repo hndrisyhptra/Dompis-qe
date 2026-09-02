@@ -4,10 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Designator;
-<<<<<<< HEAD
 use App\Models\DesignatorType;
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
@@ -196,11 +193,7 @@ class EvidencePermissionTest extends TestCase
             'code' => 'ODP-CLOSURE-01',
             'item_name' => 'Optical Distribution Point Closure',
             'unit' => 'unit',
-<<<<<<< HEAD
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
             'created_by' => $admin->id_user,
         ]);
 

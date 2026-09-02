@@ -4,10 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Designator;
-<<<<<<< HEAD
 use App\Models\DesignatorType;
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
@@ -70,11 +67,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             'code' => 'M-MOBILE-01',
             'item_name' => 'Kabel Fiber Optik',
             'unit' => 'meter',
-<<<<<<< HEAD
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         ]);
 
         $this->actingAs($technician)
@@ -111,11 +104,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             'code' => 'M-MOBILE-02',
             'item_name' => 'ODP',
             'unit' => 'pcs',
-<<<<<<< HEAD
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         ]);
         $reservation = $lop->materialReservation()->create([
             'technician_id' => $technician->id_user,
@@ -218,11 +207,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             'code' => 'M-MOBILE-03',
             'item_name' => 'Kabel Distribusi',
             'unit' => 'meter',
-<<<<<<< HEAD
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         ]);
 
         $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));

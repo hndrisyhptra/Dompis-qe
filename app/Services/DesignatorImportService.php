@@ -2,16 +2,10 @@
 
 namespace App\Services;
 
-<<<<<<< HEAD
 use App\Models\Designator;
 use App\Models\DesignatorCategory;
 use App\Models\DesignatorPackagePrice;
 use App\Models\DesignatorType;
-=======
-use App\Enums\DesignatorType;
-use App\Models\Designator;
-use App\Models\DesignatorPackagePrice;
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -33,7 +27,6 @@ use Illuminate\Support\Facades\DB;
 class DesignatorImportService
 {
     /**
-<<<<<<< HEAD
      * Kolom CSV: code,item_name,unit,type[,category]
      * - type    : kode ATAU nama Tipe Designator (mis. MATERIAL / Material). Wajib.
      * - category: kode ATAU nama Kategori Designator. Opsional.
@@ -41,23 +34,13 @@ class DesignatorImportService
     public function importDesignators(UploadedFile $file, User $actor): array
     {
         [$rows, $parseErrors] = $this->readCsv($file, ['code', 'item_name', 'unit', 'type'], ['category']);
-=======
-     * Kolom CSV: code,item_name,unit,type
-     */
-    public function importDesignators(UploadedFile $file, User $actor): array
-    {
-        [$rows, $parseErrors] = $this->readCsv($file, ['code', 'item_name', 'unit', 'type']);
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
         $errors = $parseErrors;
         $valid = [];
 
-<<<<<<< HEAD
         $typeIds = $this->lookupIndex(DesignatorType::query()->pluck('id_designator_type', 'code'), DesignatorType::query()->pluck('id_designator_type', 'name'));
         $categoryIds = $this->lookupIndex(DesignatorCategory::query()->pluck('id_designator_category', 'code'), DesignatorCategory::query()->pluck('id_designator_category', 'name'));
 
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         foreach ($rows as $lineNumber => $row) {
             $rowErrors = [];
 
@@ -70,7 +53,6 @@ class DesignatorImportService
             if ($row['unit'] === '') {
                 $rowErrors[] = 'unit wajib diisi';
             }
-<<<<<<< HEAD
 
             $typeId = $typeIds[mb_strtoupper($row['type'])] ?? null;
             if ($typeId === null) {
@@ -83,10 +65,6 @@ class DesignatorImportService
                 if ($categoryId === null) {
                     $rowErrors[] = "category '{$row['category']}' tidak ditemukan di Master Kategori Designator";
                 }
-=======
-            if (DesignatorType::tryFrom($row['type']) === null) {
-                $rowErrors[] = "type '{$row['type']}' tidak valid (harus material atau jasa)";
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
             }
 
             if ($rowErrors) {
@@ -95,7 +73,6 @@ class DesignatorImportService
                 continue;
             }
 
-<<<<<<< HEAD
             $valid[] = [
                 'code' => $row['code'],
                 'item_name' => $row['item_name'],
@@ -103,9 +80,6 @@ class DesignatorImportService
                 'designator_type_id' => $typeId,
                 'designator_category_id' => $categoryId,
             ];
-=======
-            $valid[] = $row;
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         }
 
         if ($errors) {
@@ -116,14 +90,7 @@ class DesignatorImportService
 
         DB::transaction(function () use ($valid, $actor, $now) {
             $values = array_map(fn ($row) => [
-<<<<<<< HEAD
                 ...$row,
-=======
-                'code' => $row['code'],
-                'item_name' => $row['item_name'],
-                'unit' => $row['unit'],
-                'type' => $row['type'],
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 'created_by' => $actor->id_user,
                 'updated_by' => $actor->id_user,
                 'deleted_at' => null,
@@ -134,11 +101,7 @@ class DesignatorImportService
             Designator::withTrashed()->upsert(
                 $values,
                 ['code'],
-<<<<<<< HEAD
                 ['item_name', 'unit', 'designator_type_id', 'designator_category_id', 'updated_by', 'deleted_at', 'updated_at']
-=======
-                ['item_name', 'unit', 'type', 'updated_by', 'deleted_at', 'updated_at']
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
             );
         });
 
@@ -146,7 +109,6 @@ class DesignatorImportService
     }
 
     /**
-<<<<<<< HEAD
      * Gabung index by-code dan by-name jadi satu peta UPPERCASE => id.
      */
     private function lookupIndex($byCode, $byName): array
@@ -163,8 +125,6 @@ class DesignatorImportService
     }
 
     /**
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
      * Kolom CSV: designator_code,package_code,price
      */
     public function importPrices(UploadedFile $file, User $actor): array
@@ -238,16 +198,10 @@ class DesignatorImportService
      * Baca CSV, kembalikan [baris_ternormalisasi(1-indexed sesuai nomor
      * baris file), error_parsing]. Baris pertama dianggap header dan
      * dicocokkan terhadap $expectedColumns (urutan bebas, dicocokkan by
-<<<<<<< HEAD
      * nama kolom). $optionalColumns disertakan di tiap baris bila header-nya
      * ada (kalau tidak ada, diisi string kosong) tanpa bikin import gagal.
      */
     private function readCsv(UploadedFile $file, array $expectedColumns, array $optionalColumns = []): array
-=======
-     * nama kolom).
-     */
-    private function readCsv(UploadedFile $file, array $expectedColumns): array
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     {
         $handle = fopen($file->getRealPath(), 'r');
 
@@ -289,11 +243,7 @@ class DesignatorImportService
             }
 
             $row = [];
-<<<<<<< HEAD
             foreach ([...$expectedColumns, ...$optionalColumns] as $column) {
-=======
-            foreach ($expectedColumns as $column) {
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 $row[$column] = trim((string) ($assoc[$column] ?? ''));
             }
 

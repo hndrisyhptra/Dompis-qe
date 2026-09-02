@@ -14,17 +14,11 @@ class DesignatorMigrationTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('designators'));
         $this->assertTrue(Schema::hasColumns('designators', [
-<<<<<<< HEAD
             'id_designator', 'code', 'item_name', 'unit',
             'designator_type_id', 'designator_category_id',
             'created_by', 'updated_by', 'deleted_at',
         ]));
         $this->assertFalse(Schema::hasColumn('designators', 'type'));
-=======
-            'id_designator', 'code', 'item_name', 'unit', 'type',
-            'created_by', 'updated_by', 'deleted_at',
-        ]));
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     }
 
     public function test_packages_table_has_expected_columns(): void

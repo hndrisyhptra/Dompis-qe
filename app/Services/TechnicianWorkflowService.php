@@ -2,10 +2,6 @@
 
 namespace App\Services;
 
-<<<<<<< HEAD
-=======
-use App\Enums\DesignatorType;
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\EvidenceStep;
@@ -54,11 +50,7 @@ class TechnicianWorkflowService
         $ids = collect($items)->pluck('designator_id');
         $materialCount = Designator::query()
             ->whereIn('id_designator', $ids)
-<<<<<<< HEAD
             ->whereRelation('type', 'code', 'MATERIAL')
-=======
-            ->where('type', DesignatorType::MATERIAL->value)
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
             ->count();
 
         if ($materialCount !== $ids->unique()->count()) {

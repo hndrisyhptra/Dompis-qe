@@ -4,10 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Designator;
-<<<<<<< HEAD
 use App\Models\DesignatorType;
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Models\Package;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,11 +24,7 @@ class MasterDesignatorPermissionTest extends TestCase
             'code' => 'M-0001',
             'item_name' => 'Kabel Fiber Optic',
             'unit' => 'meter',
-<<<<<<< HEAD
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         ]);
 
         $response->assertRedirect(route('designators.index'));
@@ -57,12 +50,8 @@ class MasterDesignatorPermissionTest extends TestCase
     {
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
         $designator = Designator::create([
-<<<<<<< HEAD
             'code' => 'M-0002', 'item_name' => 'Closure', 'unit' => 'pcs',
             'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
-=======
-            'code' => 'M-0002', 'item_name' => 'Closure', 'unit' => 'pcs', 'type' => 'material',
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         ]);
         $package = Package::create(['code' => 'PKT-02', 'name' => 'Paket B']);
 

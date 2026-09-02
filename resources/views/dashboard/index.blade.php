@@ -170,19 +170,11 @@
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = $isSuperAdmin ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
-<<<<<<< HEAD
                     <div class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex min-w-0 items-center gap-3">
                                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5"/></svg>
-=======
-                    <details class="group overflow-hidden rounded-2xl border border-ink-200 bg-white open:border-emerald-200 open:shadow-sm dark:border-ink-700 dark:bg-ink-900 dark:open:border-emerald-900" @if(! $isSuperAdmin || $loop->first) open @endif>
-                        <summary class="flex cursor-pointer list-none flex-col gap-4 p-4 transition hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/40 dark:hover:bg-ink-800/60 sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                                    <svg class="h-4 w-4 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                                 </span>
                                 <div class="min-w-0"><p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p><p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p></div>
                             </div>
@@ -196,11 +188,7 @@
                                     <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800"><p class="text-sm font-extrabold {{ $tone }}">{{ $value }}</p><p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p></div>
                                 @endforeach
                             </div>
-<<<<<<< HEAD
                         </div>
-=======
-                        </summary>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
                         <div class="border-t border-ink-100 dark:border-ink-800">
                             <div class="overflow-x-auto">
@@ -241,11 +229,7 @@
                                 </table>
                             </div>
                         </div>
-<<<<<<< HEAD
                     </div>
-=======
-                    </details>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 @empty
                     <div class="rounded-2xl border border-dashed border-ink-200 px-6 py-12 text-center text-sm text-ink-400 dark:border-ink-700">Tidak ada data matrix pada cakupan ini.</div>
                 @endforelse
@@ -265,7 +249,6 @@
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = $isSuperAdmin ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
-<<<<<<< HEAD
                     <div class="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex min-w-0 items-center gap-3">
@@ -275,17 +258,6 @@
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
                                     <p class="mt-1 text-[10px] text-ink-400">{{ count($region['branches']) }} branch</p>
-=======
-                    <details class="group overflow-hidden rounded-2xl border border-ink-200 bg-white open:border-blue-200 open:shadow-sm dark:border-ink-700 dark:bg-ink-900 dark:open:border-blue-900" @if(! $isSuperAdmin || $loop->first) open @endif>
-                        <summary class="flex cursor-pointer list-none flex-col gap-4 p-4 transition hover:bg-ink-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/40 dark:hover:bg-ink-800/60 sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                    <svg class="h-4 w-4 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg>
-                                </span>
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
-                                    <p class="mt-1 text-[10px] text-ink-400">{{ count($region['branches']) }} branch · klik untuk {{ $loop->first || ! $isSuperAdmin ? 'menutup' : 'membuka' }} matrix</p>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                                 </div>
                             </div>
                             <div class="grid grid-cols-4 gap-2 sm:min-w-[390px]">
@@ -301,11 +273,7 @@
                                     </div>
                                 @endforeach
                             </div>
-<<<<<<< HEAD
                         </div>
-=======
-                        </summary>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
                         <div class="border-t border-ink-100 dark:border-ink-800">
                             <div class="overflow-x-auto">
@@ -342,11 +310,7 @@
                                 </table>
                             </div>
                         </div>
-<<<<<<< HEAD
                     </div>
-=======
-                    </details>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 @empty
                     <div class="rounded-2xl border border-dashed border-ink-200 px-6 py-12 text-center text-sm text-ink-400 dark:border-ink-700">Tidak ada data matrix pada cakupan ini.</div>
                 @endforelse

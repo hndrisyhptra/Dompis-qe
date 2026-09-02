@@ -18,7 +18,6 @@
             <x-input name="item_name" label="Nama Item" :value="$designator->item_name" />
             <x-input name="unit" label="Satuan" :value="$designator->unit" />
 
-<<<<<<< HEAD
             <x-select name="designator_type_id" label="Tipe" placeholder="Pilih tipe">
                 @foreach ($types as $type)
                     <option value="{{ $type->id_designator_type }}" @selected((int) old('designator_type_id', $designator->designator_type_id) === $type->id_designator_type)>{{ $type->name }}</option>
@@ -28,11 +27,6 @@
             <x-select name="designator_category_id" label="Kategori (opsional)" placeholder="Tanpa kategori">
                 @foreach ($categories as $category)
                     <option value="{{ $category->id_designator_category }}" @selected((int) old('designator_category_id', $designator->designator_category_id) === $category->id_designator_category)>{{ $category->name }}</option>
-=======
-            <x-select name="type" label="Tipe" placeholder="Pilih tipe">
-                @foreach (\App\Enums\DesignatorType::cases() as $type)
-                    <option value="{{ $type->value }}" @selected(old('type', $designator->type->value) === $type->value)>{{ $type->label() }}</option>
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 @endforeach
             </x-select>
 

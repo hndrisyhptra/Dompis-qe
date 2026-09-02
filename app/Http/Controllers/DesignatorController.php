@@ -2,19 +2,12 @@
 
 namespace App\Http\Controllers;
 
-<<<<<<< HEAD
-=======
-use App\Enums\DesignatorType;
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Http\Requests\ImportDesignatorsRequest;
 use App\Http\Requests\StoreDesignatorRequest;
 use App\Http\Requests\UpdateDesignatorRequest;
 use App\Models\Designator;
-<<<<<<< HEAD
 use App\Models\DesignatorCategory;
 use App\Models\DesignatorType;
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Services\DesignatorImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,11 +23,7 @@ class DesignatorController extends Controller
     {
         $this->authorize('manage-master-data');
 
-<<<<<<< HEAD
         $query = Designator::query()->with(['type', 'category']);
-=======
-        $query = Designator::query();
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
         if ($search = $request->string('q')->trim()->value()) {
             $query->where(function ($q) use ($search) {
@@ -53,11 +42,7 @@ class DesignatorController extends Controller
     {
         $this->authorize('manage-master-data');
 
-<<<<<<< HEAD
         return view('designators.create', $this->formOptions());
-=======
-        return view('designators.create');
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     }
 
     public function store(StoreDesignatorRequest $request): RedirectResponse
@@ -77,7 +62,6 @@ class DesignatorController extends Controller
     {
         $this->authorize('manage-master-data');
 
-<<<<<<< HEAD
         return view('designators.edit', [
             'designator' => $designator,
             ...$this->formOptions(),
@@ -90,9 +74,6 @@ class DesignatorController extends Controller
             'types' => DesignatorType::query()->where('is_active', true)->orderBy('name')->get(),
             'categories' => DesignatorCategory::query()->where('is_active', true)->orderBy('name')->get(),
         ];
-=======
-        return view('designators.edit', ['designator' => $designator]);
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     }
 
     public function update(UpdateDesignatorRequest $request, Designator $designator): RedirectResponse

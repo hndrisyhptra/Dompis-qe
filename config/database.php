@@ -64,7 +64,6 @@ return [
             ]) : [],
         ],
 
-<<<<<<< HEAD
         /*
          | Koneksi read-only ke database operasional eksternal `dompis_db`
          | (server MySQL yang sama). Dipakai TicketLookupService untuk menarik
@@ -91,8 +90,6 @@ return [
             ]) : [],
         ],
 
-=======
->>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
