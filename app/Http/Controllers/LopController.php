@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\EvidenceApprovalService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
+<<<<<<< HEAD
 use App\Services\ManualIncidentService;
 use App\Services\ProjectProgressService;
 use App\Services\TicketLookupService;
@@ -24,6 +25,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+=======
+use App\Services\ProjectProgressService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use Illuminate\View\View;
 
 class LopController extends Controller
@@ -33,8 +39,11 @@ class LopController extends Controller
         private readonly LopNamingService $namingService,
         private readonly ProjectProgressService $progressService,
         private readonly EvidenceApprovalService $approvalService,
+<<<<<<< HEAD
         private readonly TicketLookupService $ticketLookup,
         private readonly ManualIncidentService $manualIncident,
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     ) {}
 
     /**
@@ -137,6 +146,7 @@ class LopController extends Controller
         ]);
     }
 
+<<<<<<< HEAD
     /**
      * Lookup data tiket dari DB operasional eksternal untuk auto-fill form
      * Input LOP Baru (STO, Branch, Segmen). Dipanggil via fetch dari Alpine.
@@ -182,6 +192,8 @@ class LopController extends Controller
         ]);
     }
 
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     public function store(StoreLopRequest $request): RedirectResponse
     {
         $lop = $this->lopService->create($request->validated(), $request->user());

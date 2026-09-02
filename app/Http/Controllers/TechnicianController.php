@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+<<<<<<< HEAD
+=======
+use App\Enums\DesignatorType;
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Enums\LopStatus;
 use App\Models\Designator;
 use App\Models\QeLop;
@@ -67,7 +71,11 @@ class TechnicianController extends Controller
             'state' => $state,
             'step' => $requestedStep,
             'designators' => Designator::query()
+<<<<<<< HEAD
                 ->whereRelation('type', 'code', 'MATERIAL')
+=======
+                ->where('type', DesignatorType::MATERIAL->value)
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 ->orderBy('code')->get(),
         ]);
     }

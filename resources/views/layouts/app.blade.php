@@ -138,6 +138,7 @@
                 </a>
             @endcan
 
+<<<<<<< HEAD
             {{-- WBS: pemetaan / bucket LOP per jenis WBS. Teknisi diarahkan ke inbox-nya. --}}
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::TEKNISI))
                 <div x-data="{ open: {{ request()->routeIs('wbs.*') ? 'true' : 'false' }} }">
@@ -171,11 +172,40 @@
                     </div>
                 </div>
             @endunless
+=======
+            {{-- WBS (belum ada route sungguhan - placeholder per jenis WBS) --}}
+            <div x-data="{ open: false }">
+                <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
+                    <span class="flex items-center gap-2.5">
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
+                        </svg>
+                        WBS
+                    </span>
+                    {!! $chevron !!}
+                </button>
+                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    @foreach (['QE Recovery', 'QE Preventive', 'QE Relok Utilitas'] as $label)
+                        <span class="{{ $navDisabled }} pl-3">
+                            <span class="flex items-center gap-2.5">
+                                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-ink-300 dark:bg-ink-600"></span>
+                                {{ $label }}
+                            </span>
+                            <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
             {{-- Master Designator: khusus role dengan permission manage_master_data
                  (saat ini cuma SUPER_ADMIN). --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))
+<<<<<<< HEAD
                 <div x-data="{ open: {{ request()->routeIs(['designators.*', 'designator-prices.*', 'packages.*', 'ticket-segment-maps.*']) ? 'true' : 'false' }} }">
+=======
+                <div x-data="{ open: {{ request()->routeIs(['designators.*', 'designator-prices.*', 'packages.*']) ? 'true' : 'false' }} }">
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                     <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -208,6 +238,7 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
                             Paket KHS
                         </a>
+<<<<<<< HEAD
                         <a href="{{ route('ticket-segment-maps.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('ticket-segment-maps.*') ? $navSubLinkActive : $navSubLinkInactive }}">
                             @if (request()->routeIs('ticket-segment-maps.*'))
                                 <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -215,10 +246,13 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
                             Pemetaan Segment Tiket
                         </a>
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                     </div>
                 </div>
             @endif
 
+<<<<<<< HEAD
             {{-- Master Data: reference data inti (Region, Branch, Kategori/Tipe Designator). --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))
                 <div x-data="{ open: {{ request()->routeIs(['master-data.*', 'regions.*', 'branches.*', 'designator-categories.*', 'designator-types.*']) ? 'true' : 'false' }} }">
@@ -251,6 +285,17 @@
                     </div>
                 </div>
             @endif
+=======
+            <div class="{{ $navDisabled }}">
+                <span class="flex items-center gap-2.5">
+                    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m5.25 3.75h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                    </svg>
+                    Master Data
+                </span>
+                <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
+            </div>
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
             @if (auth()->user()?->hasPermission('approve_evidence'))
                 <a href="{{ route('evidence-approval.index') }}"

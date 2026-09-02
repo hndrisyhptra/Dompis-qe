@@ -25,6 +25,7 @@ enum WbsType: string
             self::RELOK_UTILITAS => 'QEREL',
         };
     }
+<<<<<<< HEAD
 
     /**
      * Urutan numerik WBS untuk penomoran tiket manual (INP...):
@@ -38,4 +39,6 @@ enum WbsType: string
             self::RELOK_UTILITAS => 3,
         };
     }
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 }

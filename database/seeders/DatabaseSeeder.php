@@ -22,11 +22,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+<<<<<<< HEAD
         $this->call(RegionSeeder::class);
         $this->call(BranchSeeder::class);
         $this->call(DesignatorCategorySeeder::class);
         $this->call(DesignatorTypeSeeder::class);
         $this->call(TicketSegmentMapSeeder::class);
+=======
+        $this->call(BranchSeeder::class);
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
         $accounts = [
             UserRole::SUPER_ADMIN->value => 'superadmin',

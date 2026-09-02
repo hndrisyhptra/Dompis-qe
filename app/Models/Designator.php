@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+<<<<<<< HEAD
+=======
+use App\Enums\DesignatorType;
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,12 +22,17 @@ class Designator extends Model
         'code',
         'item_name',
         'unit',
+<<<<<<< HEAD
         'designator_type_id',
         'designator_category_id',
+=======
+        'type',
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         'created_by',
         'updated_by',
     ];
 
+<<<<<<< HEAD
     public function type(): BelongsTo
     {
         return $this->belongsTo(DesignatorType::class, 'designator_type_id', 'id_designator_type');
@@ -32,6 +41,13 @@ class Designator extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(DesignatorCategory::class, 'designator_category_id', 'id_designator_category');
+=======
+    protected function casts(): array
+    {
+        return [
+            'type' => DesignatorType::class,
+        ];
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     }
 
     public function prices(): HasMany

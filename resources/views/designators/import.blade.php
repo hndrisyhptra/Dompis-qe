@@ -7,8 +7,12 @@
     <div class="mb-6">
         <h1 class="text-xl font-bold text-ink-900 dark:text-ink-50">Import Designator</h1>
         <p class="text-sm text-ink-500 dark:text-ink-400 mt-1">
+<<<<<<< HEAD
             Upload file CSV dengan kolom: <code class="text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">code, item_name, unit, type, category</code>.
             <span class="block mt-1 text-xs">Kolom <code>type</code> = kode/nama Tipe Designator (mis. <code>MATERIAL</code>). Kolom <code>category</code> opsional (kode/nama Kategori Designator).</span>
+=======
+            Upload file CSV dengan kolom: <code class="text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">code, item_name, unit, type</code>
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         </p>
     </div>
 

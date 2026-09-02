@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Designator;
+<<<<<<< HEAD
 use App\Models\DesignatorType;
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Models\Package;
 use App\Models\User;
 use App\Services\DesignatorImportService;
@@ -35,10 +38,15 @@ class DesignatorCsvImportTest extends TestCase
 
         $this->assertSame(2, $result['imported']);
         $this->assertEmpty($result['errors']);
+<<<<<<< HEAD
         $materialId = DesignatorType::where('code', 'MATERIAL')->value('id_designator_type');
         $jasaId = DesignatorType::where('code', 'JASA')->value('id_designator_type');
         $this->assertDatabaseHas('designators', ['code' => 'M-0001', 'designator_type_id' => $materialId]);
         $this->assertDatabaseHas('designators', ['code' => 'J-0001', 'designator_type_id' => $jasaId]);
+=======
+        $this->assertDatabaseHas('designators', ['code' => 'M-0001', 'type' => 'material']);
+        $this->assertDatabaseHas('designators', ['code' => 'J-0001', 'type' => 'jasa']);
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
         // Re-import file yang sama - tidak boleh duplikat / error unique.
         $result2 = $service->importDesignators($this->csvFile($csv), $actor);
@@ -63,7 +71,11 @@ class DesignatorCsvImportTest extends TestCase
     public function test_import_prices_resolves_by_code_and_rejects_unknown_codes(): void
     {
         $actor = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+<<<<<<< HEAD
         Designator::create(['code' => 'M-0001', 'item_name' => 'Kabel FO', 'unit' => 'meter']);
+=======
+        Designator::create(['code' => 'M-0001', 'item_name' => 'Kabel FO', 'unit' => 'meter', 'type' => 'material']);
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
         Package::create(['code' => 'PKT-01', 'name' => 'Paket A']);
 
         $service = app(DesignatorImportService::class);

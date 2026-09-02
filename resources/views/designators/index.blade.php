@@ -41,7 +41,10 @@
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Nama Item</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Satuan</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Tipe</th>
+<<<<<<< HEAD
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Kategori</th>
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 <th class="px-4 py-3"></th>
             </tr>
         </thead>
@@ -52,6 +55,7 @@
                     <td class="px-4 py-3 text-ink-600 dark:text-ink-300">{{ $designator->item_name }}</td>
                     <td class="px-4 py-3 text-ink-600 dark:text-ink-300">{{ $designator->unit }}</td>
                     <td class="px-4 py-3">
+<<<<<<< HEAD
                         @if ($designator->type)
                             <x-badge :variant="$designator->type->code === 'MATERIAL' ? 'info' : 'neutral'">
                                 {{ $designator->type->name }}
@@ -61,6 +65,12 @@
                         @endif
                     </td>
                     <td class="px-4 py-3 text-ink-600 dark:text-ink-300">{{ $designator->category?->name ?? '—' }}</td>
+=======
+                        <x-badge :variant="$designator->type->value === 'material' ? 'info' : 'neutral'">
+                            {{ $designator->type->label() }}
+                        </x-badge>
+                    </td>
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                     <td class="px-4 py-3 text-right whitespace-nowrap">
                         <a href="{{ route('designators.edit', $designator) }}" class="text-sm text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 font-medium">Edit</a>
                         <span class="text-ink-300 dark:text-ink-600 mx-1">·</span>
@@ -74,7 +84,11 @@
                 </tr>
             @empty
                 <tr>
+<<<<<<< HEAD
                     <td colspan="6" class="px-4 py-8 text-center text-ink-400 dark:text-ink-500 text-sm">Belum ada designator.</td>
+=======
+                    <td colspan="5" class="px-4 py-8 text-center text-ink-400 dark:text-ink-500 text-sm">Belum ada designator.</td>
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 </tr>
             @endforelse
         </tbody>

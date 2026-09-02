@@ -3,7 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+<<<<<<< HEAD
 use App\Models\Region;
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use Illuminate\Database\Seeder;
 
 class BranchSeeder extends Seeder
@@ -36,12 +39,19 @@ class BranchSeeder extends Seeder
         ];
 
         foreach ($branches as $region => $items) {
+<<<<<<< HEAD
             $regionId = Region::where('name', $region)->value('id_region');
 
             foreach ($items as $code => $name) {
                 Branch::updateOrCreate(
                     ['code' => $code],
                     ['name' => $name, 'region' => $region, 'region_id' => $regionId, 'is_active' => true],
+=======
+            foreach ($items as $code => $name) {
+                Branch::updateOrCreate(
+                    ['code' => $code],
+                    ['name' => $name, 'region' => $region],
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
                 );
             }
         }

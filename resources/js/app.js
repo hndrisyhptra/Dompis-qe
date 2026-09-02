@@ -83,8 +83,11 @@ window.lopForm = (options = {}) => ({
     template: options.template ?? '{area}{sto}_{wbs_code}_{incident}_{description}',
     wbsCodes: options.wbsCodes ?? {},
     nameManuallyEdited: false,
+<<<<<<< HEAD
     lookup: { loading: false, error: false, notFound: false, message: '', warnings: [], lastQuery: null },
     manualGen: { loading: false, message: '' },
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 
     init() {
         ['incident', 'sto', 'branch', 'area', 'segment', 'wbs_type', 'budget_type', 'job_description']
@@ -118,6 +121,7 @@ window.lopForm = (options = {}) => ({
         this.regenerateName(true);
     },
 
+<<<<<<< HEAD
     async lookupTicket() {
         const incident = String(this.form.incident ?? '').trim();
         if (!incident || this.lookup.loading || incident === this.lookup.lastQuery) return;
@@ -197,6 +201,8 @@ window.lopForm = (options = {}) => ({
         }
     },
 
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     markNameEdited() { this.nameManuallyEdited = true; },
 
     token(value, uppercase = false) {

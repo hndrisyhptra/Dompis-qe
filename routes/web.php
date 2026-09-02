@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+<<<<<<< HEAD
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DesignatorCategoryController;
 use App\Http\Controllers\DesignatorController;
@@ -9,6 +10,11 @@ use App\Http\Controllers\DesignatorTypeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\RegionController;
+=======
+use App\Http\Controllers\DesignatorController;
+use App\Http\Controllers\DesignatorPriceController;
+use App\Http\Controllers\DashboardController;
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\LopAssignmentController;
@@ -17,9 +23,13 @@ use App\Http\Controllers\LopNameFormatController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
+<<<<<<< HEAD
 use App\Http\Controllers\TicketSegmentMapController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WbsController;
+=======
+use App\Http\Controllers\UserController;
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
@@ -62,8 +72,11 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/', [LopController::class, 'index'])->name('index');
     Route::get('/history', [LopController::class, 'history'])->name('history');
     Route::get('/create', [LopController::class, 'create'])->name('create');
+<<<<<<< HEAD
     Route::get('/ticket-lookup', [LopController::class, 'ticketLookup'])->name('ticket-lookup');
     Route::get('/manual-incident', [LopController::class, 'manualIncident'])->name('manual-incident');
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
     Route::post('/', [LopController::class, 'store'])->name('store');
     Route::get('/{qe_lop}', [LopController::class, 'show'])->name('show');
     Route::get('/{qe_lop}/edit', [LopController::class, 'edit'])->name('edit');
@@ -75,11 +88,14 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::delete('/{qe_lop}/evidence/{evidence}', [EvidenceController::class, 'destroy'])->name('evidence.destroy');
 });
 
+<<<<<<< HEAD
 Route::middleware(['auth'])->prefix('wbs')->name('wbs.')->group(function () {
     Route::get('/', [WbsController::class, 'index'])->name('index');
     Route::get('/{wbs}', [WbsController::class, 'show'])->name('show');
 });
 
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {
     Route::get('/', [LopNameFormatController::class, 'edit'])->name('edit');
     Route::put('/', [LopNameFormatController::class, 'update'])->name('update');
@@ -118,6 +134,7 @@ Route::middleware(['auth'])->prefix('packages')->name('packages.')->group(functi
     Route::delete('/{package}', [PackageController::class, 'destroy'])->name('destroy');
 });
 
+<<<<<<< HEAD
 Route::middleware(['auth'])->prefix('master-data')->name('master-data.')->group(function () {
     Route::get('/', [MasterDataController::class, 'index'])->name('index');
 });
@@ -167,6 +184,8 @@ Route::middleware(['auth'])->prefix('ticket-segment-maps')->name('ticket-segment
     Route::delete('/{ticket_segment_map}', [TicketSegmentMapController::class, 'destroy'])->name('destroy');
 });
 
+=======
+>>>>>>> a86f15e45cd25dd3304798754e1cd5bfc0ffbc8c
 Route::middleware(['auth'])->prefix('designator-prices')->name('designator-prices.')->group(function () {
     Route::get('/', [DesignatorPriceController::class, 'index'])->name('index');
     Route::get('/create', [DesignatorPriceController::class, 'create'])->name('create');
