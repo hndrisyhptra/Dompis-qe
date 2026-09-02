@@ -1,0 +1,149 @@
+@extends('layouts.technician')
+
+@section('title', $lop->incident)
+@section('header', $lop->incident)
+
+@section('content')
+@php
+    $evidenceFor = function (string $category, ?int $designatorId = null) use ($state) {
+        return $state['evidences']->filter(function ($evidence) use ($category, $designatorId) {
+            return $evidence->category?->value === $category
+                && ($designatorId === null || $evidence->designator_id === $designatorId);
+        });
+    };
+@endphp
+
+    <a href="{{ route('technician.inbox') }}"
+    class="inline-flex items-center gap-2 rounded-lg bg-ink-100 px-3 py-2 text-sm font-bold text-ink-600 transition hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"> 
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+    </a>
+
+
+<section class="mt-4 rounded-3xl bg-ink-900 p-5 text-white shadow-xl shadow-ink-900/10">
+    <div class="flex items-start justify-between gap-3">
+        <div><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
+        <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
+    </div>
+    <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <div class="rounded-2xl bg-white/8 p-3"><p class="text-ink-400">STO</p><p class="mt-1 font-bold">{{ $lop->sto ?: '—' }}</p></div>
+        <div class="rounded-2xl bg-white/8 p-3"><p class="text-ink-400">Branch</p><p class="mt-1 font-bold">{{ $lop->branch ?: '—' }}</p></div>
+    </div>
+</section>
+
+@if ($lop->status_lop === \App\Enums\LopStatus::ASSIGNED)
+    <section class="mt-5 rounded-3xl border border-brand-100 bg-white p-5 text-center dark:border-brand-900 dark:bg-ink-900">
+        <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-300">
+            <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751"/></svg>
+        </div>
+        <h2 class="mt-4 text-lg font-extrabold">Siap mulai pekerjaan?</h2>
+        <p class="mx-auto mt-2 max-w-xs text-xs leading-5 text-ink-500">Pickup menandai bahwa Work Order sudah Anda terima dan membuka workflow lapangan.</p>
+        <form method="POST" action="{{ route('technician.projects.pickup', $lop) }}" class="mt-5">@csrf
+            <button class="min-h-12 w-full rounded-2xl bg-brand-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20 active:scale-[.99]">Pickup Order</button>
+        </form>
+    </section>
+@elseif ($lop->status_lop === \App\Enums\LopStatus::REJECTED)
+    <section class="mt-5 rounded-3xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-900/10">
+        <h2 class="text-base font-extrabold text-brand-700 dark:text-brand-300">Project perlu diperbaiki</h2>
+        <p class="mt-2 text-xs leading-5 text-brand-700/80 dark:text-brand-300/80">Review alasan penolakan di bawah, upload file pengganti, lalu buka kembali workflow.</p>
+
+        <div class="mt-4">
+            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Review evidence pekerjaan"
+                description="Tap setiap file untuk melihat foto dan status review terkini."
+                :existing="$state['evidences']" :allow-upload="false" />
+        </div>
+
+        <form method="POST" action="{{ route('technician.projects.resume', $lop) }}" class="mt-4">@csrf<button class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white">Mulai perbaikan</button></form>
+    </section>
+@elseif (in_array($lop->status_lop, [\App\Enums\LopStatus::WAITING_APPROVAL, \App\Enums\LopStatus::COMPLETED], true))
+    <section class="mt-5 rounded-3xl border border-ink-100 bg-white p-6 text-center dark:border-ink-800 dark:bg-ink-900">
+        <div class="mx-auto grid h-14 w-14 place-items-center rounded-full {{ $lop->status_lop === \App\Enums\LopStatus::COMPLETED ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">
+            <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623"/></svg>
+        </div>
+        <h2 class="mt-4 text-lg font-extrabold">{{ $lop->status_lop === \App\Enums\LopStatus::COMPLETED ? 'Project selesai' : 'Menunggu approval' }}</h2>
+        <p class="mt-2 text-xs leading-5 text-ink-500">{{ $lop->status_lop === \App\Enums\LopStatus::COMPLETED ? 'Seluruh workflow dan approval telah selesai.' : 'Evidence sedang diperiksa. Anda akan menerima notifikasi hasil review.' }}</p>
+        <div class="mt-5 grid grid-cols-2 gap-3"><div class="rounded-xl bg-ink-50 p-3 dark:bg-ink-800"><p class="text-lg font-extrabold">{{ $state['items']->count() }}</p><p class="text-[10px] text-ink-500">Material</p></div><div class="rounded-xl bg-ink-50 p-3 dark:bg-ink-800"><p class="text-lg font-extrabold">{{ $state['evidences']->count() }}</p><p class="text-[10px] text-ink-500">Evidence</p></div></div>
+    </section>
+    <section class="mt-5">
+        <x-technician-evidence-uploader :lop="$lop" category="pre" title="Review evidence pekerjaan"
+            description="Tap setiap file untuk melihat foto dan status review terkini."
+            :existing="$state['evidences']" :allow-upload="false" />
+    </section>
+@else
+    <section class="mt-5 rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+        <div class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Field workflow</p><h2 class="mt-1 text-sm font-extrabold">Step {{ $step }} dari 4</h2></div><span class="text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete']])->filter()->count() }}/4 lengkap</span></div>
+        <x-lop-progress-stepper :current="$step" :state="$state" />
+    </section>
+
+    @if ($step === 1)
+        @php
+            $materialRows = $state['items']->map(fn ($item) => ['designator_id' => (string) $item->designator_id, 'qty' => (string) $item->qty])->values();
+            if ($materialRows->isEmpty()) $materialRows = collect([['designator_id' => '', 'qty' => 1]]);
+        @endphp
+        <section class="mt-5" x-data="{ items: {{ Illuminate\Support\Js::from($materialRows) }} }">
+            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih item yang akan digunakan dan masukkan jumlah kebutuhannya.</p></div>
+            <form method="POST" action="{{ route('technician.projects.materials', $lop) }}" class="space-y-3">@csrf @method('PUT')
+                <template x-for="(item, index) in items" :key="index">
+                    <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+                        <div class="flex items-center justify-between"><p class="text-xs font-bold">Material <span x-text="index + 1"></span></p><button type="button" @click="items.splice(index, 1)" x-show="items.length > 1" class="text-xs font-bold text-brand-600">Hapus</button></div>
+                        <select x-model="item.designator_id" :name="`items[${index}][designator_id]`" required class="mt-3 min-h-12 w-full rounded-xl border border-ink-100 bg-white px-3 text-xs dark:border-ink-700 dark:bg-ink-800">
+                            <option value="">Pilih item designator</option>
+                            @foreach ($designators as $designator)<option value="{{ $designator->id_designator }}">{{ $designator->code }} — {{ $designator->item_name }} ({{ $designator->unit }})</option>@endforeach
+                        </select>
+                        <div class="mt-3"><label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Quantity</label><input type="number" min="0.001" step="0.001" x-model="item.qty" :name="`items[${index}][qty]`" required class="mt-1 min-h-12 w-full rounded-xl border border-ink-100 bg-white px-3 text-sm font-bold dark:border-ink-700 dark:bg-ink-800"></div>
+                    </div>
+                </template>
+                <button type="button" @click="items.push({ designator_id: '', qty: 1 })" class="min-h-11 w-full rounded-2xl border-2 border-dashed border-ink-200 text-xs font-bold text-ink-600 dark:border-ink-700 dark:text-ink-300">+ Tambah material</button>
+                <button type="submit" class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20">Simpan & lanjut Evidence Pra</button>
+            </form>
+        </section>
+    @elseif ($step === 2)
+        <section class="mt-5 space-y-4">
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 2</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Simpan titik lokasi dan lengkapi bukti awal pekerjaan.</p></div>
+            <div x-data="{ latitude: '{{ $state['survey']?->latitude }}', longitude: '{{ $state['survey']?->longitude }}', accuracy: '{{ $state['survey']?->accuracy }}', source: '{{ $state['survey']?->location_source ?? 'manual' }}', locating: false, error: '', locate() { this.locating = true; this.error = ''; if (!navigator.geolocation) { this.error='GPS tidak didukung perangkat.'; this.locating=false; return; } navigator.geolocation.getCurrentPosition(p => { this.latitude=p.coords.latitude.toFixed(7); this.longitude=p.coords.longitude.toFixed(7); this.accuracy=p.coords.accuracy.toFixed(2); this.source='gps'; this.locating=false; }, () => { this.error='Lokasi gagal diambil. Aktifkan izin GPS atau isi manual.'; this.locating=false; }, { enableHighAccuracy: true, timeout: 15000 }); } }"
+                 class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+                <div class="flex items-start justify-between gap-3"><div><h3 class="text-sm font-bold">Tag lokasi pekerjaan</h3><p class="mt-1 text-xs text-ink-500">Gunakan GPS atau masukkan koordinat manual.</p></div>@if($state['survey'])<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">Tersimpan</span>@endif</div>
+                <button type="button" @click="locate()" :disabled="locating" class="mt-4 min-h-11 w-full rounded-xl bg-ink-900 text-xs font-bold text-white dark:bg-ink-700"><span x-text="locating ? 'Mengambil lokasi…' : 'Gunakan lokasi saat ini'"></span></button>
+                <p x-show="error" x-text="error" class="mt-2 text-xs text-brand-600"></p>
+                <form method="POST" action="{{ route('technician.projects.location', $lop) }}" class="mt-3 space-y-3">@csrf @method('PUT')
+                    <input type="hidden" name="accuracy" x-model="accuracy"><input type="hidden" name="location_source" x-model="source">
+                    <div class="grid grid-cols-2 gap-2"><div><label class="text-[10px] font-bold text-ink-400">LATITUDE</label><input name="latitude" x-model="latitude" @input="source='manual'" required class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-2 text-xs dark:border-ink-700 dark:bg-ink-800"></div><div><label class="text-[10px] font-bold text-ink-400">LONGITUDE</label><input name="longitude" x-model="longitude" @input="source='manual'" required class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-2 text-xs dark:border-ink-700 dark:bg-ink-800"></div></div>
+                    <div class="grid grid-cols-2 gap-2"><button class="min-h-11 rounded-xl border border-ink-200 text-xs font-bold dark:border-ink-700">Simpan lokasi</button><a :href="latitude && longitude ? `https://maps.google.com/?q=${latitude},${longitude}` : '#'" target="_blank" class="grid min-h-11 place-items-center rounded-xl bg-ink-50 text-xs font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">Buka peta</a></div>
+                </form>
+            </div>
+
+            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Evidence pra" description="Foto kondisi awal area pekerjaan." :existing="$evidenceFor('pre')" />
+            <x-technician-evidence-uploader :lop="$lop" category="material_arrival" title="Material tiba" description="Foto material yang sudah tersedia di lokasi." :existing="$evidenceFor('material_arrival')" />
+
+            @foreach ($state['items'] as $item)
+                <x-technician-evidence-uploader :lop="$lop" category="before" :designator-id="$item->designator_id"
+                    :title="'Before · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(float)$item->qty.' '.$item->designator->unit"
+                    :existing="$evidenceFor('before', $item->designator_id)" />
+            @endforeach
+
+            <form method="POST" action="{{ route('technician.projects.survey-complete', $lop) }}">@csrf<button class="min-h-12 w-full rounded-2xl {{ $state['step2Complete'] ? 'bg-brand-600 text-white' : 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Selesaikan Survey & Lanjut Progress</button></form>
+        </section>
+    @elseif ($step === 3)
+        <section class="mt-5 space-y-4">
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Progress</h2><p class="mt-1 text-xs leading-5 text-ink-500">Upload dokumentasi proses pekerjaan secara global.</p></div>
+            <x-technician-evidence-uploader :lop="$lop" category="progress" title="Progress pekerjaan" description="Tambahkan beberapa foto selama pekerjaan berlangsung." :existing="$evidenceFor('progress')" />
+            <a href="{{ route('technician.projects.show', [$lop, 'step' => 4]) }}" class="grid min-h-12 place-items-center rounded-2xl {{ $state['step3Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Lanjut Evidence After</a>
+        </section>
+    @elseif ($step === 4)
+        <section class="mt-5 space-y-4">
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 4</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir untuk setiap material yang digunakan.</p></div>
+            @foreach ($state['items'] as $item)
+                <x-technician-evidence-uploader :lop="$lop" category="after" :designator-id="$item->designator_id"
+                    :title="'After · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(float)$item->qty.' '.$item->designator->unit"
+                    :existing="$evidenceFor('after', $item->designator_id)" />
+            @endforeach
+            <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+                <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Semua designator sudah memiliki evidence.' : $state['missingAfter']->count().' designator belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step4Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step4Complete'] ? '✓' : '!' }}</span></div>
+                <form method="POST" action="{{ route('technician.projects.submit', $lop) }}" class="mt-4" onsubmit="return confirm('Ajukan seluruh evidence untuk approval?');">@csrf<button class="min-h-12 w-full rounded-2xl {{ $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Ajukan Approval</button></form>
+            </div>
+        </section>
+    @endif
+@endif
+@endsection
