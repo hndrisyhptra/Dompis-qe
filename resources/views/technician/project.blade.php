@@ -24,8 +24,8 @@
 
 <section class="mt-4 rounded-3xl bg-ink-900 p-5 text-white shadow-xl shadow-ink-900/10">
     <div class="flex items-start justify-between gap-3">
-        <div><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
-        <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
+        <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 break-words text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
+        <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
     </div>
     <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
         <div class="rounded-2xl bg-white/8 p-3"><p class="text-ink-400">STO</p><p class="mt-1 font-bold">{{ $lop->sto ?: '—' }}</p></div>

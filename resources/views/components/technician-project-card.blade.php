@@ -16,7 +16,7 @@
             </div>
             <h3 class="mt-1 line-clamp-2 text-sm font-bold leading-5 text-ink-900 dark:text-white">{{ $project->nama_lop }}</h3>
         </div>
-        <x-badge :variant="$summary['review_variant']">{{ $summary['review_label'] }}</x-badge>
+        <x-badge :variant="$summary['review_variant']" class="shrink-0 whitespace-nowrap">{{ $summary['review_label'] }}</x-badge>
     </div>
     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
         <span>{{ $project->sto ?: 'STO belum diisi' }}</span>

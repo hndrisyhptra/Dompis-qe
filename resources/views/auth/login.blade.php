@@ -11,9 +11,13 @@
         style="background-image: url('{{ asset('images/bg-dompis-qe.webp') }}')">
 
         <div class="relative z-10 max-w-md">
-            <h1 class="text-3xl xl:text-4xl font-bold text-white leading-tight tracking-tight">
+            <div class="-mt-4 mb-10 flex items-center gap-4 xl:-mt-6">
+                <img src="{{ asset('images/logo-dompis-qe.webp') }}" alt="{{ config('app.name') }}" class="h-14 w-auto shrink-0 object-contain">
+                <span class="text-3xl font-extrabold tracking-tight text-white">{{ config('app.name') }}</span>
+            </div>
+            {{-- <h1 class="text-3xl xl:text-4xl font-bold text-white leading-tight tracking-tight">
                 Platform Operation QE
-            </h1>
+            </h1> --}}
             <p class="mt-4 text-base leading-relaxed text-white">
                 Kelola LOP, assignment teknisi, survey lapangan, evidence, dan approval
                 dalam satu sistem — dari input hingga penyelesaian pekerjaan.
@@ -33,7 +37,7 @@
 
             <x-card>
                  {{-- Logo --}}
-                <div class="mb-6 flex justify-center">
+                <div class="mb-5 flex flex-col items-center gap-2">
                     <img src="{{ asset('images/logo-dompis-qe.webp') }}" alt="{{ config('app.name') }}" class="h-20 w-auto object-contain">
                 </div>
                 <h2 class="text-center text-xl font-bold text-ink-900 dark:text-ink-50">
