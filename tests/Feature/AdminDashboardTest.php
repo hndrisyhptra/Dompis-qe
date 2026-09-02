@@ -150,7 +150,8 @@ class AdminDashboardTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Matrix WBS')
-            ->assertSee('<details', false)
+            ->assertSee('Ringkasan performa', false)
+            ->assertSee('Branch / WBS', false)
             ->assertSee('branchOpen', false)
             ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, true));
 
