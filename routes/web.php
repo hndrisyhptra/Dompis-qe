@@ -19,6 +19,7 @@ use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
 use App\Http\Controllers\TicketSegmentMapController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WbsController;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
@@ -72,6 +73,11 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::delete('/{qe_lop}/assign', [LopAssignmentController::class, 'destroy'])->name('unassign');
     Route::post('/{qe_lop}/evidence', [EvidenceController::class, 'store'])->name('evidence.store');
     Route::delete('/{qe_lop}/evidence/{evidence}', [EvidenceController::class, 'destroy'])->name('evidence.destroy');
+});
+
+Route::middleware(['auth'])->prefix('wbs')->name('wbs.')->group(function () {
+    Route::get('/', [WbsController::class, 'index'])->name('index');
+    Route::get('/{wbs}', [WbsController::class, 'show'])->name('show');
 });
 
 Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {
