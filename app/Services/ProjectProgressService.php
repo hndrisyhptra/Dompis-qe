@@ -33,24 +33,29 @@ class ProjectProgressService
         $evidences = $lop->evidences;
         $reservedIds = $items->pluck('designator_id')->unique();
         $beforeIds = $evidences->where('category', EvidenceCategory::BEFORE)->pluck('designator_id')->unique();
+        $progressIds = $evidences->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $evidences->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
         $steps = [
             1 => $items->isNotEmpty(),
             2 => $items->isNotEmpty()
+                && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty(),
+            3 => $items->isNotEmpty()
                 && $lop->survey !== null
                 && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty()
-                && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty()
                 && $reservedIds->diff($beforeIds)->isEmpty(),
-            3 => $evidences->where('category', EvidenceCategory::PROGRESS)->isNotEmpty(),
-            4 => $items->isNotEmpty() && $reservedIds->diff($afterIds)->isEmpty(),
+            4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
+            5 => $items->isNotEmpty()
+                && $reservedIds->diff($afterIds)->isEmpty()
+                && $items->every(fn ($item) => $item->qty_actual !== null),
         ];
 
+        $totalSteps = count($steps);
         $completedSteps = collect($steps)->filter()->count();
         $pendingCount = $evidences->where('status', EvidenceStatus::PENDING)->count();
         $approvedCount = $evidences->where('status', EvidenceStatus::APPROVED)->count();
         $rejectedCount = $evidences->where('status', EvidenceStatus::REJECTED)->count();
-        $percentage = $completedSteps * 25;
+        $percentage = (int) round($completedSteps / $totalSteps * 100);
 
         [$reviewKey, $reviewLabel, $reviewVariant] = $this->reviewState(
             $lop,
@@ -64,7 +69,7 @@ class ProjectProgressService
         return [
             'percentage' => $percentage,
             'completed_steps' => $completedSteps,
-            'total_steps' => 4,
+            'total_steps' => $totalSteps,
             'steps' => $steps,
             'review_key' => $reviewKey,
             'review_label' => $reviewLabel,

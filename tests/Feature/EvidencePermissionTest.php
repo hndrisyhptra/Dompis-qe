@@ -122,7 +122,7 @@ class EvidencePermissionTest extends TestCase
                 && $lops->first()->evidences_count === 2);
 
         $this->actingAs($admin)
-            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 4]))
             ->assertOk()
             ->assertSee('2 file')
             ->assertSee('Evidence global untuk step ini');
@@ -164,7 +164,7 @@ class EvidencePermissionTest extends TestCase
         $this->actingAs($adminA)
             ->get(route('evidence-approval.lop.review', $lopA))
             ->assertOk()
-            ->assertSee('Survey &amp; Material', false);
+            ->assertSee('Reservasi &amp; Lokasi', false);
         $this->actingAs($adminA)
             ->get(route('evidence-approval.lop.review', $lopB))
             ->assertForbidden();
@@ -210,7 +210,7 @@ class EvidencePermissionTest extends TestCase
         ]));
 
         $response = $this->actingAs($admin)
-            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 2]))
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
             ->assertOk()
             ->assertSee('Evidence Before · ODP-CLOSURE-01')
             ->assertSee('Optical Distribution Point Closure')

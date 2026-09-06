@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ReplaceEvidenceRequest;
 use App\Http\Requests\StoreMaterialReservationRequest;
+use App\Http\Requests\StoreMaterialUsageRequest;
 use App\Http\Requests\StoreSurveyLocationRequest;
 use App\Http\Requests\StoreTechnicianEvidenceFileRequest;
 use App\Http\Requests\StoreTechnicianEvidenceRequest;
@@ -48,11 +49,19 @@ class TechnicianWorkflowController extends Controller
             ->with('status', 'Reservasi material tersimpan.');
     }
 
+    public function materialUsage(StoreMaterialUsageRequest $request, QeLop $qe_lop): RedirectResponse
+    {
+        $this->workflowService->saveMaterialUsage($qe_lop, $request->user(), $request->validated('usage'));
+
+        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 5])
+            ->with('status', 'Rekap material terpakai tersimpan.');
+    }
+
     public function location(StoreSurveyLocationRequest $request, QeLop $qe_lop): RedirectResponse
     {
         $this->workflowService->saveLocation($qe_lop, $request->user(), $request->validated());
 
-        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 2])
+        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 3])
             ->with('status', 'Lokasi survey tersimpan.');
     }
 
@@ -66,9 +75,10 @@ class TechnicianWorkflowController extends Controller
         );
 
         $step = match ($request->validated('category')) {
-            'pre', 'material_arrival', 'before' => 2,
-            'progress' => 3,
-            'after' => 4,
+            'material_arrival' => 2,
+            'pre', 'before' => 3,
+            'progress' => 4,
+            'after' => 5,
         };
 
         return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $step])
@@ -113,10 +123,11 @@ class TechnicianWorkflowController extends Controller
         $this->evidenceService->replace($evidence, $request->file('file'), $request->user(), $request->file('thumb'));
 
         $step = match ($evidence->category?->value) {
-            'pre', 'material_arrival', 'before' => 2,
-            'progress' => 3,
-            'after' => 4,
-            default => 2,
+            'material_arrival' => 2,
+            'pre', 'before' => 3,
+            'progress' => 4,
+            'after' => 5,
+            default => 3,
         };
 
         return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $step])
@@ -128,7 +139,7 @@ class TechnicianWorkflowController extends Controller
         $this->authorize('transitionStatus', $qe_lop);
         $this->workflowService->completeSurvey($qe_lop, $request->user());
 
-        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 3])
+        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 4])
             ->with('status', 'Survey selesai. Lanjutkan evidence progress.');
     }
 

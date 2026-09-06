@@ -76,7 +76,7 @@ class AdminDashboardService
             ->with([
                 'creator',
                 'activeAssignment.technician',
-                'materialReservation.items',
+                'materialReservation.items.designator',
                 'survey',
                 'evidences',
             ])

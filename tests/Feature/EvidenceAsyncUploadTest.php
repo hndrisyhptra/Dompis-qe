@@ -88,10 +88,12 @@ class EvidenceAsyncUploadTest extends TestCase
     {
         Storage::fake('public');
         [, $technician, $lop] = $this->assignedProject();
+        $designator = $this->reservedDesignator($lop, $technician);
 
         $response = $this->actingAs($technician)->postJson(route('technician.projects.evidence.file', $lop), [
             'category' => 'progress',
             'type' => 'PHOTO',
+            'designator_id' => $designator->id_designator,
             'file' => UploadedFile::fake()->image('progress.webp'),
             'thumb' => UploadedFile::fake()->image('progress_thumb.webp'),
         ]);
@@ -104,6 +106,7 @@ class EvidenceAsyncUploadTest extends TestCase
             'qe_lop_id' => $lop->id_qe_lops,
             'category' => 'progress',
             'step' => 'PROGRESS',
+            'designator_id' => $designator->id_designator,
         ]);
     }
 

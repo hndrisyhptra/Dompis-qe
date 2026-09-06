@@ -60,7 +60,7 @@
                 <div class="min-w-0">
                     <p class="text-sm font-bold text-ink-900 dark:text-white">Progress pekerjaan</p>
                     <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
-                        {{ $summary['completed_steps'] }}/4 step &middot; {{ $summary['evidence_count'] }} evidence &middot; {{ $summary['review_label'] }}
+                        {{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step &middot; {{ $summary['evidence_count'] }} evidence &middot; {{ $summary['review_label'] }}
                     </p>
                 </div>
                 <span class="shrink-0 text-2xl font-extrabold tabular-nums text-ink-900 dark:text-white">{{ $summary['percentage'] }}%</span>
@@ -102,6 +102,32 @@
             <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Deskripsi pekerjaan</p>
             <p class="whitespace-pre-line text-sm leading-6 text-ink-700 dark:text-ink-100">{{ $lop->job_description ?: 'Belum ada deskripsi pekerjaan.' }}</p>
         </div>
+
+        {{-- Rekap material --}}
+        @php $materialItems = $lop->materialReservation?->items ?? collect(); @endphp
+        @if ($materialItems->isNotEmpty())
+            <div>
+                <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Material</p>
+                <dl class="overflow-hidden rounded-2xl border border-ink-100 dark:border-ink-800">
+                    @foreach ($materialItems as $item)
+                        @php $sisa = $item->sisa(); @endphp
+                        <div class="flex items-baseline justify-between gap-4 px-4 py-2.5 {{ ! $loop->last ? 'border-b border-ink-100 dark:border-ink-800' : '' }} {{ $loop->index % 2 ? 'bg-ink-50/40 dark:bg-ink-800/30' : '' }}">
+                            <dt class="min-w-0"><span class="text-sm font-semibold text-ink-800 dark:text-ink-100">{{ $item->designator?->code ?? '—' }}</span><span class="ml-2 text-xs text-ink-400">{{ $item->designator?->item_name }}</span></dt>
+                            <dd class="shrink-0 text-right text-xs">
+                                <span class="text-ink-500 dark:text-ink-400">Resv {{ (float) $item->qty }}{{ $item->qty_actual !== null ? ' · Pakai '.(float) $item->qty_actual : '' }} {{ $item->designator?->unit }}</span>
+                                @if ($item->qty_actual === null)
+                                    <span class="ml-1 rounded bg-ink-100 px-1.5 py-0.5 font-bold text-ink-500 dark:bg-ink-700 dark:text-ink-300">belum direkap</span>
+                                @elseif ($sisa > 0)
+                                    <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">sisa {{ $sisa }}</span>
+                                @else
+                                    <span class="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">penuh</span>
+                                @endif
+                            </dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </div>
+        @endif
 
         {{-- Ringkasan tiket --}}
         @if (filled($lop->ticket_summary))

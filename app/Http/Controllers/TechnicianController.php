@@ -60,7 +60,7 @@ class TechnicianController extends Controller
     {
         $this->authorize('view', $qe_lop);
         $state = $this->workflowService->state($qe_lop);
-        $requestedStep = max(1, min(4, $request->integer('step', $state['currentStep'])));
+        $requestedStep = max(1, min(5, $request->integer('step', $state['currentStep'])));
 
         return view('technician.project', [
             'lop' => $qe_lop,

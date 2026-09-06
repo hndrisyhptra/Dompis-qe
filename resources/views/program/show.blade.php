@@ -131,7 +131,7 @@
                         </div>
                     </td>
                     <td class="min-w-52 px-5 py-4">
-                        <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/4 step</span><strong>{{ $summary['percentage'] }}%</strong></div>
+                        <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step</span><strong>{{ $summary['percentage'] }}%</strong></div>
                         <div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
                             <div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-brand-600' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-blue-500')) }}" style="width: {{ $summary['percentage'] }}%"></div>
                         </div>

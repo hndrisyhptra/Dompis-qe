@@ -92,7 +92,114 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 2]))
             ->assertOk()
-            ->assertSee('Evidence Pra');
+            ->assertSee('Evidence Material Tiba');
+
+        $this->actingAs($technician)
+            ->get(route('technician.projects.show', [$lop, 'step' => 3]))
+            ->assertOk()
+            ->assertSee('Evidence Pra')
+            ->assertSee('Tag lokasi pekerjaan');
+    }
+
+    public function test_material_arrival_is_its_own_step_two_and_gates_evidence_pra(): void
+    {
+        Storage::fake('public');
+        [, $technician, $lop] = $this->assignedProject();
+        $designator = Designator::create([
+            'code' => 'M-MOBILE-STEP2',
+            'item_name' => 'ODP',
+            'unit' => 'pcs',
+            'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
+        ]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
+            'items' => [['designator_id' => $designator->id_designator, 'qty' => 2]],
+        ]);
+
+        $progress = app(ProjectProgressService::class);
+
+        // Setelah reservasi: 1/5 step, step "Material Tiba" belum lengkap.
+        $summary = $progress->summary($lop->fresh());
+        $this->assertSame(5, $summary['total_steps']);
+        $this->assertSame(1, $summary['completed_steps']);
+        $this->assertFalse($summary['steps'][2]);
+
+        // Upload material_arrival -> redirect ke step 2, step 2 jadi lengkap.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'material_arrival',
+            'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('material.jpg')],
+        ])->assertRedirect(route('technician.projects.show', [$lop, 'step' => 2]));
+
+        $summary = $progress->summary($lop->fresh());
+        $this->assertSame(2, $summary['completed_steps']);
+        $this->assertTrue($summary['steps'][2]);
+        $this->assertSame(40, $summary['percentage']);
+    }
+
+    public function test_material_usage_recap_rejects_qty_above_reservation_and_computes_sisa(): void
+    {
+        Storage::fake('public');
+        [, $technician, $lop] = $this->assignedProject();
+        $type = DesignatorType::where('code', 'MATERIAL')->value('id_designator_type');
+        $d = Designator::create(['code' => 'M-USE', 'item_name' => 'Kabel', 'unit' => 'meter', 'designator_type_id' => $type]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
+            'items' => [['designator_id' => $d->id_designator, 'qty' => 10]],
+        ]);
+
+        // Terpakai > reservasi -> ditolak.
+        $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
+            'usage' => [['designator_id' => $d->id_designator, 'qty_actual' => 12]],
+        ])->assertSessionHasErrors('usage.0.qty_actual');
+
+        // Terpakai < reservasi -> tersimpan, sisa dihitung.
+        $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
+            'usage' => [['designator_id' => $d->id_designator, 'qty_actual' => 6.5]],
+        ])->assertRedirect();
+
+        $item = $lop->materialReservation->items()->first();
+        $this->assertSame('6.500', $item->qty_actual);
+        $this->assertEqualsWithDelta(3.5, $item->sisa(), 0.001);
+    }
+
+    public function test_progress_evidence_is_required_per_reserved_designator(): void
+    {
+        Storage::fake('public');
+        [, $technician, $lop] = $this->assignedProject();
+        $type = DesignatorType::where('code', 'MATERIAL')->value('id_designator_type');
+        $d1 = Designator::create(['code' => 'M-PROG-1', 'item_name' => 'ODP', 'unit' => 'pcs', 'designator_type_id' => $type]);
+        $d2 = Designator::create(['code' => 'M-PROG-2', 'item_name' => 'Closure', 'unit' => 'pcs', 'designator_type_id' => $type]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
+            'items' => [
+                ['designator_id' => $d1->id_designator, 'qty' => 1],
+                ['designator_id' => $d2->id_designator, 'qty' => 1],
+            ],
+        ]);
+
+        // Progress harus punya designator_id.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'progress', 'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('p.jpg')],
+        ])->assertSessionHasErrors('designator_id');
+
+        // Upload progress untuk d1 saja -> step 4 belum lengkap.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'progress', 'type' => 'PHOTO', 'designator_id' => $d1->id_designator,
+            'files' => [UploadedFile::fake()->image('p1.jpg')],
+        ]);
+        $this->assertFalse(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][4]);
+
+        // Lengkapi d2 -> step 4 lengkap.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'progress', 'type' => 'PHOTO', 'designator_id' => $d2->id_designator,
+            'files' => [UploadedFile::fake()->image('p2.jpg')],
+        ]);
+        $this->assertTrue(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][4]);
     }
 
     public function test_multiple_evidence_upload_is_scoped_to_reserved_designator(): void
@@ -199,7 +306,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame('Reject', $summary['review_label']);
     }
 
-    public function test_complete_four_step_workflow_can_be_submitted_for_approval(): void
+    public function test_complete_five_step_workflow_can_be_submitted_for_approval(): void
     {
         Storage::fake('public');
         [$admin, $technician, $lop] = $this->assignedProject();
@@ -240,7 +347,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame('progress', $lop->fresh()->status_lop->value);
 
         foreach ([
-            ['progress', null],
+            ['progress', $designator->id_designator],
             ['after', $designator->id_designator],
         ] as [$category, $designatorId]) {
             $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
@@ -250,6 +357,16 @@ class TechnicianMobileWorkflowTest extends TestCase
                 'files' => [UploadedFile::fake()->image("{$category}.jpg")],
             ]);
         }
+
+        // Belum rekap material -> step 5 belum lengkap.
+        $this->assertSame(80, app(ProjectProgressService::class)->summary($lop->fresh())['percentage']);
+
+        $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
+            'usage' => [['designator_id' => $designator->id_designator, 'qty_actual' => 3]],
+        ])->assertRedirect();
+
+        $this->assertSame('3.000', $lop->materialReservation->items()->first()->qty_actual);
+        $this->assertEqualsWithDelta(2.0, $lop->materialReservation->items()->first()->sisa(), 0.001);
 
         $summary = app(ProjectProgressService::class)->summary($lop->fresh());
         $this->assertSame(100, $summary['percentage']);
@@ -262,7 +379,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertSee('Waiting Review');
 
         $this->actingAs($technician)
-            ->get(route('technician.projects.show', [$lop, 'step' => 4]))
+            ->get(route('technician.projects.show', [$lop, 'step' => 5]))
             ->assertOk()
             ->assertSee('Ajukan Approval');
 

@@ -3,17 +3,19 @@
 @php
     $steps = [
         1 => ['Reservasi', $state['step1Complete']],
-        2 => ['Pra', $state['step2Complete']],
-        3 => ['Progress', $state['step3Complete']],
-        4 => ['After', $state['step4Complete']],
+        2 => ['Material Tiba', $state['step2Complete']],
+        3 => ['Pra', $state['step3Complete']],
+        4 => ['Progress', $state['step4Complete']],
+        5 => ['After', $state['step5Complete']],
     ];
+    $lastStep = array_key_last($steps);
 @endphp
 
 <div class="overflow-x-auto pb-1">
-    <div class="flex min-w-[350px] items-start justify-between">
+    <div class="flex min-w-[440px] items-start justify-between">
         @foreach ($steps as $number => [$label, $complete])
             <a href="{{ request()->url() }}?step={{ $number }}" class="relative flex flex-1 flex-col items-center text-center">
-                @if ($number < 4)<span class="absolute left-1/2 top-4 h-0.5 w-full {{ $complete ? 'bg-brand-500' : 'bg-ink-200 dark:bg-ink-700' }}"></span>@endif
+                @if ($number < $lastStep)<span class="absolute left-1/2 top-4 h-0.5 w-full {{ $complete ? 'bg-brand-500' : 'bg-ink-200 dark:bg-ink-700' }}"></span>@endif
                 <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-bold
                     {{ $complete ? 'border-brand-600 bg-brand-600 text-white' : ($current === $number ? 'border-brand-600 bg-white text-brand-600 dark:bg-ink-900' : 'border-ink-200 bg-white text-ink-400 dark:border-ink-700 dark:bg-ink-900') }}">
                     @if ($complete)

@@ -120,7 +120,7 @@ class ProgramController extends Controller
         $query = $base
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
-                'assignments.assigner', 'histories.user', 'materialReservation.items',
+                'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
                 'survey', 'evidences',
             ]);
 

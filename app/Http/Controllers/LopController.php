@@ -57,7 +57,7 @@ class LopController extends Controller
         $query = QeLop::query()
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
-                'assignments.assigner', 'histories.user', 'materialReservation.items',
+                'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
                 'survey', 'evidences',
             ])
             ->where('status_lop', '!=', LopStatus::COMPLETED->value);

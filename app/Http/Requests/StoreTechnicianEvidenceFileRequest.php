@@ -38,7 +38,7 @@ class StoreTechnicianEvidenceFileRequest extends FormRequest
         return [function ($validator) {
             $category = EvidenceCategory::tryFrom((string) $this->input('category'));
 
-            if (in_array($category, [EvidenceCategory::BEFORE, EvidenceCategory::AFTER], true)
+            if (in_array($category, [EvidenceCategory::BEFORE, EvidenceCategory::PROGRESS, EvidenceCategory::AFTER], true)
                 && ! $this->filled('designator_id')) {
                 $validator->errors()->add('designator_id', 'Pilih item designator untuk evidence ini.');
             }

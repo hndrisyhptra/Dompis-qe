@@ -34,7 +34,7 @@ class EvidenceApprovalController extends Controller
 
         return view('evidence-approval.lop-review', [
             ...$this->approvalService->reviewData($qe_lop),
-            'currentStep' => max(1, min(4, $request->integer('step', 1))),
+            'currentStep' => max(1, min(5, $request->integer('step', 1))),
         ]);
     }
 

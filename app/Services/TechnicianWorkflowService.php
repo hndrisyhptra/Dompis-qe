@@ -81,6 +81,40 @@ class TechnicianWorkflowService
         return $reservation;
     }
 
+    /**
+     * Rekap qty aktual terpakai per designator. qty_actual di-clamp ke qty
+     * reservasi (validasi form sudah menolak nilai > reservasi; ini jaring
+     * pengaman terakhir). Item di luar reservasi diabaikan.
+     *
+     * @param  array<int, array{designator_id: int|string, qty_actual: int|float|string}>  $usage
+     */
+    public function saveMaterialUsage(QeLop $lop, User $technician, array $usage): void
+    {
+        $this->assertActiveAssignment($lop, $technician);
+
+        $reservation = $lop->materialReservation;
+
+        if ($reservation === null || $reservation->items->isEmpty()) {
+            throw ValidationException::withMessages(['usage' => 'Belum ada reservasi material untuk direkap.']);
+        }
+
+        $byDesignator = collect($usage)->keyBy(fn ($row) => (int) $row['designator_id']);
+
+        DB::transaction(function () use ($reservation, $byDesignator) {
+            foreach ($reservation->items as $item) {
+                $row = $byDesignator->get((int) $item->designator_id);
+
+                if ($row === null) {
+                    continue;
+                }
+
+                $item->update([
+                    'qty_actual' => min((float) $row['qty_actual'], (float) $item->qty),
+                ]);
+            }
+        });
+    }
+
     public function saveLocation(QeLop $lop, User $technician, array $data): QeSurvey
     {
         $this->assertActiveAssignment($lop, $technician);
@@ -127,7 +161,7 @@ class TechnicianWorkflowService
         $this->assertActiveAssignment($lop, $technician);
         $category = EvidenceCategory::from($data['category']);
 
-        if (in_array($category, [EvidenceCategory::BEFORE, EvidenceCategory::AFTER], true)) {
+        if (in_array($category, [EvidenceCategory::BEFORE, EvidenceCategory::PROGRESS, EvidenceCategory::AFTER], true)) {
             $isReserved = $lop->materialReservation?->items()
                 ->where('designator_id', $data['designator_id'])->exists() ?? false;
 
@@ -152,8 +186,8 @@ class TechnicianWorkflowService
     {
         $state = $this->state($lop);
 
-        if (! $state['step2Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Lengkapi lokasi, evidence pra, material tiba, dan before setiap item.']);
+        if (! $state['step3Complete']) {
+            throw ValidationException::withMessages(['workflow' => 'Lengkapi lokasi, evidence pra, dan before setiap item.']);
         }
 
         if ($lop->status_lop === LopStatus::SURVEY) {
@@ -165,8 +199,13 @@ class TechnicianWorkflowService
     {
         $state = $this->state($lop);
 
-        if (! $state['step2Complete'] || ! $state['step3Complete'] || ! $state['step4Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Semua checklist evidence harus lengkap sebelum diajukan.']);
+        if (! $state['step2Complete'] || ! $state['step3Complete'] || ! $state['step4Complete']
+            || ($state['step1Complete'] && ! $state['materialUsageComplete']) || ! $state['step5Complete']) {
+            throw ValidationException::withMessages([
+                'workflow' => ! $state['materialUsageComplete']
+                    ? 'Rekap qty material terpakai belum lengkap.'
+                    : 'Semua checklist evidence harus lengkap sebelum diajukan.',
+            ]);
         }
 
         if ($lop->status_lop !== LopStatus::PROGRESS) {
@@ -185,18 +224,23 @@ class TechnicianWorkflowService
         $validEvidence = $lop->evidences->filter(fn ($evidence) => $evidence->status !== EvidenceStatus::REJECTED);
         $reservedIds = $items->pluck('designator_id')->unique();
         $beforeIds = $validEvidence->where('category', EvidenceCategory::BEFORE)->pluck('designator_id')->unique();
+        $progressIds = $validEvidence->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $validEvidence->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
+        // Step 1 Reservasi · Step 2 Material Tiba · Step 3 Evidence Pra ·
+        // Step 4 Progress (per designator) · Step 5 After (per designator).
         $step1 = $items->isNotEmpty();
         $step2 = $step1
+            && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
+        $step3 = $step2
             && $lop->survey !== null
             && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty()
-            && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty()
             && $reservedIds->diff($beforeIds)->isEmpty();
-        $step3 = $validEvidence->where('category', EvidenceCategory::PROGRESS)->isNotEmpty();
-        $step4 = $step1 && $reservedIds->diff($afterIds)->isEmpty();
+        $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
+        $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
+        $step5 = $step1 && $reservedIds->diff($afterIds)->isEmpty() && $materialUsageComplete;
 
-        $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : 4));
+        $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : (! $step4 ? 4 : 5)));
 
         return [
             'reservation' => $lop->materialReservation,
@@ -207,8 +251,11 @@ class TechnicianWorkflowService
             'step2Complete' => $step2,
             'step3Complete' => $step3,
             'step4Complete' => $step4,
+            'step5Complete' => $step5,
             'currentStep' => $currentStep,
+            'materialUsageComplete' => $materialUsageComplete,
             'missingBefore' => $items->whereIn('designator_id', $reservedIds->diff($beforeIds)),
+            'missingProgress' => $items->whereIn('designator_id', $reservedIds->diff($progressIds)),
             'missingAfter' => $items->whereIn('designator_id', $reservedIds->diff($afterIds)),
         ];
     }

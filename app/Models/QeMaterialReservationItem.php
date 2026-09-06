@@ -11,11 +11,23 @@ class QeMaterialReservationItem extends Model
 
     protected $primaryKey = 'id_reservation_item';
 
-    protected $fillable = ['reservation_id', 'designator_id', 'qty'];
+    protected $fillable = ['reservation_id', 'designator_id', 'qty', 'qty_actual'];
 
     protected function casts(): array
     {
-        return ['qty' => 'decimal:3'];
+        return ['qty' => 'decimal:3', 'qty_actual' => 'decimal:3'];
+    }
+
+    /**
+     * Material sisa (belum terpakai). Null selama qty aktual belum direkap.
+     */
+    public function sisa(): ?float
+    {
+        if ($this->qty_actual === null) {
+            return null;
+        }
+
+        return max(0, (float) $this->qty - (float) $this->qty_actual);
     }
 
     public function reservation(): BelongsTo

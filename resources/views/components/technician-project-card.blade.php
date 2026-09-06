@@ -25,7 +25,7 @@
     </div>
     <div class="mt-4">
         <div class="mb-1.5 flex justify-between text-[11px] font-medium text-ink-500 dark:text-ink-400">
-            <span>{{ $summary['completed_steps'] }}/4 step lengkap</span><span>{{ $progress }}%</span>
+            <span>{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step lengkap</span><span>{{ $progress }}%</span>
         </div>
         <div class="h-1.5 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
             <div class="h-full rounded-full {{ $attention ? 'bg-brand-500' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-brand-600')) }} transition-all duration-500" style="width: {{ $progress }}%"></div>
