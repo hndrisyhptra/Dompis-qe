@@ -22,7 +22,7 @@ class StoreEvidenceRequest extends FormRequest
             'designator_id' => ['nullable', 'integer', 'exists:designators,id_designator'],
             // Validasi extension + mime type + limit ukuran sesuai
             // CLAUDE.md Security Rules - file upload wajib divalidasi.
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
             'note' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class QeEvidence extends Model
 {
@@ -27,6 +28,7 @@ class QeEvidence extends Model
         'type',
         'category',
         'file_path',
+        'thumb_path',
         'metadata',
         'note',
         'status',
@@ -45,6 +47,24 @@ class QeEvidence extends Model
             'metadata' => 'array',
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * URL file evidence asli (full-res) di disk yang dikonfigurasi.
+     */
+    public function url(): string
+    {
+        return Storage::disk(config('evidence.disk'))->url($this->file_path);
+    }
+
+    /**
+     * URL thumbnail; jatuh balik ke file asli bila thumbnail belum ada.
+     */
+    public function thumbUrl(): string
+    {
+        return $this->thumb_path
+            ? Storage::disk(config('evidence.disk'))->url($this->thumb_path)
+            : $this->url();
     }
 
     public function lop(): BelongsTo

@@ -15,6 +15,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "alpinejs": "^3.16.3"
+        "alpinejs": "^3.16.3",
+        "browser-image-compression": "^2.0.2"
     }
 }

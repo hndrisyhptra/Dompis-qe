@@ -7,10 +7,12 @@ use App\Enums\EvidenceStatus;
 use App\Enums\EvidenceStep;
 use App\Enums\LopStatus;
 use App\Models\Designator;
+use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\QeSurvey;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -95,6 +97,33 @@ class TechnicianWorkflowService
 
     public function uploadEvidence(QeLop $lop, User $technician, array $data, array $files): array
     {
+        $data = $this->prepareEvidenceData($lop, $technician, $data);
+
+        return $this->evidenceService->uploadMany($lop, $data, $files, $technician);
+    }
+
+    /**
+     * Jalur upload async per-file (progress + retry). Sama semantiknya dengan
+     * uploadEvidence() tapi satu file + thumbnail opsional dari browser.
+     */
+    public function uploadEvidenceFile(
+        QeLop $lop,
+        User $technician,
+        array $data,
+        UploadedFile $file,
+        ?UploadedFile $thumb = null,
+    ): QeEvidence {
+        $data = $this->prepareEvidenceData($lop, $technician, $data);
+
+        return DB::transaction(fn () => $this->evidenceService->storeOne($lop, $data, $file, $technician, $thumb));
+    }
+
+    /**
+     * Validasi assignment + reservasi material, null-kan designator untuk
+     * kategori non-item, lalu turunkan `step` dari `category`.
+     */
+    private function prepareEvidenceData(QeLop $lop, User $technician, array $data): array
+    {
         $this->assertActiveAssignment($lop, $technician);
         $category = EvidenceCategory::from($data['category']);
 
@@ -116,7 +145,7 @@ class TechnicianWorkflowService
             EvidenceCategory::AFTER => EvidenceStep::AFTER->value,
         };
 
-        return $this->evidenceService->uploadMany($lop, $data, $files, $technician);
+        return $data;
     }
 
     public function completeSurvey(QeLop $lop, User $technician): void

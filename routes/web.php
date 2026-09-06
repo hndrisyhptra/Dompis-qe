@@ -33,6 +33,7 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
     Route::put('/projects/{qe_lop}/materials', [TechnicianWorkflowController::class, 'materials'])->name('projects.materials');
     Route::put('/projects/{qe_lop}/location', [TechnicianWorkflowController::class, 'location'])->name('projects.location');
     Route::post('/projects/{qe_lop}/evidence', [TechnicianWorkflowController::class, 'evidence'])->name('projects.evidence');
+    Route::post('/projects/{qe_lop}/evidence/file', [TechnicianWorkflowController::class, 'evidenceFile'])->name('projects.evidence.file');
     Route::put('/projects/{qe_lop}/evidence/{evidence}/replace', [TechnicianWorkflowController::class, 'replaceEvidence'])->name('projects.evidence.replace');
     Route::post('/projects/{qe_lop}/survey-complete', [TechnicianWorkflowController::class, 'completeSurvey'])->name('projects.survey-complete');
     Route::post('/projects/{qe_lop}/submit', [TechnicianWorkflowController::class, 'submitApproval'])->name('projects.submit');

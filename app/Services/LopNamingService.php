@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class LopNamingService
 {
-    public const DEFAULT_TEMPLATE = '{area}{sto}_{wbs_code}_{incident}_{description}';
+    public const DEFAULT_TEMPLATE = '{area}{sto}_{wbs_code}_{incident}_{segment}';
 
     public function activeTemplate(): string
     {

@@ -23,34 +23,70 @@ class EvidenceService
 {
     public function __construct(private readonly LopService $lopService) {}
 
-    public function upload(QeLop $lop, array $data, UploadedFile $file, User $actor): QeEvidence
+    /**
+     * Disk penyimpanan evidence (default `public`, bisa dipindah ke s3 lewat
+     * config('evidence.disk') tanpa mengubah service ini).
+     */
+    private function disk(): string
     {
-        return DB::transaction(function () use ($lop, $data, $file, $actor) {
-            // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.
-            $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
-            $path = $file->storeAs(
-                "evidences/{$lop->id_qe_lops}/{$data['step']}",
-                $filename,
-                'public'
-            );
+        return config('evidence.disk', 'public');
+    }
 
-            return QeEvidence::create([
-                'qe_lop_id' => $lop->id_qe_lops,
-                'designator_id' => $data['designator_id'] ?? null,
-                'uploaded_by' => $actor->id_user,
-                'step' => $data['step'],
-                'type' => $data['type'],
-                'category' => $data['category'] ?? null,
-                'file_path' => $path,
-                'metadata' => [
-                    'original_name' => $file->getClientOriginalName(),
-                    'mime' => $file->getClientMimeType(),
-                    'size' => $file->getSize(),
-                ],
-                'note' => $data['note'] ?? null,
-                'status' => EvidenceStatus::PENDING,
-            ]);
-        });
+    /**
+     * Tulis SATU file evidence (+ thumbnail opsional dari browser) dan buat
+     * satu baris qe_evidences. Tidak membuka transaksi sendiri - caller yang
+     * mengaturnya (lihat uploadMany). $writtenPaths (by-ref) diisi path file
+     * yang sudah ditulis, untuk cleanup bila transaksi caller gagal.
+     */
+    public function storeOne(
+        QeLop $lop,
+        array $data,
+        UploadedFile $file,
+        User $actor,
+        ?UploadedFile $thumb = null,
+        ?array &$writtenPaths = null,
+    ): QeEvidence {
+        $dir = "evidences/{$lop->id_qe_lops}/{$data['step']}";
+        // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.
+        $uuid = (string) Str::uuid();
+
+        $path = $file->storeAs($dir, $uuid.'.'.$file->getClientOriginalExtension(), $this->disk());
+        if (is_array($writtenPaths)) {
+            $writtenPaths[] = $path;
+        }
+
+        $thumbPath = null;
+        if ($thumb) {
+            $thumbPath = $thumb->storeAs($dir, $uuid.'_thumb.'.$thumb->getClientOriginalExtension(), $this->disk());
+            if (is_array($writtenPaths)) {
+                $writtenPaths[] = $thumbPath;
+            }
+        }
+
+        return QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops,
+            'designator_id' => $data['designator_id'] ?? null,
+            'uploaded_by' => $actor->id_user,
+            'step' => $data['step'],
+            'type' => $data['type'],
+            'category' => $data['category'] ?? null,
+            'file_path' => $path,
+            'thumb_path' => $thumbPath,
+            'metadata' => [
+                'original_name' => $file->getClientOriginalName(),
+                'mime' => $file->getClientMimeType(),
+                'size' => $file->getSize(),
+                'latitude' => $data['latitude'] ?? null,
+                'longitude' => $data['longitude'] ?? null,
+            ],
+            'note' => $data['note'] ?? null,
+            'status' => EvidenceStatus::PENDING,
+        ]);
+    }
+
+    public function upload(QeLop $lop, array $data, UploadedFile $file, User $actor, ?UploadedFile $thumb = null): QeEvidence
+    {
+        return DB::transaction(fn () => $this->storeOne($lop, $data, $file, $actor, $thumb));
     }
 
     /**
@@ -62,45 +98,20 @@ class EvidenceService
      */
     public function uploadMany(QeLop $lop, array $data, array $files, User $actor): array
     {
-        $storedPaths = [];
+        $writtenPaths = [];
 
         try {
-            return DB::transaction(function () use ($lop, $data, $files, $actor, &$storedPaths) {
+            return DB::transaction(function () use ($lop, $data, $files, $actor, &$writtenPaths) {
                 $evidences = [];
 
                 foreach ($files as $file) {
-                    $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
-                    $path = $file->storeAs(
-                        "evidences/{$lop->id_qe_lops}/{$data['step']}",
-                        $filename,
-                        'public'
-                    );
-                    $storedPaths[] = $path;
-
-                    $evidences[] = QeEvidence::create([
-                        'qe_lop_id' => $lop->id_qe_lops,
-                        'designator_id' => $data['designator_id'] ?? null,
-                        'uploaded_by' => $actor->id_user,
-                        'step' => $data['step'],
-                        'type' => $data['type'],
-                        'category' => $data['category'],
-                        'file_path' => $path,
-                        'metadata' => [
-                            'original_name' => $file->getClientOriginalName(),
-                            'mime' => $file->getClientMimeType(),
-                            'size' => $file->getSize(),
-                            'latitude' => $data['latitude'] ?? null,
-                            'longitude' => $data['longitude'] ?? null,
-                        ],
-                        'note' => $data['note'] ?? null,
-                        'status' => EvidenceStatus::PENDING,
-                    ]);
+                    $evidences[] = $this->storeOne($lop, $data, $file, $actor, null, $writtenPaths);
                 }
 
                 return $evidences;
             });
         } catch (Throwable $exception) {
-            Storage::disk('public')->delete($storedPaths);
+            Storage::disk($this->disk())->delete($writtenPaths);
             throw $exception;
         }
     }
@@ -126,21 +137,24 @@ class EvidenceService
         return $evidence;
     }
 
-    public function replace(QeEvidence $evidence, UploadedFile $file, User $actor): QeEvidence
+    public function replace(QeEvidence $evidence, UploadedFile $file, User $actor, ?UploadedFile $thumb = null): QeEvidence
     {
-        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
-        $newPath = $file->storeAs(
-            "evidences/{$evidence->qe_lop_id}/{$evidence->step->value}",
-            $filename,
-            'public'
-        );
-        $oldPath = $evidence->file_path;
+        $dir = "evidences/{$evidence->qe_lop_id}/{$evidence->step->value}";
+        $uuid = (string) Str::uuid();
+
+        $newPath = $file->storeAs($dir, $uuid.'.'.$file->getClientOriginalExtension(), $this->disk());
+        $newThumbPath = $thumb
+            ? $thumb->storeAs($dir, $uuid.'_thumb.'.$thumb->getClientOriginalExtension(), $this->disk())
+            : null;
+
+        $oldPaths = array_filter([$evidence->file_path, $evidence->thumb_path]);
 
         try {
-            $evidence = DB::transaction(function () use ($evidence, $file, $actor, $newPath) {
+            $evidence = DB::transaction(function () use ($evidence, $file, $actor, $newPath, $newThumbPath) {
                 $metadata = $evidence->metadata ?? [];
                 $evidence->update([
                     'file_path' => $newPath,
+                    'thumb_path' => $newThumbPath,
                     'uploaded_by' => $actor->id_user,
                     'metadata' => [
                         ...$metadata,
@@ -158,11 +172,11 @@ class EvidenceService
                 return $evidence->refresh();
             });
         } catch (Throwable $exception) {
-            Storage::disk('public')->delete($newPath);
+            Storage::disk($this->disk())->delete(array_filter([$newPath, $newThumbPath]));
             throw $exception;
         }
 
-        Storage::disk('public')->delete($oldPath);
+        Storage::disk($this->disk())->delete($oldPaths);
 
         return $evidence;
     }
@@ -254,7 +268,7 @@ class EvidenceService
     public function delete(QeEvidence $evidence): void
     {
         DB::transaction(function () use ($evidence) {
-            Storage::disk('public')->delete($evidence->file_path);
+            Storage::disk($this->disk())->delete(array_filter([$evidence->file_path, $evidence->thumb_path]));
             $evidence->delete();
         });
     }

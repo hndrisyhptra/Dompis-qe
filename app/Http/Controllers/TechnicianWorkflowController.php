@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ReplaceEvidenceRequest;
 use App\Http\Requests\StoreMaterialReservationRequest;
 use App\Http\Requests\StoreSurveyLocationRequest;
+use App\Http\Requests\StoreTechnicianEvidenceFileRequest;
 use App\Http\Requests\StoreTechnicianEvidenceRequest;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Services\EvidenceService;
 use App\Services\TechnicianWorkflowService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -73,6 +75,34 @@ class TechnicianWorkflowController extends Controller
             ->with('status', count($request->file('files')).' file evidence berhasil diupload.');
     }
 
+    /**
+     * Upload evidence SATU file (jalur async dengan progress + retry).
+     * Dipanggil via XHR dari window.evidenceUploader; mengembalikan JSON.
+     */
+    public function evidenceFile(StoreTechnicianEvidenceFileRequest $request, QeLop $qe_lop): JsonResponse
+    {
+        $evidence = $this->workflowService->uploadEvidenceFile(
+            $qe_lop,
+            $request->user(),
+            $request->safe()->except(['file', 'thumb']),
+            $request->file('file'),
+            $request->file('thumb'),
+        );
+
+        return response()->json([
+            'id' => $evidence->id_evidence,
+            'url' => $evidence->url(),
+            'thumb_url' => $evidence->thumbUrl(),
+            'name' => $evidence->metadata['original_name'] ?? null,
+            'size' => $evidence->metadata['size'] ?? null,
+            'status' => $evidence->status->value,
+            'status_label' => $evidence->status->label(),
+            'category' => $evidence->category?->value,
+            'designator_id' => $evidence->designator_id,
+            'created_at' => $evidence->created_at?->format('d M Y H:i'),
+        ], 201);
+    }
+
     public function replaceEvidence(
         ReplaceEvidenceRequest $request,
         QeLop $qe_lop,
@@ -80,7 +110,7 @@ class TechnicianWorkflowController extends Controller
     ): RedirectResponse {
         abort_unless($evidence->qe_lop_id === $qe_lop->id_qe_lops, 404);
 
-        $this->evidenceService->replace($evidence, $request->file('file'), $request->user());
+        $this->evidenceService->replace($evidence, $request->file('file'), $request->user(), $request->file('thumb'));
 
         $step = match ($evidence->category?->value) {
             'pre', 'material_arrival', 'before' => 2,

@@ -8,6 +8,7 @@ enum LopSegment: string
     case DISTRIBUSI = 'distribusi';
     case ODC = 'odc';
     case ODP = 'odp';
+    case TIANG = 'tiang';
     case JC = 'jc';
     case OTB = 'otb';
 
@@ -18,6 +19,7 @@ enum LopSegment: string
             self::DISTRIBUSI => 'Distribusi',
             self::ODC => 'ODC',
             self::ODP => 'ODP',
+            self::TIANG => 'Tiang',
             self::JC => 'JC',
             self::OTB => 'OTB',
         };

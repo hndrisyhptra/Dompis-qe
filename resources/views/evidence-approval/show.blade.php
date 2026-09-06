@@ -7,8 +7,8 @@
     $mime = data_get($evidence->metadata, 'mime', '');
     $fileName = data_get($evidence->metadata, 'original_name', basename($evidence->file_path));
     $fileSize = data_get($evidence->metadata, 'size', 0);
-    $fileUrl = \Illuminate\Support\Facades\Storage::url($evidence->file_path);
-    $isImage = str_starts_with($mime, 'image/') || in_array(strtolower(pathinfo($evidence->file_path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png']);
+    $fileUrl = $evidence->url();
+    $isImage = str_starts_with($mime, 'image/') || in_array(strtolower(pathinfo($evidence->file_path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp']);
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -20,7 +20,7 @@
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)]">
         <section class="overflow-hidden rounded-3xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex items-center justify-between gap-3 border-b border-ink-100 px-5 py-4 dark:border-ink-800"><div><h2 class="text-sm font-extrabold">Preview file</h2><p class="mt-1 max-w-md truncate text-xs text-ink-400">{{ $fileName }}</p></div><a href="{{ $fileUrl }}" target="_blank" class="rounded-xl border border-ink-200 px-3 py-2 text-xs font-bold dark:border-ink-700">Buka asli</a></div>
-            <div class="bg-ink-950">@if ($isImage)<img src="{{ $fileUrl }}" alt="{{ $fileName }}" class="mx-auto max-h-[68vh] w-full object-contain">@else<div class="grid min-h-[420px] place-items-center text-center text-white"><div><p class="text-6xl font-extrabold text-brand-400">PDF</p><p class="mt-3 text-sm text-ink-300">Preview PDF dibuka pada tab baru.</p><a href="{{ $fileUrl }}" target="_blank" class="mt-5 inline-flex rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-ink-900">Buka dokumen</a></div></div>@endif</div>
+            <div class="bg-ink-950">@if ($isImage)<img src="{{ $fileUrl }}" alt="{{ $fileName }}" loading="lazy" decoding="async" class="mx-auto max-h-[68vh] w-full object-contain">@else<div class="grid min-h-[420px] place-items-center text-center text-white"><div><p class="text-6xl font-extrabold text-brand-400">PDF</p><p class="mt-3 text-sm text-ink-300">Preview PDF dibuka pada tab baru.</p><a href="{{ $fileUrl }}" target="_blank" class="mt-5 inline-flex rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-ink-900">Buka dokumen</a></div></div>@endif</div>
         </section>
 
         <aside class="space-y-4">

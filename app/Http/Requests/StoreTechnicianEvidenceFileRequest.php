@@ -7,7 +7,12 @@ use App\Enums\EvidenceType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreTechnicianEvidenceRequest extends FormRequest
+/**
+ * Upload evidence teknisi SATU file (jalur async per-file dengan progress).
+ * Aturan sama dengan StoreTechnicianEvidenceRequest tapi `file` tunggal +
+ * `thumb` opsional (webp kecil yang dibuat di browser).
+ */
+class StoreTechnicianEvidenceFileRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,8 +25,8 @@ class StoreTechnicianEvidenceRequest extends FormRequest
             'category' => ['required', Rule::enum(EvidenceCategory::class)],
             'type' => ['required', Rule::enum(EvidenceType::class)],
             'designator_id' => ['nullable', 'integer', 'exists:designators,id_designator'],
-            'files' => ['required', 'array', 'min:1', 'max:12'],
-            'files.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'thumb' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
             'note' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],

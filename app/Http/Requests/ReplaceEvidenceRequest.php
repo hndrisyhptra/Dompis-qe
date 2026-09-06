@@ -14,7 +14,8 @@ class ReplaceEvidenceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            'thumb' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
         ];
     }
 }

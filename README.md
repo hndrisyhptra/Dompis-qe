@@ -7,6 +7,24 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Dompis QE — catatan operasional
+
+### Upload evidence foto (teknisi)
+
+Foto dikompres di browser (webp, ~≤1 MB) lalu diupload **satu per satu** secara async
+(progress + retry). Batas server tetap perlu dinaikkan dari default PHP:
+
+- **Produksi (PHP-FPM):** sudah diatur lewat `public/.user.ini`
+  (`upload_max_filesize=12M`, `post_max_size=60M`, `max_file_uploads=40`, `memory_limit=256M`).
+- **Nginx:** tambahkan `client_max_body_size 60m;` pada server block. Blok akses ke
+  `.user.ini`: `location ~ /\.user\.ini$ { deny all; }`.
+- **Dev (`php artisan serve`):** `.user.ini` tidak dibaca; set nilai yang sama di
+  `php.ini` Homebrew lalu restart `serve`.
+
+Disk penyimpanan evidence dikontrol lewat `EVIDENCE_DISK` (default `public`).
+
+---
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

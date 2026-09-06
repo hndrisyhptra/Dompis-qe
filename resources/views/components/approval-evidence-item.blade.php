@@ -4,8 +4,9 @@
     $mime = data_get($evidence->metadata, 'mime', '');
     $fileName = data_get($evidence->metadata, 'original_name', basename($evidence->file_path));
     $fileSize = data_get($evidence->metadata, 'size', 0);
-    $fileUrl = \Illuminate\Support\Facades\Storage::url($evidence->file_path);
-    $isImage = str_starts_with($mime, 'image/') || in_array(strtolower(pathinfo($evidence->file_path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png']);
+    $fileUrl = $evidence->url();
+    $thumbUrl = $evidence->thumbUrl();
+    $isImage = str_starts_with($mime, 'image/') || in_array(strtolower(pathinfo($evidence->file_path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp']);
     $statusBorder = match ($evidence->status) {
         \App\Enums\EvidenceStatus::APPROVED => 'border-emerald-200 dark:border-emerald-800',
         \App\Enums\EvidenceStatus::REJECTED => 'border-brand-200 dark:border-brand-800',
@@ -16,7 +17,7 @@
 <article class="overflow-hidden rounded-xl border {{ $statusBorder }} bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-ink-900">
     <button type="button" onclick="document.getElementById('evidence-preview-{{ $evidence->id_evidence }}').showModal()" class="group relative block aspect-[4/3] w-full overflow-hidden bg-ink-950 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/50">
         @if ($isImage)
-            <img src="{{ $fileUrl }}" alt="{{ $fileName }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]">
+            <img src="{{ $thumbUrl }}" alt="{{ $fileName }}" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]">
         @else
             <span class="grid h-full place-items-center text-center"><span><span class="block text-3xl font-extrabold text-brand-400">PDF</span><span class="mt-1 block text-[10px] text-ink-300">Preview dokumen</span></span></span>
         @endif
@@ -72,7 +73,7 @@
 <x-modal id="evidence-preview-{{ $evidence->id_evidence }}" title="Preview · {{ $fileName }}" size="xl">
     <div class="overflow-hidden rounded-2xl bg-ink-950">
         @if ($isImage)
-            <img src="{{ $fileUrl }}" alt="{{ $fileName }}" class="mx-auto max-h-[72vh] w-full object-contain">
+            <img src="{{ $fileUrl }}" alt="{{ $fileName }}" loading="lazy" decoding="async" class="mx-auto max-h-[72vh] w-full object-contain">
         @else
             <div class="grid min-h-80 place-items-center text-center text-white"><div><p class="text-5xl font-extrabold text-brand-400">PDF</p><p class="mt-2 text-xs text-ink-300">Dokumen akan dibuka pada tab baru.</p><a href="{{ $fileUrl }}" target="_blank" class="mt-4 inline-flex rounded-xl bg-white px-4 py-2 text-xs font-bold text-ink-900">Buka dokumen</a></div></div>
         @endif
@@ -82,7 +83,7 @@
 
 <x-modal id="evidence-detail-{{ $evidence->id_evidence }}" title="Detail Evidence" size="lg">
     <div class="flex items-start gap-3 rounded-xl bg-ink-50 p-3 dark:bg-ink-800">
-        <span class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-ink-950">@if($isImage)<img src="{{ $fileUrl }}" alt="" class="h-full w-full object-cover">@else<span class="grid h-full place-items-center text-[10px] font-bold text-brand-400">PDF</span>@endif</span>
+        <span class="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-ink-950">@if($isImage)<img src="{{ $thumbUrl }}" alt="" loading="lazy" decoding="async" class="h-full w-full object-cover">@else<span class="grid h-full place-items-center text-[10px] font-bold text-brand-400">PDF</span>@endif</span>
         <div class="min-w-0"><p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $fileName }}</p><p class="mt-1 text-xs text-ink-500">{{ $evidence->category?->label() ?? $evidence->step->label() }}</p><div class="mt-2"><x-badge :variant="$evidence->status->badgeVariant()">{{ $evidence->status->label() }}</x-badge></div></div>
     </div>
     <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2">

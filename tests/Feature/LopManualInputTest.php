@@ -40,7 +40,7 @@ class LopManualInputTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('qe_lops', [
             'incident' => 'INC123456',
-            'nama_lop' => '3SDA_QEREC_INC123456_Penggantian_BOX_ODP',
+            'nama_lop' => '3SDA_QEREC_INC123456_ODP',
             'segment' => 'odp',
             'budget_type' => null,
             'ihld_id' => null,
