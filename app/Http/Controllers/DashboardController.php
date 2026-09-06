@@ -14,7 +14,7 @@ class DashboardController extends Controller
     {
         return view('dashboard.index', $this->dashboardService->dashboard(
             $request->user(),
-            $request->only(['region', 'branch', 'wbs', 'status']),
+            $request->only(['region', 'branch', 'program', 'status']),
         ));
     }
 }

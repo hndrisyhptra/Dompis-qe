@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Enums\EvidenceStatus;
 use App\Enums\LopStatus;
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
-use App\Enums\WbsType;
 use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
@@ -64,7 +64,7 @@ class EvidenceApprovalService
             'search' => $filters['q'] ?? '',
             'regionFilter' => $filters['region'] ?? '',
             'branchFilter' => $filters['branch'] ?? '',
-            'wbsFilter' => $filters['wbs'] ?? '',
+            'programFilter' => $filters['program'] ?? '',
             'lopStatusFilter' => $filters['lop_status'] ?? '',
             'isSuperAdmin' => $user->hasRole(UserRole::SUPER_ADMIN),
             'regions' => Branch::query()->whereNotNull('region')->distinct()->orderBy('region')->pluck('region'),
@@ -153,8 +153,8 @@ class EvidenceApprovalService
             });
         }
 
-        if ($wbs = WbsType::tryFrom((string) ($filters['wbs'] ?? ''))) {
-            $query->where('wbs_type', $wbs);
+        if ($program = ProgramType::tryFrom((string) ($filters['program'] ?? ''))) {
+            $query->where('program_type', $program);
         }
 
         if ($lopStatus = LopStatus::tryFrom((string) ($filters['lop_status'] ?? ''))) {

@@ -26,7 +26,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-MOBILE-01',
             'nama_lop' => 'Project Mobile Teknisi',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'assigned',
             'created_by' => $admin->id_user,
         ]);

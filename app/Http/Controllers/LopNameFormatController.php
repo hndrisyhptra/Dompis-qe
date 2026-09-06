@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\WbsType;
+use App\Enums\ProgramType;
 use App\Http\Requests\UpdateLopNameFormatRequest;
 use App\Services\LopNamingService;
 use Illuminate\Http\RedirectResponse;
@@ -19,8 +19,8 @@ class LopNameFormatController extends Controller
         return view('lop-name-format.edit', [
             'template' => $this->namingService->activeTemplate(),
             'tokens' => $this->namingService->availableTokens(),
-            'wbsCodes' => collect(WbsType::cases())->mapWithKeys(
-                fn (WbsType $type) => [$type->value => $type->code()]
+            'programCodes' => collect(ProgramType::cases())->mapWithKeys(
+                fn (ProgramType $type) => [$type->value => $type->code()]
             ),
         ]);
     }

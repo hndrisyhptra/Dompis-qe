@@ -86,11 +86,11 @@
                 </label>
 
                 <label class="space-y-1.5">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-ink-400">WBS</span>
-                    <select name="wbs" class="min-h-11 w-full rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm font-semibold outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800">
-                        <option value="">Semua WBS</option>
-                        @foreach (\App\Enums\WbsType::cases() as $wbs)
-                            <option value="{{ $wbs->value }}" @selected($filters['wbs'] === $wbs->value)>{{ $wbs->label() }}</option>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Program</span>
+                    <select name="program" class="min-h-11 w-full rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm font-semibold outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800">
+                        <option value="">Semua Program</option>
+                        @foreach (\App\Enums\ProgramType::cases() as $program)
+                            <option value="{{ $program->value }}" @selected($filters['program'] === $program->value)>{{ $program->label() }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -161,8 +161,8 @@
         <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix WBS</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total, assignment aktif, review, dan penyelesaian setiap WBS.</p>
+                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Program</h2>
+                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total, assignment aktif, review, dan penyelesaian setiap Program.</p>
                 </div>
                 <div class="flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = teknisi aktif</span><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
             </div>
@@ -195,7 +195,7 @@
                                 <table class="w-full min-w-[720px] border-separate border-spacing-0 text-xs">
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
-                                            <th class="sticky left-0 z-10 min-w-52 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / WBS</th>
+                                            <th class="sticky left-0 z-10 min-w-52 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
                                             @foreach (['Total LOP', 'Assign', 'In Review', 'Complete', 'Persentase'] as $heading)<th class="min-w-24 border-b border-r border-ink-200 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 last:border-r-0 dark:border-ink-700">{{ $heading }}</th>@endforeach
                                         </tr>
                                     </thead>
@@ -205,7 +205,7 @@
                                                 <td class="sticky left-0 z-10 border-r border-ink-200 bg-emerald-50 px-3 py-2.5 text-emerald-800 dark:border-ink-700 dark:bg-ink-900 dark:text-emerald-300">
                                                     <button type="button" @click="branchOpen = !branchOpen" :aria-expanded="branchOpen" class="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
                                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="branchOpen ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                                        <span>{{ $branch['name'] }}</span><span class="ml-auto text-[9px] font-semibold text-emerald-500">{{ count($branch['wbs']) }} WBS</span>
+                                                        <span>{{ $branch['name'] }}</span><span class="ml-auto text-[9px] font-semibold text-emerald-500">{{ count($branch['program']) }} Program</span>
                                                     </button>
                                                 </td>
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['total'] }}</td>
@@ -214,14 +214,14 @@
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['complete'] }}</td>
                                                 <td class="px-3 py-3 text-center"><span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">{{ $branch['summary']['percentage'] }}%</span></td>
                                             </tr>
-                                            @foreach ($branch['wbs'] as $wbs)
+                                            @foreach ($branch['program'] as $program)
                                                 <tr x-show="branchOpen" x-cloak class="transition hover:bg-ink-50 dark:hover:bg-ink-800/40">
-                                                    <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $wbs['label'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center font-semibold dark:border-ink-800">{{ $wbs['total'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $wbs['assigned'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $wbs['in_review'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $wbs['complete']  }}</td>
-                                                    <td class="px-3 py-3 text-center"><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ $wbs['percentage'] === 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-ink-300' }}">{{ $wbs['percentage'] }}%</span></td>
+                                                    <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center font-semibold dark:border-ink-800">{{ $program['total'] }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['assigned'] }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['in_review'] }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['complete']  }}</td>
+                                                    <td class="px-3 py-3 text-center"><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ $program['percentage'] === 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-ink-300' }}">{{ $program['percentage'] }}%</span></td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -240,7 +240,7 @@
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Status LOP</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Matrix status per Region, Branch, dan WBS berdasarkan workflow operasional.</p>
+                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Matrix status per Region, Branch, dan Program berdasarkan workflow operasional.</p>
                 </div>
                 <span class="rounded-lg bg-ink-50 px-2.5 py-1 text-xs font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ number_format($stats['total']) }} LOP</span>
             </div>
@@ -280,7 +280,7 @@
                                 <table class="w-full min-w-[1080px] border-separate border-spacing-0 text-xs">
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
-                                            <th class="sticky left-0 z-10 min-w-48 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / WBS</th>
+                                            <th class="sticky left-0 z-10 min-w-48 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
                                             @foreach ($pipelineStatuses as $status)<th class="min-w-24 border-b border-r border-ink-200 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700">{{ $status['label'] }}</th>@endforeach
                                             <th class="min-w-20 border-b border-ink-200 bg-ink-100 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-700 dark:border-ink-700 dark:bg-ink-700 dark:text-ink-200">Total</th>
                                         </tr>
@@ -292,17 +292,17 @@
                                                     <button type="button" @click="branchOpen = !branchOpen" :aria-expanded="branchOpen" class="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
                                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-blue-100 dark:bg-blue-900/50"><svg class="h-3 w-3 transition-transform" :class="branchOpen ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
                                                         <span>{{ $branch['name'] }}</span>
-                                                        <span class="ml-auto text-[9px] font-semibold text-blue-500">{{ count($branch['wbs']) }} WBS</span>
+                                                        <span class="ml-auto text-[9px] font-semibold text-blue-500">{{ count($branch['program']) }} Program</span>
                                                     </button>
                                                 </td>
                                                 @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-200 px-3 py-3 text-center font-extrabold dark:border-ink-700">{{ $branch['summary']['pipeline'][$status['value']] }}</td>@endforeach
                                                 <td class="bg-blue-100/60 px-3 py-3 text-center font-extrabold text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">{{ $branch['summary']['total'] }}</td>
                                             </tr>
-                                            @foreach ($branch['wbs'] as $wbs)
+                                            @foreach ($branch['program'] as $program)
                                                 <tr x-show="branchOpen" x-cloak class="transition hover:bg-ink-50 dark:hover:bg-ink-800/40">
-                                                    <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $wbs['label'] }}</td>
-                                                    @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-100 px-3 py-3 text-center font-medium text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $wbs['pipeline'][$status['value']] }}</td>@endforeach
-                                                    <td class="bg-ink-50 px-3 py-3 text-center font-extrabold text-ink-900 dark:bg-ink-800/60 dark:text-white">{{ $wbs['total'] }}</td>
+                                                    <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
+                                                    @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-100 px-3 py-3 text-center font-medium text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['pipeline'][$status['value']] }}</td>@endforeach
+                                                    <td class="bg-ink-50 px-3 py-3 text-center font-extrabold text-ink-900 dark:bg-ink-800/60 dark:text-white">{{ $program['total'] }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -404,7 +404,7 @@
             <table class="w-full min-w-[760px]">
                 <thead class="bg-ink-50/80 text-left dark:bg-ink-800/70">
                     <tr>
-                        @foreach (['Project', 'Lokasi & WBS', 'Teknisi', 'Progress', 'Status', 'Aksi'] as $heading)
+                        @foreach (['Project', 'Lokasi & Program', 'Teknisi', 'Progress', 'Status', 'Aksi'] as $heading)
                             <th class="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-ink-400 {{ $loop->last ? 'text-right' : '' }}">{{ $heading }}</th>
                         @endforeach
                     </tr>
@@ -418,7 +418,7 @@
                                 <p class="mt-1 max-w-xs text-xs font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p>
                                 @unless ($lop->ihld_id)<p class="mt-1.5 inline-flex rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">ID IHLD belum ada</p>@endunless
                             </td>
-                            <td class="px-5 py-4"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $lop->branch ?: 'Branch —' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->wbs_type->label() }}</p></td>
+                            <td class="px-5 py-4"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $lop->branch ?: 'Branch —' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->program_type->label() }}</p></td>
                             <td class="px-5 py-4"><p class="max-w-36 truncate text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p></td>
                             <td class="min-w-36 px-5 py-4"><div class="mb-1.5 flex justify-between text-[10px]"><span class="text-ink-400">{{ $summary['completed_steps'] }}/4 step</span><strong>{{ $summary['percentage'] }}%</strong></div><div class="h-1.5 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-brand-600' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-blue-500')) }}" style="width: {{ $summary['percentage'] }}%"></div></div></td>
                             <td class="px-5 py-4"><x-badge :variant="$summary['review_variant']">{{ $summary['review_label'] }}</x-badge></td>

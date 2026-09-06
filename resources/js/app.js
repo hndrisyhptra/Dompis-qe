@@ -267,14 +267,14 @@ const normalizeDatek = (raw) => {
 window.lopForm = (options = {}) => ({
     form: {
         incident: '', sto: '', branch: '', area: '3', segment: '',
-        wbs_type: '', budget_type: '', job_description: '', ticket_summary: '', ihld_id: '', nama_lop: '',
+        program_type: '', budget_type: '', job_description: '', ticket_summary: '', ihld_id: '', nama_lop: '',
         ...(options.initial ?? {}),
         datek: normalizeDatek(options.initial?.datek),
     },
     datekText: { odc: '', odp: '', gpon: '', kabel: '' },
     datekParsing: false,
-    template: options.template ?? '{area}{sto}_{wbs_code}_{incident}_{segment}',
-    wbsCodes: options.wbsCodes ?? {},
+    template: options.template ?? '{area}{sto}_{program_code}_{incident}_{segment}',
+    programCodes: options.programCodes ?? {},
     segmentLabels: options.segmentLabels ?? {},
     nameManuallyEdited: false,
     lookup: {
@@ -284,7 +284,7 @@ window.lopForm = (options = {}) => ({
     manualGen: { loading: false, message: '' },
 
     init() {
-        ['incident', 'sto', 'branch', 'area', 'segment', 'wbs_type', 'budget_type', 'job_description']
+        ['incident', 'sto', 'branch', 'area', 'segment', 'program_type', 'budget_type', 'job_description']
             .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
         if (!this.form.nama_lop) this.regenerateName(true);
         this.hydrateDatekText();
@@ -292,15 +292,15 @@ window.lopForm = (options = {}) => ({
 
     regenerateName(force = false) {
         if (this.nameManuallyEdited && !force) return;
-        if (this.form.wbs_type !== 'relok_utilitas') this.form.budget_type = '';
+        if (this.form.program_type !== 'relok_utilitas') this.form.budget_type = '';
 
         const values = {
             '{area}': this.token(this.form.area, true),
             '{sto}': this.token(this.form.sto, true),
             '{branch}': this.token(this.form.branch, true),
             '{segment}': this.token(this.form.segment, true),
-            '{wbs}': this.token(this.wbsLabel(this.form.wbs_type), true),
-            '{wbs_code}': this.wbsCodes[this.form.wbs_type] ?? '',
+            '{program}': this.token(this.programLabel(this.form.program_type), true),
+            '{program_code}': this.programCodes[this.form.program_type] ?? '',
             '{budget_type}': this.token(this.form.budget_type, true),
             '{incident}': this.token(this.form.incident, true),
             '{description}': this.token(this.form.job_description),
@@ -372,13 +372,13 @@ window.lopForm = (options = {}) => ({
     },
 
     async generateManualIncident() {
-        if (!this.form.wbs_type || this.manualGen.loading) return;
+        if (!this.form.program_type || this.manualGen.loading) return;
 
         this.manualGen.loading = true;
         this.manualGen.message = '';
 
         try {
-            const res = await fetch(`/lop/manual-incident?wbs_type=${encodeURIComponent(this.form.wbs_type)}`, {
+            const res = await fetch(`/lop/manual-incident?program_type=${encodeURIComponent(this.form.program_type)}`, {
                 headers: { Accept: 'application/json' },
             });
             const json = await res.json();
@@ -488,7 +488,7 @@ window.lopForm = (options = {}) => ({
         return uppercase ? normalized.toUpperCase() : normalized;
     },
 
-    wbsLabel(value) {
+    programLabel(value) {
         return { recovery: 'QE Recovery', preventive: 'QE Preventive', relok_utilitas: 'QE Relok Utilitas' }[value] ?? '';
     },
 });

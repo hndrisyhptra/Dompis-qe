@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
-use App\Enums\WbsType;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
@@ -15,12 +15,12 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
- * Pemetaan LOP per jenis WBS (bucket). View monitoring read-only:
- * mengelompokkan LOP sebuah WBS ke dalam bucket status + sebaran per branch,
+ * Pemetaan LOP per jenis Program (bucket). View monitoring read-only:
+ * mengelompokkan LOP sebuah Program ke dalam bucket status + sebaran per branch,
  * dengan filter helicopter-view per region / branch.
  * Assignment / aksi operasional tetap di Inbox (LopController).
  */
-class WbsController extends Controller
+class ProgramController extends Controller
 {
     /**
      * Definisi bucket status. Satu sumber kebenaran untuk controller + view.
@@ -54,7 +54,7 @@ class WbsController extends Controller
         $isSuperAdmin = $user->hasRole(UserRole::SUPER_ADMIN);
         [$regionFilter, $branchFilter] = $isSuperAdmin ? $this->resolveLocationFilters($request) : ['', ''];
 
-        $summaries = collect(WbsType::cases())->map(function (WbsType $type) use ($user, $isSuperAdmin, $regionFilter, $branchFilter) {
+        $summaries = collect(ProgramType::cases())->map(function (ProgramType $type) use ($user, $isSuperAdmin, $regionFilter, $branchFilter) {
             $query = $this->scopeForUser($this->baseQuery($type), $user);
 
             if ($isSuperAdmin) {
@@ -71,16 +71,16 @@ class WbsController extends Controller
             ];
         })->all();
 
-        return view('wbs.index', [
-            'wbsSummaries' => $summaries,
+        return view('program.index', [
+            'programSummaries' => $summaries,
             ...$this->locationOptions($regionFilter, $branchFilter),
             ...$this->scopeContext($user, $isSuperAdmin, $regionFilter, $branchFilter),
         ]);
     }
 
-    public function show(Request $request, string $wbs): View|RedirectResponse
+    public function show(Request $request, string $program): View|RedirectResponse
     {
-        $type = WbsType::tryFrom($wbs);
+        $type = ProgramType::tryFrom($program);
 
         if ($type === null) {
             abort(404);
@@ -149,9 +149,9 @@ class WbsController extends Controller
             'active' => $bucketFilter === $key,
         ])->values()->all();
 
-        return view('wbs.show', [
-            'wbsType' => $type,
-            'wbsTypes' => WbsType::cases(),
+        return view('program.show', [
+            'programType' => $type,
+            'programTypes' => ProgramType::cases(),
             'total' => $total,
             'buckets' => $buckets,
             'bucketFilter' => $bucketFilter,
@@ -165,7 +165,7 @@ class WbsController extends Controller
     }
 
     /**
-     * Teknisi aktif untuk modal assign (dipakai di tabel WBS bila user berhak).
+     * Teknisi aktif untuk modal assign (dipakai di tabel Program bila user berhak).
      */
     private function activeTechnicians()
     {
@@ -293,12 +293,12 @@ class WbsController extends Controller
     }
 
     /**
-     * Query dasar pemetaan WBS: seluruh LOP untuk 1 jenis WBS (termasuk draft,
+     * Query dasar pemetaan Program: seluruh LOP untuk 1 jenis Program (termasuk draft,
      * yang muncul di bucket "Belum Ditugaskan").
      */
-    private function baseQuery(WbsType $type): Builder
+    private function baseQuery(ProgramType $type): Builder
     {
-        return QeLop::query()->where('wbs_type', $type->value);
+        return QeLop::query()->where('program_type', $type->value);
     }
 
     /**

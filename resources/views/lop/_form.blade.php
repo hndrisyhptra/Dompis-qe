@@ -1,5 +1,5 @@
 <form method="POST" action="{{ $formAction }}"
-      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), wbsCodes: @js($wbsCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])) })"
+      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])) })"
       class="space-y-5">
     @csrf
     @if ($formMethod !== 'POST') @method($formMethod) @endif
@@ -73,13 +73,13 @@
                     </div>
 
                     <div x-show="lookup.notFound" x-cloak class="mt-2 rounded-lg border border-ink-200 bg-ink-50/70 p-3 dark:border-ink-700 dark:bg-ink-800/50">
-                        <button type="button" @click="generateManualIncident()" :disabled="!form.wbs_type || manualGen.loading"
+                        <button type="button" @click="generateManualIncident()" :disabled="!form.program_type || manualGen.loading"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
                             <svg x-show="!manualGen.loading" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                             <svg x-show="manualGen.loading" class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 3a9 9 0 1 0 9 9" /></svg>
                             <span x-text="manualGen.loading ? 'Membuat...' : 'Generate Ticket Manual'"></span>
                         </button>
-                        <p x-show="!form.wbs_type" class="mt-1.5 text-xs text-ink-500 dark:text-ink-400">Pilih WBS terlebih dahulu untuk membuat nomor tiket manual.</p>
+                        <p x-show="!form.program_type" class="mt-1.5 text-xs text-ink-500 dark:text-ink-400">Pilih Program terlebih dahulu untuk membuat nomor tiket manual.</p>
                         <p x-show="manualGen.message" x-cloak class="mt-1.5 text-xs text-brand-600 dark:text-brand-400" x-text="manualGen.message"></p>
                     </div>
                 </div>
@@ -103,13 +103,13 @@
             </x-select>
 
             <div>
-                <x-select name="wbs_type" label="WBS" placeholder="Pilih jenis WBS" x-model="form.wbs_type">
-                    @foreach ($wbsTypes as $type)<option value="{{ $type->value }}">{{ $type->label() }}</option>@endforeach
+                <x-select name="program_type" label="Program" placeholder="Pilih jenis Program" x-model="form.program_type">
+                    @foreach ($programTypes as $type)<option value="{{ $type->value }}">{{ $type->label() }}</option>@endforeach
                 </x-select>
-                <p class="mt-1.5 text-xs text-ink-400">Kode WBS akan ikut digunakan pada nama LOP.</p>
+                <p class="mt-1.5 text-xs text-ink-400">Kode Program akan ikut digunakan pada nama LOP.</p>
             </div>
 
-            <div x-show="form.wbs_type === 'relok_utilitas'" x-transition class="sm:col-span-2">
+            <div x-show="form.program_type === 'relok_utilitas'" x-transition class="sm:col-span-2">
                 <label class="mb-2 block text-sm font-medium text-ink-700 dark:text-ink-300">Jenis Anggaran</label>
                 <div class="grid grid-cols-2 gap-3">
                     @foreach ($budgetTypes as $budgetType)

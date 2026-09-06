@@ -31,7 +31,7 @@ class LopManualInputTest extends TestCase
             'branch' => 'SIDOARJO',
             'area' => '3',
             'segment' => 'odp',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'job_description' => 'Penggantian BOX ODP',
             'ticket_summary' => "Incident: INC123456\nWorkzone: SDA\nStatus: OPEN",
             'datek' => json_encode([
@@ -73,7 +73,7 @@ class LopManualInputTest extends TestCase
 
         $this->actingAs($admin)->from(route('lop.create'))->post(route('lop.store'), [
             'incident' => 'INC900', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
-            'area' => '3', 'segment' => 'feeder', 'wbs_type' => 'relok_utilitas',
+            'area' => '3', 'segment' => 'feeder', 'program_type' => 'relok_utilitas',
             'job_description' => 'Relokasi utilitas',
         ])->assertRedirect(route('lop.create'))->assertSessionHasErrors('budget_type');
     }
@@ -84,14 +84,14 @@ class LopManualInputTest extends TestCase
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
         $lop = QeLop::create([
             'incident' => 'INC901', 'nama_lop' => '3SDA_QEREC_INC901_Test',
-            'wbs_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
+            'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
             'area' => '3', 'segment' => 'odp', 'job_description' => 'Test',
             'status_lop' => 'draft', 'created_by' => $admin->id_user,
         ]);
 
         $this->actingAs($admin)->put(route('lop.update', $lop), [
             'incident' => 'INC901', 'nama_lop' => $lop->nama_lop,
-            'wbs_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
+            'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
             'area' => '3', 'segment' => 'odp', 'job_description' => 'Test',
             'ihld_id' => 'IHLD-7788',
         ])->assertRedirect(route('lop.index'));
@@ -119,7 +119,7 @@ class LopManualInputTest extends TestCase
             'INC123_SIDOARJO_Ganti_ODP',
             app(LopNamingService::class)->generate([
                 'incident' => 'INC123', 'branch' => 'SIDOARJO',
-                'job_description' => 'Ganti ODP', 'wbs_type' => 'recovery',
+                'job_description' => 'Ganti ODP', 'program_type' => 'recovery',
             ])
         );
     }

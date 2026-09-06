@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Enums\LopStatus;
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
-use App\Enums\WbsType;
 use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
@@ -129,23 +129,23 @@ class AdminDashboardService
                 $join->on('dashboard_assignments.qe_lop_id', '=', 'qe_lops.id_qe_lops')
                     ->where('dashboard_assignments.status', 'active');
             })
-            ->select(['qe_lops.branch', 'qe_lops.wbs_type', 'qe_lops.status_lop'])
+            ->select(['qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop'])
             ->selectRaw('COUNT(DISTINCT qe_lops.id_qe_lops) as total_count')
             ->selectRaw('COUNT(DISTINCT dashboard_assignments.qe_lop_id) as assigned_count')
-            ->groupBy('qe_lops.branch', 'qe_lops.wbs_type', 'qe_lops.status_lop')
+            ->groupBy('qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop')
             ->get();
 
         $counts = [];
         foreach ($aggregates as $aggregate) {
             $branch = trim((string) $aggregate->branch) ?: 'BRANCH BELUM TERDATA';
-            $wbs = $aggregate->wbs_type instanceof WbsType
-                ? $aggregate->wbs_type->value
-                : (string) $aggregate->wbs_type;
+            $program = $aggregate->program_type instanceof ProgramType
+                ? $aggregate->program_type->value
+                : (string) $aggregate->program_type;
             $status = $aggregate->status_lop instanceof LopStatus
                 ? $aggregate->status_lop->value
                 : (string) $aggregate->status_lop;
 
-            $counts[$branch][$wbs][$status] = [
+            $counts[$branch][$program][$status] = [
                 'total' => (int) $aggregate->total_count,
                 'assigned' => (int) $aggregate->assigned_count,
             ];
@@ -175,26 +175,26 @@ class AdminDashboardService
             }
         }
 
-        $wbsCases = $filters['wbs'] !== ''
-            ? collect([WbsType::from($filters['wbs'])])
-            : collect(WbsType::cases());
+        $programCases = $filters['program'] !== ''
+            ? collect([ProgramType::from($filters['program'])])
+            : collect(ProgramType::cases());
 
         return $branchRecords
             ->groupBy('region')
-            ->map(function ($branches, string $region) use ($counts, $wbsCases): array {
-                $branchRows = $branches->map(function (array $branch) use ($counts, $wbsCases): array {
-                    $wbsRows = $wbsCases->map(function (WbsType $wbs) use ($branch, $counts): array {
-                        $pipeline = collect(LopStatus::cases())->mapWithKeys(function (LopStatus $status) use ($branch, $wbs, $counts): array {
-                            return [$status->value => (int) ($counts[$branch['name']][$wbs->value][$status->value]['total'] ?? 0)];
+            ->map(function ($branches, string $region) use ($counts, $programCases): array {
+                $branchRows = $branches->map(function (array $branch) use ($counts, $programCases): array {
+                    $programRows = $programCases->map(function (ProgramType $program) use ($branch, $counts): array {
+                        $pipeline = collect(LopStatus::cases())->mapWithKeys(function (LopStatus $status) use ($branch, $program, $counts): array {
+                            return [$status->value => (int) ($counts[$branch['name']][$program->value][$status->value]['total'] ?? 0)];
                         })->all();
 
                         $total = array_sum($pipeline);
-                        $assigned = collect(LopStatus::cases())->sum(fn (LopStatus $status) => (int) ($counts[$branch['name']][$wbs->value][$status->value]['assigned'] ?? 0));
+                        $assigned = collect(LopStatus::cases())->sum(fn (LopStatus $status) => (int) ($counts[$branch['name']][$program->value][$status->value]['assigned'] ?? 0));
                         $complete = $pipeline[LopStatus::COMPLETED->value];
 
                         return [
-                            'value' => $wbs->value,
-                            'label' => $wbs->label(),
+                            'value' => $program->value,
+                            'label' => $program->label(),
                             'total' => $total,
                             'assigned' => $assigned,
                             'in_review' => $pipeline[LopStatus::WAITING_APPROVAL->value],
@@ -206,8 +206,8 @@ class AdminDashboardService
 
                     return [
                         'name' => $branch['name'],
-                        'summary' => $this->summarizeMatrixRows($wbsRows),
-                        'wbs' => $wbsRows,
+                        'summary' => $this->summarizeMatrixRows($programRows),
+                        'program' => $programRows,
                     ];
                 })->values()->all();
 
@@ -243,7 +243,7 @@ class AdminDashboardService
     private function normalizeFilters(bool $isSuperAdmin, array $filters): array
     {
         if (! $isSuperAdmin) {
-            return ['region' => '', 'branch' => '', 'wbs' => '', 'status' => ''];
+            return ['region' => '', 'branch' => '', 'program' => '', 'status' => ''];
         }
 
         $region = trim((string) ($filters['region'] ?? ''));
@@ -266,7 +266,7 @@ class AdminDashboardService
         return [
             'region' => $region,
             'branch' => $branch,
-            'wbs' => WbsType::tryFrom((string) ($filters['wbs'] ?? ''))?->value ?? '',
+            'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '',
             'status' => LopStatus::tryFrom((string) ($filters['status'] ?? ''))?->value ?? '',
         ];
     }
@@ -283,8 +283,8 @@ class AdminDashboardService
             $query->where('branch', $filters['branch']);
         }
 
-        if ($filters['wbs'] !== '') {
-            $query->where('wbs_type', $filters['wbs']);
+        if ($filters['program'] !== '') {
+            $query->where('program_type', $filters['program']);
         }
 
         if ($filters['status'] !== '') {

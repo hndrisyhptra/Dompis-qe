@@ -21,7 +21,7 @@
     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
         <span>{{ $project->sto ?: 'STO belum diisi' }}</span>
         <span>{{ $project->branch ?: 'Branch belum diisi' }}</span>
-        <span>{{ $project->wbs_type->label() }}</span>
+        <span>{{ $project->program_type->label() }}</span>
     </div>
     <div class="mt-4">
         <div class="mb-1.5 flex justify-between text-[11px] font-medium text-ink-500 dark:text-ink-400">

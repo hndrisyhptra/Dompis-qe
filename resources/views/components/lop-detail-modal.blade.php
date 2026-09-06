@@ -5,7 +5,7 @@
 
     // Konteks cepat di bawah judul.
     $chips = array_values(array_filter([
-        $lop->wbs_type->label(),
+        $lop->program_type->label(),
         $lop->branch ?: null,
         $lop->budget_type?->label(),
     ]));
@@ -15,7 +15,7 @@
         'STO' => $lop->sto ?: '—',
         'Area' => $lop->area ? 'Area '.$lop->area : '—',
         'Segmen' => $lop->segment?->label() ?? '—',
-        'Program' => $lop->budget_type?->label() ?? 'Tidak berlaku',
+        'Jenis Anggaran' => $lop->budget_type?->label() ?? 'Tidak berlaku',
         'ID IHLD' => $lop->ihld_id ?: 'Belum tersedia',
         'Terakhir diperbarui' => $lop->updated_at->diffForHumans(),
     ];

@@ -19,7 +19,7 @@
                     <p class="text-[10px] font-bold uppercase tracking-[.18em] text-brand-300">Project yang ditugaskan</p>
                     <p class="mt-2 text-xs font-extrabold uppercase tracking-wide text-brand-300">{{ $lop->incident }}</p>
                     <h4 class="mt-1 truncate text-base font-bold">{{ $lop->nama_lop }}</h4>
-                    <p class="mt-2 text-xs text-ink-300">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->wbs_type->label() }}</p>
+                    <p class="mt-2 text-xs text-ink-300">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p>
                 </div>
                 <span class="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold">{{ $lop->status_lop->label() }}</span>
             </div>

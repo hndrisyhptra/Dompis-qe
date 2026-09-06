@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum WbsType: string
+enum ProgramType: string
 {
     case RECOVERY = 'recovery';
     case PREVENTIVE = 'preventive';
@@ -26,7 +26,6 @@ enum WbsType: string
         };
     }
 
-  
     public function order(): int
     {
         return match ($this) {

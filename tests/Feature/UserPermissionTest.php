@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,7 +24,7 @@ class UserPermissionTest extends TestCase
     public function test_super_admin_can_create_user(): void
     {
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
-        $teknisiRoleId = \App\Models\Role::where('code', 'TEKNISI')->value('id');
+        $teknisiRoleId = Role::where('code', 'TEKNISI')->value('id');
 
         $response = $this->actingAs($superAdmin)->post(route('users.store'), [
             'role_id' => $teknisiRoleId,

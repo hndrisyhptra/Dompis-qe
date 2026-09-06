@@ -95,7 +95,7 @@ class AdminDashboardTest extends TestCase
         $this->get(route('dashboard', [
             'region' => 'REGION JATIM',
             'branch' => 'SIDOARJO',
-            'wbs' => 'recovery',
+            'program' => 'recovery',
             'status' => 'draft',
         ]))
             ->assertOk()
@@ -108,7 +108,7 @@ class AdminDashboardTest extends TestCase
                 && $stats['pending'] === 1);
     }
 
-    public function test_matrix_breaks_down_region_branch_wbs_and_pipeline_values(): void
+    public function test_matrix_breaks_down_region_branch_program_and_pipeline_values(): void
     {
         $sidoarjo = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
         Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
@@ -131,7 +131,7 @@ class AdminDashboardTest extends TestCase
         $assertMatrix = function (array $regions, bool $includeSurabaya): bool {
             $jatim = collect($regions)->firstWhere('name', 'REGION JATIM');
             $sidoarjo = collect($jatim['branches'])->firstWhere('name', 'SIDOARJO');
-            $recovery = collect($sidoarjo['wbs'])->firstWhere('value', 'recovery');
+            $recovery = collect($sidoarjo['program'])->firstWhere('value', 'recovery');
 
             return $sidoarjo['summary']['total'] === 4
                 && $sidoarjo['summary']['assigned'] === 1
@@ -149,9 +149,9 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Matrix WBS')
+            ->assertSee('Matrix Program')
             ->assertSee('Ringkasan performa', false)
-            ->assertSee('Branch / WBS', false)
+            ->assertSee('Branch / Program', false)
             ->assertSee('branchOpen', false)
             ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, true));
 
@@ -165,14 +165,14 @@ class AdminDashboardTest extends TestCase
         User $creator,
         string $incident,
         string $branch,
-        string $wbs = 'recovery',
+        string $program = 'recovery',
         string $status = 'draft',
         ?string $ihldId = 'IHLD-TEST',
     ): QeLop {
         return QeLop::create([
             'incident' => $incident,
             'nama_lop' => "Project {$incident}",
-            'wbs_type' => $wbs,
+            'program_type' => $program,
             'branch' => $branch,
             'status_lop' => $status,
             'ihld_id' => $ihldId,

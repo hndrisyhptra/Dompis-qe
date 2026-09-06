@@ -13,9 +13,7 @@ use Illuminate\Http\RedirectResponse;
  */
 class EvidenceController extends Controller
 {
-    public function __construct(private readonly EvidenceService $evidenceService)
-    {
-    }
+    public function __construct(private readonly EvidenceService $evidenceService) {}
 
     public function store(StoreEvidenceRequest $request, QeLop $qe_lop): RedirectResponse
     {

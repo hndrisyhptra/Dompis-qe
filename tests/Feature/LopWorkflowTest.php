@@ -21,7 +21,7 @@ class LopWorkflowTest extends TestCase
         $lop = app(LopService::class)->create([
             'incident' => 'LOP-200',
             'nama_lop' => 'Recovery Jl. Diponegoro',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
             'segment' => 'odp', 'job_description' => 'Recovery Jl. Diponegoro',
         ], $admin);
@@ -42,7 +42,7 @@ class LopWorkflowTest extends TestCase
         $lop = app(LopService::class)->create([
             'incident' => 'LOP-201',
             'nama_lop' => 'Preventive Jl. Kebon Jeruk',
-            'wbs_type' => 'preventive',
+            'program_type' => 'preventive',
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
             'segment' => 'feeder', 'job_description' => 'Preventive Jl. Kebon Jeruk',
         ], $admin);
@@ -66,7 +66,7 @@ class LopWorkflowTest extends TestCase
         $lop = app(LopService::class)->create([
             'incident' => 'LOP-202',
             'nama_lop' => 'Recovery Jl. Asia Afrika',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
             'segment' => 'odp', 'job_description' => 'Recovery Jl. Asia Afrika',
         ], $admin);
@@ -88,7 +88,7 @@ class LopWorkflowTest extends TestCase
         $lop = $service->create([
             'incident' => 'LOP-203',
             'nama_lop' => 'Relok Utilitas Jl. Cihampelas',
-            'wbs_type' => 'relok_utilitas',
+            'program_type' => 'relok_utilitas',
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
             'segment' => 'distribusi', 'budget_type' => 'CAPEX',
             'job_description' => 'Relok Utilitas Jl. Cihampelas',

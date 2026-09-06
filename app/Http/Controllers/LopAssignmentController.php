@@ -22,8 +22,8 @@ class LopAssignmentController extends Controller
         $returnTo = (string) $request->validated('return_to');
         $flash = "Teknisi {$technician->name} berhasil ditugaskan.";
 
-        if (str_starts_with($returnTo, 'wbs:')) {
-            return redirect()->route('wbs.show', substr($returnTo, 4))->with('status', $flash);
+        if (str_starts_with($returnTo, 'program:')) {
+            return redirect()->route('program.show', substr($returnTo, strlen('program:')))->with('status', $flash);
         }
 
         $route = $returnTo === 'index' ? 'lop.index' : 'lop.show';

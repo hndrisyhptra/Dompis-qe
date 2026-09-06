@@ -5,7 +5,7 @@ namespace App\Models;
 use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
-use App\Enums\WbsType;
+use App\Enums\ProgramType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,7 +31,7 @@ class QeLop extends Model
     protected $fillable = [
         'incident',
         'nama_lop',
-        'wbs_type',
+        'program_type',
         'sto',
         'branch',
         'area',
@@ -49,7 +49,7 @@ class QeLop extends Model
     protected function casts(): array
     {
         return [
-            'wbs_type' => WbsType::class,
+            'program_type' => ProgramType::class,
             'segment' => LopSegment::class,
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,

@@ -25,7 +25,7 @@ class EvidenceWorkflowTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-WF-01',
             'nama_lop' => 'Workflow Test',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'progress',
             'created_by' => $admin->id_user,
         ]);
@@ -54,7 +54,7 @@ class EvidenceWorkflowTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-WF-02',
             'nama_lop' => 'Workflow Test 2',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'progress',
             'created_by' => $admin->id_user,
         ]);
@@ -85,7 +85,7 @@ class EvidenceWorkflowTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-WF-03',
             'nama_lop' => 'Workflow Test 3',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'progress',
             'created_by' => $admin->id_user,
         ]);
@@ -109,7 +109,7 @@ class EvidenceWorkflowTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-WF-RESET',
             'nama_lop' => 'Reset Review Workflow',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'waiting_approval',
             'created_by' => $admin->id_user,
         ]);

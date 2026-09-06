@@ -41,7 +41,7 @@ class BranchRegionTest extends TestCase
             $lop = QeLop::create([
                 'incident' => "LOP-{$branch}",
                 'nama_lop' => "Project {$branch}",
-                'wbs_type' => 'recovery',
+                'program_type' => 'recovery',
                 'branch' => $branch,
                 'status_lop' => 'waiting_approval',
                 'created_by' => $superAdmin->id_user,

@@ -17,7 +17,7 @@
             <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Incident</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Nama LOP</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">WBS</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Program</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">Status</th>
                 <th class="px-4 py-3"></th>
             </tr>
@@ -28,7 +28,7 @@
                     <td class="px-4 py-3 text-ink-900 dark:text-ink-50 font-medium">{{ $lop->incident }}</td>
                     <td class="px-4 py-3 text-ink-600 dark:text-ink-300">{{ $lop->nama_lop }}</td>
                     <td class="px-4 py-3">
-                        <x-badge variant="neutral">{{ $lop->wbs_type->label() }}</x-badge>
+                        <x-badge variant="neutral">{{ $lop->program_type->label() }}</x-badge>
                     </td>
                     <td class="px-4 py-3">
                         <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>

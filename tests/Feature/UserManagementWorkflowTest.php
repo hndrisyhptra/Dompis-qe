@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -27,7 +28,7 @@ class UserManagementWorkflowTest extends TestCase
         ], $actor);
 
         $this->assertNotEquals('rahasia123', $user->password);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('rahasia123', $user->password));
+        $this->assertTrue(Hash::check('rahasia123', $user->password));
 
         $this->assertDatabaseHas('user_histories', [
             'target_user_id' => $user->id_user,

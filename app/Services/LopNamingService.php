@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Enums\WbsType;
+use App\Enums\ProgramType;
 use App\Models\LopNameFormat;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class LopNamingService
 {
-    public const DEFAULT_TEMPLATE = '{area}{sto}_{wbs_code}_{incident}_{segment}';
+    public const DEFAULT_TEMPLATE = '{area}{sto}_{program_code}_{incident}_{segment}';
 
     public function activeTemplate(): string
     {
@@ -21,8 +21,8 @@ class LopNamingService
 
     public function generate(array $data, ?string $template = null): string
     {
-        $wbs = isset($data['wbs_type'])
-            ? WbsType::tryFrom($data['wbs_type'] instanceof WbsType ? $data['wbs_type']->value : $data['wbs_type'])
+        $program = isset($data['program_type'])
+            ? ProgramType::tryFrom($data['program_type'] instanceof ProgramType ? $data['program_type']->value : $data['program_type'])
             : null;
 
         $values = [
@@ -30,8 +30,8 @@ class LopNamingService
             '{sto}' => $this->token($data['sto'] ?? '', true),
             '{branch}' => $this->token($data['branch'] ?? '', true),
             '{segment}' => $this->token($data['segment'] ?? '', true),
-            '{wbs}' => $this->token($wbs?->label() ?? '', true),
-            '{wbs_code}' => $wbs?->code() ?? '',
+            '{program}' => $this->token($program?->label() ?? '', true),
+            '{program_code}' => $program?->code() ?? '',
             '{budget_type}' => $this->token($data['budget_type'] ?? '', true),
             '{incident}' => $this->token($data['incident'] ?? '', true),
             '{description}' => $this->token($data['job_description'] ?? ''),
@@ -66,8 +66,8 @@ class LopNamingService
             '{sto}' => 'Kode STO',
             '{branch}' => 'Branch',
             '{segment}' => 'Segmen',
-            '{wbs}' => 'Nama WBS lengkap',
-            '{wbs_code}' => 'Kode singkat WBS',
+            '{program}' => 'Nama Program lengkap',
+            '{program_code}' => 'Kode singkat Program',
             '{budget_type}' => 'CAPEX atau OPEX',
             '{incident}' => 'Nomor incident',
             '{description}' => 'Deskripsi pekerjaan',

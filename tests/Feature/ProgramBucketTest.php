@@ -9,16 +9,16 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class WbsBucketTest extends TestCase
+class ProgramBucketTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function lop(User $creator, string $incident, string $wbs, string $status, string $branch = 'SURABAYA'): QeLop
+    private function lop(User $creator, string $incident, string $program, string $status, string $branch = 'SURABAYA'): QeLop
     {
         return QeLop::create([
             'incident' => $incident,
             'nama_lop' => "LOP {$incident}",
-            'wbs_type' => $wbs,
+            'program_type' => $program,
             'sto' => 'SBY',
             'branch' => $branch,
             'status_lop' => $status,
@@ -40,22 +40,22 @@ class WbsBucketTest extends TestCase
     {
         foreach ([UserRole::SUPER_ADMIN, UserRole::MANAGER, UserRole::APPROVER, UserRole::ADMIN] as $role) {
             $user = User::factory()->role($role->value)->create();
-            $this->actingAs($user)->get(route('wbs.show', 'recovery'))->assertOk();
+            $this->actingAs($user)->get(route('program.show', 'recovery'))->assertOk();
         }
 
         $this->actingAs(User::factory()->role(UserRole::ADMIN->value)->create())
-            ->get(route('wbs.show', 'ngawur'))->assertNotFound();
+            ->get(route('program.show', 'ngawur'))->assertNotFound();
     }
 
     public function test_technician_is_redirected_to_their_inbox(): void
     {
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
-        $this->actingAs($teknisi)->get(route('wbs.index'))->assertRedirect(route('technician.inbox'));
-        $this->actingAs($teknisi)->get(route('wbs.show', 'recovery'))->assertRedirect(route('technician.inbox'));
+        $this->actingAs($teknisi)->get(route('program.index'))->assertRedirect(route('technician.inbox'));
+        $this->actingAs($teknisi)->get(route('program.show', 'recovery'))->assertRedirect(route('technician.inbox'));
     }
 
-    public function test_show_only_lists_lops_of_that_wbs_including_completed(): void
+    public function test_show_only_lists_lops_of_that_program_including_completed(): void
     {
         $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
 
@@ -63,7 +63,7 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'REC-DONE', 'recovery', 'completed');
         $this->lop($admin, 'PREV-ONE', 'preventive', 'draft');
 
-        $this->actingAs($admin)->get(route('wbs.show', 'recovery'))
+        $this->actingAs($admin)->get(route('program.show', 'recovery'))
             ->assertOk()
             ->assertSee('REC-ACTIVE')
             ->assertSee('REC-DONE')
@@ -78,7 +78,7 @@ class WbsBucketTest extends TestCase
         $this->lop($creator, 'AT-SBY', 'recovery', 'assigned', 'SURABAYA');
         $this->lop($creator, 'AT-SDA', 'recovery', 'assigned', 'SIDOARJO');
 
-        $this->actingAs($adminSby)->get(route('wbs.show', 'recovery'))
+        $this->actingAs($adminSby)->get(route('program.show', 'recovery'))
             ->assertOk()
             ->assertViewHas('total', 1)
             ->assertViewHas('canFilterLocation', false)
@@ -95,7 +95,7 @@ class WbsBucketTest extends TestCase
         $this->lop($creator, 'M-SDA', 'recovery', 'assigned', 'SIDOARJO');
 
         // Coba paksa lihat branch lain lewat query param -> tetap terkunci.
-        $this->actingAs($managerSby)->get(route('wbs.show', ['recovery', 'branch' => 'SIDOARJO']))
+        $this->actingAs($managerSby)->get(route('program.show', ['recovery', 'branch' => 'SIDOARJO']))
             ->assertOk()
             ->assertViewHas('total', 1)
             ->assertSee('M-SBY')
@@ -109,17 +109,17 @@ class WbsBucketTest extends TestCase
 
         $this->lop($creator, 'SOMEWHERE', 'recovery', 'assigned', 'SURABAYA');
 
-        $this->actingAs($orphan)->get(route('wbs.show', 'recovery'))
+        $this->actingAs($orphan)->get(route('program.show', 'recovery'))
             ->assertOk()
             ->assertViewHas('total', 0)
             ->assertViewHas('scopeWarning', true)
             ->assertDontSee('SOMEWHERE')
             ->assertSee('belum terhubung ke branch');
 
-        $this->actingAs($orphan)->get(route('wbs.index'))
+        $this->actingAs($orphan)->get(route('program.index'))
             ->assertOk()
             ->assertViewHas('scopeWarning', true)
-            ->assertViewHas('wbsSummaries', fn (array $s) => collect($s)->sum('total') === 0);
+            ->assertViewHas('programSummaries', fn (array $s) => collect($s)->sum('total') === 0);
     }
 
     public function test_super_admin_can_still_filter_by_region_and_branch(): void
@@ -131,7 +131,7 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'X-SBY', 'recovery', 'assigned', 'SURABAYA');
         $this->lop($admin, 'X-DPS', 'recovery', 'assigned', 'DENPASAR');
 
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'branch' => 'DENPASAR']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'branch' => 'DENPASAR']))
             ->assertOk()
             ->assertViewHas('canFilterLocation', true)
             ->assertViewHas('total', 1)
@@ -148,7 +148,7 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'R-PROGRESS', 'recovery', 'progress');
         $this->lop($admin, 'R-REVIEW', 'recovery', 'waiting_approval');
 
-        $this->actingAs($admin)->get(route('wbs.show', 'recovery'))
+        $this->actingAs($admin)->get(route('program.show', 'recovery'))
             ->assertOk()
             ->assertViewHas('total', 4)          // draft ikut, sebagai bucket "Belum Ditugaskan"
             ->assertSee('R-DRAFT')
@@ -163,14 +163,14 @@ class WbsBucketTest extends TestCase
             });
 
         // bucket=unassigned -> hanya draft
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'unassigned']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'bucket' => 'unassigned']))
             ->assertOk()
             ->assertSee('R-DRAFT')
             ->assertDontSee('R-SURVEY')
             ->assertDontSee('R-REVIEW');
 
         // bucket=progress -> hanya survey + progress
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'progress']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'bucket' => 'progress']))
             ->assertOk()
             ->assertSee('R-SURVEY')
             ->assertSee('R-PROGRESS')
@@ -178,7 +178,7 @@ class WbsBucketTest extends TestCase
             ->assertDontSee('R-REVIEW');
 
         // bucket=review -> hanya waiting_approval
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'review']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'bucket' => 'review']))
             ->assertOk()
             ->assertSee('R-REVIEW')
             ->assertDontSee('R-PROGRESS');
@@ -197,21 +197,21 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'DPS-1', 'recovery', 'progress', 'DENPASAR');
 
         // Filter region JATIM -> Surabaya + Sidoarjo saja
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'region' => 'REGION JATIM']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'region' => 'REGION JATIM']))
             ->assertOk()
             ->assertViewHas('total', 2)
             ->assertSee('SBY-1')->assertSee('SDA-1')->assertDontSee('DPS-1')
             ->assertViewHas('regionFilter', 'REGION JATIM');
 
         // Filter branch SURABAYA -> hanya 1
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'branch' => 'SURABAYA']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'branch' => 'SURABAYA']))
             ->assertOk()
             ->assertViewHas('total', 1)
             ->assertSee('SBY-1')->assertDontSee('SDA-1')
             ->assertViewHas('buckets', fn (array $b) => collect($b)->firstWhere('key', 'progress')['count'] === 1);
 
         // Region tidak dikenal -> diabaikan (tampil semua)
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'region' => 'REGION NGAWUR']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'region' => 'REGION NGAWUR']))
             ->assertOk()
             ->assertViewHas('total', 3)
             ->assertViewHas('regionFilter', '');
@@ -226,12 +226,12 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'J-1', 'recovery', 'assigned', 'SURABAYA');
         $this->lop($admin, 'B-1', 'recovery', 'assigned', 'DENPASAR');
 
-        $this->actingAs($admin)->get(route('wbs.index', ['region' => 'REGION JATIM']))
+        $this->actingAs($admin)->get(route('program.index', ['region' => 'REGION JATIM']))
             ->assertOk()
-            ->assertViewHas('wbsSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 1);
+            ->assertViewHas('programSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 1);
     }
 
-    public function test_index_lists_all_three_wbs_with_totals(): void
+    public function test_index_lists_all_three_program_with_totals(): void
     {
         $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
 
@@ -239,9 +239,9 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'B', 'recovery', 'completed');
         $this->lop($admin, 'C', 'preventive', 'assigned');
 
-        $this->actingAs($admin)->get(route('wbs.index'))
+        $this->actingAs($admin)->get(route('program.index'))
             ->assertOk()
-            ->assertViewHas('wbsSummaries', function (array $summaries) {
+            ->assertViewHas('programSummaries', function (array $summaries) {
                 $byslug = collect($summaries)->keyBy('slug');
 
                 return $byslug['recovery']['total'] === 2
@@ -257,19 +257,19 @@ class WbsBucketTest extends TestCase
         $this->lop($admin, 'DRAFT-ONLY', 'recovery', 'draft');
         $this->lop($admin, 'REAL-ONE', 'recovery', 'assigned');
 
-        $this->actingAs($admin)->get(route('wbs.show', 'recovery'))
+        $this->actingAs($admin)->get(route('program.show', 'recovery'))
             ->assertOk()
             ->assertViewHas('total', 2)
             ->assertSee('REAL-ONE')
             ->assertSee('DRAFT-ONLY')
             ->assertViewHas('buckets', fn (array $b) => collect($b)->firstWhere('key', 'unassigned')['count'] === 1);
 
-        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'unassigned']))
+        $this->actingAs($admin)->get(route('program.show', ['recovery', 'bucket' => 'unassigned']))
             ->assertOk()
             ->assertSee('DRAFT-ONLY')
             ->assertDontSee('REAL-ONE');
 
-        $this->actingAs($admin)->get(route('wbs.index'))
-            ->assertViewHas('wbsSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 2);
+        $this->actingAs($admin)->get(route('program.index'))
+            ->assertViewHas('programSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 2);
     }
 }

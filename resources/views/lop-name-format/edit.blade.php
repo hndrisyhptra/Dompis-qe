@@ -6,13 +6,13 @@
 @php
     $sample = [
         'incident' => 'INC123456', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
-        'area' => '3', 'segment' => 'odp', 'wbs_type' => 'recovery',
+        'area' => '3', 'segment' => 'odp', 'program_type' => 'recovery',
         'budget_type' => '', 'job_description' => 'Penggantian BOX ODP',
         'ihld_id' => '', 'nama_lop' => '',
     ];
 @endphp
 
-<div class="mx-auto max-w-5xl" x-data="lopForm({ initial: @js($sample), template: @js(old('template', $template)), wbsCodes: @js($wbsCodes) })" x-init="$watch('template', () => regenerateName(true))">
+<div class="mx-auto max-w-5xl" x-data="lopForm({ initial: @js($sample), template: @js(old('template', $template)), programCodes: @js($programCodes) })" x-init="$watch('template', () => regenerateName(true))">
     <div class="mb-6">
         <a href="{{ route('lop.create') }}" class="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-brand-600 dark:text-ink-400">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg> Kembali ke Input LOP

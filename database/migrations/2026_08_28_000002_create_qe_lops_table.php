@@ -22,7 +22,7 @@ return new class extends Migration
 
             $table->string('kode_lop')->unique();
             $table->string('nama_lop');
-            $table->enum('wbs_type', ['recovery', 'preventive', 'relok_utilitas']);
+            $table->enum('program_type', ['recovery', 'preventive', 'relok_utilitas']);
 
             $table->string('sto')->nullable();
             $table->string('branch')->nullable();
@@ -48,7 +48,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index('status_lop');
-            $table->index(['status_lop', 'wbs_type']);
+            $table->index(['status_lop', 'program_type']);
             $table->index('package_id');
         });
     }

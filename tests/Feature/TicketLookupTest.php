@@ -121,7 +121,7 @@ class TicketLookupTest extends TestCase
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
 
         $lop = QeLop::create([
-            'incident' => 'INC5000', 'nama_lop' => '3SDA_QEREC_INC5000_ODP', 'wbs_type' => 'recovery',
+            'incident' => 'INC5000', 'nama_lop' => '3SDA_QEREC_INC5000_ODP', 'program_type' => 'recovery',
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => 'odp',
             'job_description' => 'x', 'status_lop' => 'progress', 'created_by' => $admin->id_user,
         ]);

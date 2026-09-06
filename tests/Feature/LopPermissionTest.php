@@ -21,7 +21,7 @@ class LopPermissionTest extends TestCase
         $response = $this->actingAs($admin)->post(route('lop.store'), [
             'incident' => 'LOP-100',
             'nama_lop' => 'Recovery Jl. Merdeka',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'sto' => 'SDA',
             'branch' => 'SIDOARJO',
             'area' => '3',
@@ -40,7 +40,7 @@ class LopPermissionTest extends TestCase
         $response = $this->actingAs($teknisi)->post(route('lop.store'), [
             'incident' => 'LOP-101',
             'nama_lop' => 'Recovery Jl. Sudirman',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
         ]);
 
         $response->assertForbidden();
@@ -61,7 +61,7 @@ class LopPermissionTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-104',
             'nama_lop' => 'Recovery Jl. Braga',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'draft',
             'created_by' => $admin->id_user,
         ]);
@@ -89,7 +89,7 @@ class LopPermissionTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-102',
             'nama_lop' => 'Preventive Jl. Thamrin',
-            'wbs_type' => 'preventive',
+            'program_type' => 'preventive',
             'status_lop' => 'draft',
             'created_by' => $admin->id_user,
         ]);
@@ -109,7 +109,7 @@ class LopPermissionTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-103',
             'nama_lop' => 'Relok Utilitas Jl. Gatot Subroto',
-            'wbs_type' => 'relok_utilitas',
+            'program_type' => 'relok_utilitas',
             'status_lop' => 'assigned',
             'created_by' => $admin->id_user,
         ]);
@@ -132,13 +132,13 @@ class LopPermissionTest extends TestCase
 
         QeLop::create([
             'incident' => 'LOP-ADMIN-A', 'nama_lop' => 'Project Admin A',
-            'wbs_type' => 'recovery', 'status_lop' => 'draft',
+            'program_type' => 'recovery', 'status_lop' => 'draft',
             'created_by' => $adminA->id_user,
         ]);
 
         $lopAdminB = QeLop::create([
             'incident' => 'LOP-ADMIN-B', 'nama_lop' => 'Project Admin B',
-            'wbs_type' => 'recovery', 'status_lop' => 'assigned',
+            'program_type' => 'recovery', 'status_lop' => 'assigned',
             'created_by' => $adminB->id_user,
         ]);
         $lopAdminB->assignments()->create([
@@ -168,7 +168,7 @@ class LopPermissionTest extends TestCase
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-ASSIGN-INBOX', 'nama_lop' => 'Assign dari Inbox',
-            'wbs_type' => 'recovery', 'status_lop' => 'draft',
+            'program_type' => 'recovery', 'status_lop' => 'draft',
             'created_by' => $admin->id_user,
         ]);
 
@@ -203,7 +203,7 @@ class LopPermissionTest extends TestCase
 
         $lop = QeLop::create([
             'incident' => 'LOP-POLICY', 'nama_lop' => 'Policy check',
-            'wbs_type' => 'recovery', 'status_lop' => 'draft', 'branch' => 'SURABAYA',
+            'program_type' => 'recovery', 'status_lop' => 'draft', 'branch' => 'SURABAYA',
             'created_by' => $creator->id_user,
         ]);
 
@@ -214,8 +214,8 @@ class LopPermissionTest extends TestCase
 
         $this->actingAs($superAdmin)->post(route('lop.assign', $lop), [
             'technician_id' => $teknisi->id_user,
-            'return_to' => 'wbs:recovery',
-        ])->assertRedirect(route('wbs.show', 'recovery'));
+            'return_to' => 'program:recovery',
+        ])->assertRedirect(route('program.show', 'recovery'));
 
         $this->assertDatabaseHas('qe_lop_assignments', [
             'qe_lop_id' => $lop->id_qe_lops, 'technician_id' => $teknisi->id_user, 'status' => 'active',
@@ -229,7 +229,7 @@ class LopPermissionTest extends TestCase
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-UNASSIGN', 'nama_lop' => 'Salah Teknisi',
-            'wbs_type' => 'recovery', 'status_lop' => 'assigned',
+            'program_type' => 'recovery', 'status_lop' => 'assigned',
             'created_by' => $admin->id_user,
         ]);
         $assignment = $lop->assignments()->create([

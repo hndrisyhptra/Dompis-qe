@@ -37,7 +37,7 @@ class AssignLopRequest extends FormRequest
             ],
             'return_to' => ['nullable', Rule::in([
                 'index', 'show',
-                'wbs:recovery', 'wbs:preventive', 'wbs:relok_utilitas',
+                'program:recovery', 'program:preventive', 'program:relok_utilitas',
             ])],
         ];
     }

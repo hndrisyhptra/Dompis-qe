@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', $wbsType->label())
+@section('title', $programType->label())
 
 @section('content')
 @php
@@ -14,20 +14,20 @@
 <div class="mx-auto max-w-7xl space-y-6">
     @if ($scopeWarning)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-            Akun Anda belum terhubung ke branch, jadi tidak ada data WBS yang bisa ditampilkan. Hubungi admin untuk mengatur branch akun Anda.
+            Akun Anda belum terhubung ke branch, jadi tidak ada data Program yang bisa ditampilkan. Hubungi admin untuk mengatur branch akun Anda.
         </div>
     @endif
     <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-            <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Pemetaan WBS · {{ $scopeLabel }}</p>
-            <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">{{ $wbsType->label() }}</h1>
+            <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Pemetaan Program · {{ $scopeLabel }}</p>
+            <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">{{ $programType->label() }}</h1>
             <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">{{ $total }} LOP · dikelompokkan per bucket status.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            @foreach ($wbsTypes as $t)
-                <a href="{{ route('wbs.show', [$t->value, ...array_diff_key($carry, ['q' => 1])]) }}"
+            @foreach ($programTypes as $t)
+                <a href="{{ route('program.show', [$t->value, ...array_diff_key($carry, ['q' => 1])]) }}"
                    class="inline-flex min-h-10 items-center rounded-xl border px-4 text-sm font-bold transition
-                          {{ $t === $wbsType
+                          {{ $t === $programType
                               ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500 dark:bg-brand-950/40 dark:text-brand-300'
                               : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-300' }}">
                     {{ $t->label() }}
@@ -38,7 +38,7 @@
 
     {{-- Bucket status --}}
     <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
-        <a href="{{ route('wbs.show', [$wbsType->value, ...$carry]) }}"
+        <a href="{{ route('program.show', [$programType->value, ...$carry]) }}"
            class="rounded-2xl border p-4 shadow-sm transition
                   {{ $bucketFilter === ''
                       ? 'border-ink-900 bg-ink-900 text-white dark:border-white dark:bg-ink-800'
@@ -47,7 +47,7 @@
             <p class="mt-1 text-2xl font-extrabold">{{ $total }}</p>
         </a>
         @foreach ($buckets as $bucket)
-            <a href="{{ route('wbs.show', [$wbsType->value, 'bucket' => $bucket['key'], ...$carry]) }}"
+            <a href="{{ route('program.show', [$programType->value, 'bucket' => $bucket['key'], ...$carry]) }}"
                class="rounded-2xl border bg-white p-4 shadow-sm transition dark:bg-ink-900
                       {{ $bucket['active'] ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-ink-100 hover:border-ink-300 dark:border-ink-800' }}">
                 <span class="inline-flex"><x-badge :variant="$bucket['variant']">{{ $bucket['label'] }}</x-badge></span>
@@ -73,7 +73,7 @@
 
     {{-- Filter: region / branch (hanya SUPER_ADMIN) + pencarian --}}
     <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <form method="GET" action="{{ route('wbs.show', $wbsType->value) }}"
+        <form method="GET" action="{{ route('program.show', $programType->value) }}"
               class="grid gap-3 {{ $canFilterLocation ? 'lg:grid-cols-[190px_190px_minmax(200px,1fr)_auto]' : 'sm:grid-cols-[minmax(200px,1fr)_auto]' }}">
             <input type="hidden" name="bucket" value="{{ $bucketFilter }}">
 
@@ -101,7 +101,7 @@
             <div class="flex gap-2">
                 <button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>
                 @if ($search || $bucketFilter || $regionFilter || $branchFilter)
-                    <a href="{{ route('wbs.show', $wbsType->value) }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>
+                    <a href="{{ route('program.show', $programType->value) }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>
                 @endif
             </div>
         </form>
@@ -156,7 +156,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-6 py-14 text-center"><p class="text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Belum ada LOP untuk WBS / bucket ini.</p></td></tr>
+                <tr><td colspan="6" class="px-6 py-14 text-center"><p class="text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Belum ada LOP untuk Program / bucket ini.</p></td></tr>
             @endforelse
         </tbody>
     </x-table>
@@ -165,7 +165,7 @@
         <x-lop-detail-modal :id="'lop-detail-'.$lop->id_qe_lops" :$lop />
         <x-lop-tracking-modal :id="'lop-tracking-'.$lop->id_qe_lops" :$lop />
         @can('assign', $lop)
-            <x-assign-technician-modal :id="'assign-technician-'.$lop->id_qe_lops" :$lop :$technicians :return-to="'wbs:'.$wbsType->value" />
+            <x-assign-technician-modal :id="'assign-technician-'.$lop->id_qe_lops" :$lop :$technicians :return-to="'program:'.$programType->value" />
         @endcan
     @endforeach
 

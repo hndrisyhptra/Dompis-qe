@@ -34,12 +34,12 @@ class LopService
                 'nama_lop' => filled($data['nama_lop'] ?? null)
                     ? $data['nama_lop']
                     : $this->namingService->generate($data),
-                'wbs_type' => $data['wbs_type'],
+                'program_type' => $data['program_type'],
                 'sto' => $data['sto'],
                 'branch' => $data['branch'],
                 'area' => $data['area'],
                 'segment' => $data['segment'],
-                'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+                'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
                 'job_description' => $data['job_description'],
                 'ticket_summary' => $data['ticket_summary'] ?? null,
                 'datek' => $data['datek'] ?? null,
@@ -62,12 +62,12 @@ class LopService
             'nama_lop' => filled($data['nama_lop'] ?? null)
                 ? $data['nama_lop']
                 : $this->namingService->generate($data),
-            'wbs_type' => $data['wbs_type'],
+            'program_type' => $data['program_type'],
             'sto' => $data['sto'],
             'branch' => $data['branch'],
             'area' => $data['area'],
             'segment' => $data['segment'],
-            'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+            'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
             'job_description' => $data['job_description'],
             'ticket_summary' => $data['ticket_summary'] ?? null,
             'datek' => $data['datek'] ?? null,

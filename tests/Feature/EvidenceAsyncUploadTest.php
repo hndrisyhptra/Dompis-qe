@@ -26,7 +26,7 @@ class EvidenceAsyncUploadTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-ASYNC-01',
             'nama_lop' => 'Async Upload',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => $status,
             'created_by' => $admin->id_user,
         ]);

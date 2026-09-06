@@ -22,7 +22,7 @@ class EvidencePermissionTest extends TestCase
         return QeLop::create([
             'incident' => 'LOP-EVD-'.uniqid(),
             'nama_lop' => 'Evidence Test',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => $status,
             'created_by' => $admin->id_user,
         ]);

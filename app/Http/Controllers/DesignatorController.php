@@ -15,9 +15,7 @@ use Illuminate\View\View;
 
 class DesignatorController extends Controller
 {
-    public function __construct(private readonly DesignatorImportService $importService)
-    {
-    }
+    public function __construct(private readonly DesignatorImportService $importService) {}
 
     public function index(Request $request): View
     {

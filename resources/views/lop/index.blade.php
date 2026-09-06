@@ -44,11 +44,11 @@
                     @if ($status !== \App\Enums\LopStatus::COMPLETED)<option value="{{ $status->value }}" @selected($statusFilter === $status->value)>{{ $status->label() }}</option>@endif
                 @endforeach
             </select>
-            <select name="wbs" class="min-h-10 rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm dark:border-ink-700 dark:bg-ink-800">
-                <option value="">Semua WBS</option>
-                @foreach (\App\Enums\WbsType::cases() as $type)<option value="{{ $type->value }}" @selected($wbsFilter === $type->value)>{{ $type->label() }}</option>@endforeach
+            <select name="program" class="min-h-10 rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm dark:border-ink-700 dark:bg-ink-800">
+                <option value="">Semua Program</option>
+                @foreach (\App\Enums\ProgramType::cases() as $type)<option value="{{ $type->value }}" @selected($programFilter === $type->value)>{{ $type->label() }}</option>@endforeach
             </select>
-            <div class="flex gap-2"><button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>@if ($search || $statusFilter || $wbsFilter)<a href="{{ route('lop.index') }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>@endif</div>
+            <div class="flex gap-2"><button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>@if ($search || $statusFilter || $programFilter)<a href="{{ route('lop.index') }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>@endif</div>
         </form>
     </section>
 
@@ -61,7 +61,7 @@
             @forelse ($lops as $lop)
                 @php($summary = $lop->progress_summary)
                 <tr class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
-                    <td class="px-5 py-4"><p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p><p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->wbs_type->label() }}</p></td>
+                    <td class="px-5 py-4"><p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p><p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p></td>
                     <td class="px-5 py-4"><div class="flex items-center gap-2"><span class="grid h-8 w-8 rounded-full bg-ink-100 place-items-center text-xs font-bold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span><span class="whitespace-nowrap text-sm font-semibold">{{ $lop->activeAssignment?->technician?->name ?? 'Not Assigned' }}</span></div></td>
                     <td class="min-w-52 px-5 py-4"><div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/4 step</span><strong>{{ $summary['percentage'] }}%</strong></div><div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-brand-600' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-blue-500')) }}" style="width: {{ $summary['percentage'] }}%"></div></div><p class="mt-1.5 text-[10px] text-ink-400">{{ $summary['evidence_count'] }} evidence</p></td>
                     <td class="px-5 py-4"><x-badge :variant="$summary['review_variant']">{{ $summary['review_label'] }}</x-badge></td>

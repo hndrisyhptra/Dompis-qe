@@ -8,7 +8,7 @@
         'incident' => old('incident', $lop->incident), 'sto' => old('sto', $lop->sto),
         'branch' => old('branch', $lop->branch), 'area' => old('area', $lop->area ?? '3'),
         'segment' => old('segment', $lop->segment?->value ?? ''),
-        'wbs_type' => old('wbs_type', $lop->wbs_type->value),
+        'program_type' => old('program_type', $lop->program_type->value),
         'budget_type' => old('budget_type', $lop->budget_type?->value ?? ''),
         'job_description' => old('job_description', $lop->job_description),
         'ticket_summary' => old('ticket_summary', $lop->ticket_summary),

@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
-use App\Enums\WbsType;
+use App\Enums\ProgramType;
 use App\Models\QeLop;
 use App\Support\DatekRules;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,14 +22,14 @@ class StoreLopRequest extends FormRequest
         return [
             'incident' => ['required', 'string', 'max:100', 'unique:qe_lops,incident'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
-            'wbs_type' => ['required', Rule::enum(WbsType::class)],
+            'program_type' => ['required', Rule::enum(ProgramType::class)],
             'sto' => ['required', 'string', 'max:100'],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],
             'area' => ['required', 'string', 'max:20'],
             'segment' => ['required', Rule::enum(LopSegment::class)],
             'budget_type' => [
                 'nullable',
-                'required_if:wbs_type,'.WbsType::RELOK_UTILITAS->value,
+                'required_if:program_type,'.ProgramType::RELOK_UTILITAS->value,
                 Rule::enum(LopBudgetType::class),
             ],
             'job_description' => ['required', 'string', 'max:2000'],

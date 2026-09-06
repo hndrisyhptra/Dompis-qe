@@ -24,7 +24,7 @@ class EvidenceApprovalController extends Controller
 
         return view('evidence-approval.index', $this->approvalService->indexData(
             $request->user(),
-            $request->only(['q', 'status', 'step', 'region', 'branch', 'wbs', 'lop_status']),
+            $request->only(['q', 'status', 'step', 'region', 'branch', 'program', 'lop_status']),
         ));
     }
 

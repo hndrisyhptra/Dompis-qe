@@ -6,8 +6,8 @@ use App\Enums\EvidenceStatus;
 use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
-use App\Enums\WbsType;
 use App\Http\Requests\StoreLopRequest;
 use App\Http\Requests\TransitionLopStatusRequest;
 use App\Http\Requests\UpdateLopRequest;
@@ -78,8 +78,8 @@ class LopController extends Controller
             $query->where('status_lop', $status);
         }
 
-        if ($wbs = $request->string('wbs')->trim()->value()) {
-            $query->where('wbs_type', $wbs);
+        if ($program = $request->string('program')->trim()->value()) {
+            $query->where('program_type', $program);
         }
 
         $lops = $query->latest()->paginate(20)->withQueryString();
@@ -93,7 +93,7 @@ class LopController extends Controller
             'technicians' => $this->activeTechnicians(),
             'search' => $search,
             'statusFilter' => $status,
-            'wbsFilter' => $wbs,
+            'programFilter' => $program,
             'stats' => [
                 'active' => (clone $statsQuery)->count(),
                 'waiting' => (clone $statsQuery)->where('status_lop', LopStatus::WAITING_APPROVAL->value)->count(),
@@ -172,14 +172,14 @@ class LopController extends Controller
 
     /**
      * Buat nomor tiket manual (INP...) saat incident tidak ada di DB tiket.
-     * Branch mengikuti branch user yang login; WBS dipilih di form.
+     * Branch mengikuti branch user yang login; Program dipilih di form.
      */
     public function manualIncident(Request $request): JsonResponse
     {
         $this->authorize('create', QeLop::class);
 
         $data = $request->validate([
-            'wbs_type' => ['required', Rule::enum(WbsType::class)],
+            'program_type' => ['required', Rule::enum(ProgramType::class)],
         ]);
 
         $branch = $request->user()->branch;
@@ -191,7 +191,7 @@ class LopController extends Controller
             ], 422);
         }
 
-        $incident = $this->manualIncident->generate($branch, WbsType::from($data['wbs_type']));
+        $incident = $this->manualIncident->generate($branch, ProgramType::from($data['program_type']));
 
         return response()->json([
             'ok' => true,
@@ -305,10 +305,10 @@ class LopController extends Controller
         return [
             'segments' => LopSegment::cases(),
             'budgetTypes' => LopBudgetType::cases(),
-            'wbsTypes' => WbsType::cases(),
+            'programTypes' => ProgramType::cases(),
             'nameTemplate' => $this->namingService->activeTemplate(),
-            'wbsCodes' => collect(WbsType::cases())->mapWithKeys(
-                fn (WbsType $type) => [$type->value => $type->code()]
+            'programCodes' => collect(ProgramType::cases())->mapWithKeys(
+                fn (ProgramType $type) => [$type->value => $type->code()]
             ),
         ];
     }

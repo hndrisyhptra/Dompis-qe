@@ -19,7 +19,7 @@ class LopMigrationTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('qe_lops'));
         $this->assertTrue(Schema::hasColumns('qe_lops', [
-            'id_qe_lops', 'incident', 'nama_lop', 'wbs_type', 'sto', 'branch',
+            'id_qe_lops', 'incident', 'nama_lop', 'program_type', 'sto', 'branch',
             'area', 'segment', 'budget_type', 'job_description', 'ihld_id',
             'package_id', 'status_lop', 'created_by', 'deleted_at',
         ]));
@@ -60,7 +60,7 @@ class LopMigrationTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-001',
             'nama_lop' => 'Test LOP',
-            'wbs_type' => 'recovery',
+            'program_type' => 'recovery',
             'status_lop' => 'draft',
             'created_by' => $creator->id_user,
         ]);

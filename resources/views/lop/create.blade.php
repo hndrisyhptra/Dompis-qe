@@ -7,7 +7,7 @@
     $initial = [
         'incident' => old('incident', ''), 'sto' => old('sto', ''),
         'branch' => old('branch', ''), 'area' => old('area', '3'),
-        'segment' => old('segment', ''), 'wbs_type' => old('wbs_type', ''),
+        'segment' => old('segment', ''), 'program_type' => old('program_type', ''),
         'budget_type' => old('budget_type', ''),
         'job_description' => old('job_description', ''),
         'ticket_summary' => old('ticket_summary', ''),

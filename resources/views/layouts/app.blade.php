@@ -144,29 +144,29 @@
                 </a>
             @endcan
 
-            {{-- WBS: pemetaan / bucket LOP per jenis WBS. Teknisi diarahkan ke inbox-nya. --}}
+            {{-- Program: pemetaan / bucket LOP per jenis Program. Teknisi diarahkan ke inbox-nya. --}}
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::TEKNISI))
-                <div x-data="{ open: {{ request()->routeIs('wbs.*') ? 'true' : 'false' }} }">
+                <div x-data="{ open: {{ request()->routeIs('program.*') ? 'true' : 'false' }} }">
                     <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
                             </svg>
-                            WBS
+                            Program
                         </span>
                         {!! $chevron !!}
                     </button>
                     <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
-                        <a href="{{ route('wbs.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('wbs.index') ? $navSubLinkActive : $navSubLinkInactive }}">
-                            @if (request()->routeIs('wbs.index'))
+                        <a href="{{ route('program.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('program.index') ? $navSubLinkActive : $navSubLinkInactive }}">
+                            @if (request()->routeIs('program.index'))
                                 <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                             @endif
                             <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
                             Ringkasan
                         </a>
-                        @foreach (\App\Enums\WbsType::cases() as $type)
-                            @php($isActive = request()->routeIs('wbs.show') && request()->route('wbs') === $type->value)
-                            <a href="{{ route('wbs.show', $type->value) }}" class="{{ $navSubLink }} {{ $isActive ? $navSubLinkActive : $navSubLinkInactive }}">
+                        @foreach (\App\Enums\ProgramType::cases() as $type)
+                            @php($isActive = request()->routeIs('program.show') && request()->route('program') === $type->value)
+                            <a href="{{ route('program.show', $type->value) }}" class="{{ $navSubLink }} {{ $isActive ? $navSubLinkActive : $navSubLinkInactive }}">
                                 @if ($isActive)
                                     <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                                 @endif
