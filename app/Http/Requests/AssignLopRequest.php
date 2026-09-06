@@ -35,7 +35,10 @@ class AssignLopRequest extends FormRequest
                     ->where('role_id', $teknisiRoleId)
                     ->where('status', 'active'),
             ],
-            'return_to' => ['nullable', Rule::in(['index', 'show'])],
+            'return_to' => ['nullable', Rule::in([
+                'index', 'show',
+                'wbs:recovery', 'wbs:preventive', 'wbs:relok_utilitas',
+            ])],
         ];
     }
 }

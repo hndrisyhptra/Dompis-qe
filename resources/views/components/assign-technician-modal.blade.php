@@ -105,7 +105,7 @@
         </div>
     </form>
     @can('unassign', $lop)
-        <form id="unassign-{{ $lop->id_qe_lops }}" method="POST" action="{{ route('lop.unassign', $lop) }}" onsubmit="return confirm('Hapus assignment aktif dan kembalikan LOP ke Draft?')">
+        <form id="unassign-{{ $lop->id_qe_lops }}" method="POST" action="{{ route('lop.unassign', $lop) }}" onsubmit="return confirm('Hapus assignment aktif dan kembalikan LOP ke Unassigned?')">
             @csrf
             @method('DELETE')
         </form>

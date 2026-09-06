@@ -48,8 +48,18 @@ class QeLopPolicy
 
     public function assign(User $user, QeLop $lop): bool
     {
-        return $user->hasRole(UserRole::ADMIN)
-            && $lop->created_by === $user->id_user;
+        // SUPER_ADMIN: assign LOP apa pun (konsisten dgn create/update/delete).
+        if ($user->hasRole(UserRole::SUPER_ADMIN)) {
+            return true;
+        }
+
+        // ADMIN: LOP buatannya sendiri, atau LOP di branch-nya.
+        if (! $user->hasRole(UserRole::ADMIN)) {
+            return false;
+        }
+
+        return $lop->created_by === $user->id_user
+            || ($user->branch !== null && $lop->branch === $user->branch->name);
     }
 
     public function unassign(User $user, QeLop $lop): bool

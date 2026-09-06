@@ -150,16 +150,24 @@ class WbsBucketTest extends TestCase
 
         $this->actingAs($admin)->get(route('wbs.show', 'recovery'))
             ->assertOk()
-            ->assertViewHas('total', 3)          // draft tidak dihitung
-            ->assertDontSee('R-DRAFT')
+            ->assertViewHas('total', 4)          // draft ikut, sebagai bucket "Belum Ditugaskan"
+            ->assertSee('R-DRAFT')
             ->assertViewHas('buckets', function (array $buckets) {
                 $byKey = collect($buckets)->keyBy('key');
 
                 return ! $byKey->has('draft')
+                    && $byKey['unassigned']['count'] === 1
                     && $byKey['progress']['count'] === 2   // survey + progress
                     && $byKey['review']['count'] === 1
                     && $byKey['done']['count'] === 0;
             });
+
+        // bucket=unassigned -> hanya draft
+        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'unassigned']))
+            ->assertOk()
+            ->assertSee('R-DRAFT')
+            ->assertDontSee('R-SURVEY')
+            ->assertDontSee('R-REVIEW');
 
         // bucket=progress -> hanya survey + progress
         $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'progress']))
@@ -242,7 +250,7 @@ class WbsBucketTest extends TestCase
             });
     }
 
-    public function test_draft_lops_are_excluded_from_wbs_view(): void
+    public function test_draft_lops_appear_in_unassigned_bucket(): void
     {
         $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
 
@@ -251,11 +259,17 @@ class WbsBucketTest extends TestCase
 
         $this->actingAs($admin)->get(route('wbs.show', 'recovery'))
             ->assertOk()
-            ->assertViewHas('total', 1)
+            ->assertViewHas('total', 2)
             ->assertSee('REAL-ONE')
-            ->assertDontSee('DRAFT-ONLY');
+            ->assertSee('DRAFT-ONLY')
+            ->assertViewHas('buckets', fn (array $b) => collect($b)->firstWhere('key', 'unassigned')['count'] === 1);
+
+        $this->actingAs($admin)->get(route('wbs.show', ['recovery', 'bucket' => 'unassigned']))
+            ->assertOk()
+            ->assertSee('DRAFT-ONLY')
+            ->assertDontSee('REAL-ONE');
 
         $this->actingAs($admin)->get(route('wbs.index'))
-            ->assertViewHas('wbsSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 1);
+            ->assertViewHas('wbsSummaries', fn (array $s) => collect($s)->firstWhere('slug', 'recovery')['total'] === 2);
     }
 }

@@ -1,85 +1,165 @@
 @props(['id', 'lop'])
 
-@php($summary = $lop->progress_summary)
+@php
+    $summary = $lop->progress_summary;
+
+    // Konteks cepat di bawah judul.
+    $chips = array_values(array_filter([
+        $lop->wbs_type->label(),
+        $lop->branch ?: null,
+        $lop->budget_type?->label(),
+    ]));
+
+    // Rincian record - satu daftar yang bisa dipindai, bukan grid kotak.
+    $details = [
+        'STO' => $lop->sto ?: '—',
+        'Area' => $lop->area ? 'Area '.$lop->area : '—',
+        'Segmen' => $lop->segment?->label() ?? '—',
+        'Program' => $lop->budget_type?->label() ?? 'Tidak berlaku',
+        'ID IHLD' => $lop->ihld_id ?: 'Belum tersedia',
+        'Terakhir diperbarui' => $lop->updated_at->diffForHumans(),
+    ];
+
+    $barColor = match ($summary['review_key'] ?? null) {
+        'rejected' => 'bg-brand-500',
+        'approved' => 'bg-emerald-500',
+        'waiting_review' => 'bg-amber-400',
+        default => 'bg-blue-500',
+    };
+@endphp
 
 <x-modal :id="$id" title="Detail LOP" size="lg">
-    <div class="space-y-5">
-       <section class="overflow-hidden rounded-2xl border border-ink-200 bg-white p-5 text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-            <p class="text-xs font-extrabold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">
-                {{ $lop->incident }}
-            </p>
-        <h3 class="mt-2 text-lg font-extrabold leading-6 text-ink-900 dark:text-white">
-            {{ $lop->nama_lop }}
-        </h3>
+    <div class="space-y-6">
 
-        <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">
-            Dibuat oleh {{ $lop->creator?->name ?? '—' }} · {{ $lop->created_at->format('d M Y, H:i') }}
-        </p>
-    </div>
-
-    <x-badge :variant="$lop->status_lop->badgeVariant()">
-        {{ $lop->status_lop->label() }}
-    </x-badge>
-</div>
-
-<div class="mt-5">
-    <div class="mb-2 flex items-center justify-between text-xs">
-        <span class="text-ink-500 dark:text-ink-400">
-            Progress pekerjaan
-        </span>
-
-        <strong class="font-extrabold text-ink-900 dark:text-white">
-            {{ $summary['percentage'] }}%
-        </strong>
-    </div>
-
-    <div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
-        <div
-            class="h-full rounded-full bg-brand-500 dark:bg-brand-400"
-            style="width: {{ $summary['percentage'] }}%"
-        ></div>
-    </div>
-
-    <p class="mt-2 text-[10px] text-ink-400 dark:text-ink-500">
-        {{ $summary['completed_steps'] }} dari 4 step · {{ $summary['evidence_count'] }} evidence
-    </p>
-</div>
-</section>
-
-
-        <section class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            @foreach ([
-                ['STO', $lop->sto ?: '—'],
-                ['Branch', $lop->branch ?: '—'],
-                ['Area', $lop->area ? 'Area '.$lop->area : '—'],
-                ['Segmen', $lop->segment?->label() ?? '—'],
-                ['WBS', $lop->wbs_type->label()],
-                ['Program', $lop->budget_type?->label() ?? 'Tidak berlaku'],
-                ['ID IHLD', $lop->ihld_id ?: 'Belum tersedia'],
-                ['Review', $summary['review_label']],
-                ['Update terakhir', $lop->updated_at->diffForHumans()],
-            ] as [$label, $value])
-                <div class="rounded-xl border border-ink-100 bg-ink-50 p-3 dark:border-ink-700 dark:bg-ink-800">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">{{ $label }}</p>
-                    <p class="mt-1.5 break-words text-sm font-bold text-ink-900 dark:text-white">{{ $value }}</p>
+        {{-- Identitas + status + konteks --}}
+        <div>
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-[11px] font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">{{ $lop->incident }}</p>
+                    <h3 class="mt-1.5 text-lg font-extrabold leading-snug text-ink-900 dark:text-white">{{ $lop->nama_lop }}</h3>
                 </div>
-            @endforeach
-        </section>
-
-        <section class="rounded-xl border border-ink-100 p-4 dark:border-ink-700">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Deskripsi Pekerjaan</p>
-            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-ink-700 dark:text-ink-200">{{ $lop->job_description ?: 'Belum ada deskripsi pekerjaan.' }}</p>
-        </section>
-
-        <section class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-950/30">
-            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-600 text-sm font-extrabold text-white">{{ mb_strtoupper(mb_substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span>
-            <div class="min-w-0">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-300">Teknisi aktif</p>
-                <p class="mt-1 truncate text-sm font-bold text-ink-900 dark:text-white">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p>
-                @if ($lop->activeAssignment)<p class="mt-1 text-xs text-ink-500">Ditugaskan {{ $lop->activeAssignment->assigned_at->diffForHumans() }}</p>@endif
+                <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
             </div>
-        </section>
+
+            @if (count($chips))
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    @foreach ($chips as $chip)
+                        <span class="rounded-lg bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $chip }}</span>
+                    @endforeach
+                </div>
+            @endif
+
+            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">
+                Dibuat oleh {{ $lop->creator?->name ?? '—' }} &middot; {{ $lop->created_at->format('d M Y, H:i') }}
+            </p>
+        </div>
+
+        {{-- Progress --}}
+        <div class="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:border-ink-800 dark:bg-ink-800/40">
+            <div class="flex items-end justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-bold text-ink-900 dark:text-white">Progress pekerjaan</p>
+                    <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
+                        {{ $summary['completed_steps'] }}/4 step &middot; {{ $summary['evidence_count'] }} evidence &middot; {{ $summary['review_label'] }}
+                    </p>
+                </div>
+                <span class="shrink-0 text-2xl font-extrabold tabular-nums text-ink-900 dark:text-white">{{ $summary['percentage'] }}%</span>
+            </div>
+            <div class="mt-3 h-2 overflow-hidden rounded-full bg-ink-200 dark:bg-ink-700">
+                <div class="h-full rounded-full transition-all {{ $barColor }}" style="width: {{ $summary['percentage'] }}%"></div>
+            </div>
+        </div>
+
+        {{-- Teknisi --}}
+        <div class="flex items-center gap-3 rounded-2xl border p-4 {{ $lop->activeAssignment ? 'border-blue-100 bg-blue-50/70 dark:border-blue-900/50 dark:bg-blue-950/30' : 'border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900' }}">
+            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white {{ $lop->activeAssignment ? 'bg-blue-600' : 'bg-ink-300 dark:bg-ink-700' }}">
+                {{ mb_strtoupper(mb_substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}
+            </span>
+            <div class="min-w-0">
+                <p class="text-xs font-semibold text-ink-500 dark:text-ink-400">Teknisi aktif</p>
+                <p class="mt-0.5 truncate text-sm font-bold text-ink-900 dark:text-white">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p>
+                @if ($lop->activeAssignment)
+                    <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">Ditugaskan {{ $lop->activeAssignment->assigned_at->diffForHumans() }}</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Rincian --}}
+        <div>
+            <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Rincian</p>
+            <dl class="overflow-hidden rounded-2xl border border-ink-100 dark:border-ink-800">
+                @foreach ($details as $label => $value)
+                    <div class="flex items-baseline justify-between gap-4 px-4 py-2.5 {{ ! $loop->last ? 'border-b border-ink-100 dark:border-ink-800' : '' }} {{ $loop->index % 2 ? 'bg-ink-50/40 dark:bg-ink-800/30' : '' }}">
+                        <dt class="shrink-0 text-xs text-ink-500 dark:text-ink-400">{{ $label }}</dt>
+                        <dd class="min-w-0 break-words text-right text-sm font-semibold text-ink-800 dark:text-ink-100">{{ $value }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </div>
+
+        {{-- Deskripsi --}}
+        <div>
+            <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Deskripsi pekerjaan</p>
+            <p class="whitespace-pre-line text-sm leading-6 text-ink-700 dark:text-ink-100">{{ $lop->job_description ?: 'Belum ada deskripsi pekerjaan.' }}</p>
+        </div>
+
+        {{-- Ringkasan tiket --}}
+        @if (filled($lop->ticket_summary))
+            <div>
+                <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Ringkasan tiket</p>
+                <pre class="overflow-x-auto whitespace-pre-wrap rounded-2xl border border-ink-100 bg-ink-50/60 p-4 font-mono text-xs leading-6 text-ink-700 dark:border-ink-800 dark:bg-ink-800/40 dark:text-ink-100">{{ $lop->ticket_summary }}</pre>
+            </div>
+        @endif
+
+        {{-- Datek terdampak --}}
+        @php($datek = $lop->datek)
+        @if (filled($datek))
+            <div>
+                <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Datek terdampak</p>
+                <div class="space-y-2.5 rounded-2xl border border-ink-100 p-4 dark:border-ink-800">
+                    @foreach ([
+                        'ODC' => $datek['odc'] ?? [],
+                        'ODP' => $datek['odp'] ?? [],
+                        'Kabel' => $datek['kabel'] ?? [],
+                        'IP' => $datek['ip'] ?? [],
+                    ] as $label => $items)
+                        @if (! empty($items))
+                            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+                                <span class="w-10 shrink-0 text-xs text-ink-400">{{ $label }}</span>
+                                @foreach ($items as $item)
+                                    <span class="rounded-md bg-ink-100 px-2 py-0.5 font-mono text-xs text-ink-700 dark:bg-ink-800 dark:text-ink-100">{{ $item }}</span>
+                                @endforeach
+                            </div>
+                        @endif
+                    @endforeach
+
+                    @if (! empty($datek['gpon']))
+                        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+                            <span class="w-10 shrink-0 text-xs text-ink-400">GPON</span>
+                            @foreach ($datek['gpon'] as $g)
+                                <span class="rounded-md bg-ink-100 px-2 py-0.5 font-mono text-xs text-ink-700 dark:bg-ink-800 dark:text-ink-100">{{ $g['name'] ?? '—' }}@if (! empty($g['ip'])) &middot; {{ $g['ip'] }}@endif @if (! empty($g['ports'])) &middot; port {{ implode(', ', $g['ports']) }}@endif</span>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @php($meta = collect([
+                        'OLT terdampak' => ! empty($datek['olt']) ? 'Ya' : null,
+                        'RCA' => $datek['rca'] ?? null,
+                        'EST' => $datek['est'] ?? null,
+                        'PIC' => trim(($datek['pic']['nama'] ?? '').' '.($datek['pic']['telp'] ?? '')) ?: null,
+                    ])->filter())
+                    @if ($meta->isNotEmpty())
+                        <div class="grid gap-x-4 gap-y-1 border-t border-ink-100 pt-2.5 text-xs sm:grid-cols-2 dark:border-ink-800">
+                            @foreach ($meta as $label => $value)
+                                <div class="flex justify-between gap-3">
+                                    <span class="text-ink-400">{{ $label }}</span>
+                                    <span class="text-right font-medium text-ink-700 dark:text-ink-100">{{ $value }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 </x-modal>

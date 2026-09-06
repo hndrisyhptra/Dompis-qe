@@ -38,6 +38,8 @@ class QeLop extends Model
         'segment',
         'budget_type',
         'job_description',
+        'ticket_summary',
+        'datek',
         'ihld_id',
         'package_id',
         'status_lop',
@@ -51,6 +53,7 @@ class QeLop extends Model
             'segment' => LopSegment::class,
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
+            'datek' => 'array',
         ];
     }
 

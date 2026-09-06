@@ -19,11 +19,18 @@ class LopAssignmentController extends Controller
 
         $this->lopService->assign($qe_lop, $technician, $request->user());
 
-        $route = $request->validated('return_to') === 'index' ? 'lop.index' : 'lop.show';
+        $returnTo = (string) $request->validated('return_to');
+        $flash = "Teknisi {$technician->name} berhasil ditugaskan.";
+
+        if (str_starts_with($returnTo, 'wbs:')) {
+            return redirect()->route('wbs.show', substr($returnTo, 4))->with('status', $flash);
+        }
+
+        $route = $returnTo === 'index' ? 'lop.index' : 'lop.show';
 
         return redirect()
             ->route($route, $route === 'lop.show' ? $qe_lop : [])
-            ->with('status', "Teknisi {$technician->name} berhasil ditugaskan.");
+            ->with('status', $flash);
     }
 
     public function destroy(Request $request, QeLop $qe_lop): RedirectResponse

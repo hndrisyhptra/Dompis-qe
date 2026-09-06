@@ -10,6 +10,8 @@
         'segment' => old('segment', ''), 'wbs_type' => old('wbs_type', ''),
         'budget_type' => old('budget_type', ''),
         'job_description' => old('job_description', ''),
+        'ticket_summary' => old('ticket_summary', ''),
+        'datek' => old('datek', []),
         'ihld_id' => old('ihld_id', ''), 'nama_lop' => old('nama_lop', ''),
     ];
     $formAction = route('lop.store');

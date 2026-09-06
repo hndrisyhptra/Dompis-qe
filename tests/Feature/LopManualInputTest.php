@@ -33,6 +33,19 @@ class LopManualInputTest extends TestCase
             'segment' => 'odp',
             'wbs_type' => 'recovery',
             'job_description' => 'Penggantian BOX ODP',
+            'ticket_summary' => "Incident: INC123456\nWorkzone: SDA\nStatus: OPEN",
+            'datek' => json_encode([
+                'kategori' => 'distribusi',
+                'odc' => ['ODC-SDA-XYZ'],
+                'odp' => ['ODP-SDA-XYZ/12'],
+                'gpon' => [['name' => 'GPON01-D5-SDA-2', 'ip' => '10.1.2.3', 'ports' => ['1/4']]],
+                'kabel' => [],
+                'ip' => [],
+                'olt' => false,
+                'rca' => '',
+                'est' => '',
+                'pic' => ['nama' => '', 'telp' => ''],
+            ]),
             'ihld_id' => '',
             'nama_lop' => '',
         ]);
@@ -43,8 +56,14 @@ class LopManualInputTest extends TestCase
             'nama_lop' => '3SDA_QEREC_INC123456_ODP',
             'segment' => 'odp',
             'budget_type' => null,
+            'ticket_summary' => "Incident: INC123456\nWorkzone: SDA\nStatus: OPEN",
             'ihld_id' => null,
         ]);
+
+        $lop = QeLop::where('incident', 'INC123456')->firstOrFail();
+        $this->assertSame(['ODC-SDA-XYZ'], $lop->datek['odc']);
+        $this->assertSame('GPON01-D5-SDA-2', $lop->datek['gpon'][0]['name']);
+        $this->assertSame(['1/4'], $lop->datek['gpon'][0]['ports']);
     }
 
     public function test_relok_utilitas_requires_budget_type(): void

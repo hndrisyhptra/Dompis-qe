@@ -192,6 +192,36 @@ class LopPermissionTest extends TestCase
             ->assertSee('Hapus Assignment');
     }
 
+    public function test_super_admin_can_assign_any_lop_and_admin_can_assign_within_branch(): void
+    {
+        $creator = User::factory()->role(UserRole::ADMIN->value)->create();
+        $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $branch = Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
+        $branchAdmin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $outsideAdmin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+
+        $lop = QeLop::create([
+            'incident' => 'LOP-POLICY', 'nama_lop' => 'Policy check',
+            'wbs_type' => 'recovery', 'status_lop' => 'draft', 'branch' => 'SURABAYA',
+            'created_by' => $creator->id_user,
+        ]);
+
+        $this->assertTrue($superAdmin->can('assign', $lop));   // super admin: LOP apa pun
+        $this->assertTrue($branchAdmin->can('assign', $lop));  // admin: LOP di branch-nya
+        $this->assertTrue($creator->can('assign', $lop));      // admin: LOP buatannya
+        $this->assertFalse($outsideAdmin->can('assign', $lop)); // admin lain, beda branch
+
+        $this->actingAs($superAdmin)->post(route('lop.assign', $lop), [
+            'technician_id' => $teknisi->id_user,
+            'return_to' => 'wbs:recovery',
+        ])->assertRedirect(route('wbs.show', 'recovery'));
+
+        $this->assertDatabaseHas('qe_lop_assignments', [
+            'qe_lop_id' => $lop->id_qe_lops, 'technician_id' => $teknisi->id_user, 'status' => 'active',
+        ]);
+    }
+
     public function test_admin_can_remove_wrong_assignment_before_pickup(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();

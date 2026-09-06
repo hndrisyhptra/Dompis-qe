@@ -16,6 +16,8 @@ use Throwable;
  */
 class TicketLookupService
 {
+    public function __construct(private readonly DatekParserService $datekParser) {}
+
     /**
      * @return array{
      *     found: bool,
@@ -25,6 +27,8 @@ class TicketLookupService
      *     branch?: ?string,
      *     segment?: ?string,
      *     jenis_tiket_2?: ?string,
+     *     summary?: string,
+     *     datek?: array<string, mixed>,
      *     warnings?: array<int, string>,
      * }
      */
@@ -39,7 +43,6 @@ class TicketLookupService
         try {
             $ticket = DB::connection('mysql_dompis')
                 ->table('ticket')
-                ->select('incident', 'workzone', 'jenis_tiket_2')
                 ->where('incident', $incident)
                 ->first();
         } catch (Throwable $e) {
@@ -77,14 +80,62 @@ class TicketLookupService
             );
         }
 
+        $summary = $this->buildSummary($ticket);
+
         return [
             'found' => true,
             'sto' => $workzone !== '' ? mb_strtoupper($workzone) : null,
             'branch' => $branch,
             'segment' => $segment,
             'jenis_tiket_2' => $jenisTiket2 !== '' ? $jenisTiket2 : null,
+            'summary' => $summary,
+            'datek' => $this->datekParser->parse($summary, $segment),
             'warnings' => $warnings,
         ];
+    }
+
+    /**
+     * Label ringkasan -> daftar kandidat nama kolom di tabel ticket eksternal
+     * (skema bisa berbeda antar-instalasi, jadi ambil kolom pertama yang ada).
+     *
+     * @var array<string, array<int, string>>
+     */
+    private const SUMMARY_MAP = [
+        'Incident' => ['incident', 'no_tiket', 'ticket_number'],
+        'Ringkasan' => ['summary', 'headline', 'deskripsi', 'description', 'keterangan', 'ket'],
+        'Workzone' => ['workzone', 'sto'],
+        'Jenis Tiket' => ['jenis_tiket_2', 'jenis_tiket_1', 'jenis_tiket'],
+        'Status' => ['status', 'status_tiket', 'ticket_status', 'last_status'],
+        'Tanggal' => ['reported_date', 'report_date', 'tanggal', 'tgl_lapor', 'open_time', 'datetime_report', 'created_at'],
+    ];
+
+    /**
+     * Rangkai snapshot baris tiket menjadi teks "Label: value" per baris.
+     * Kolom yang tidak ada / kosong dilewati.
+     */
+    private function buildSummary(object $ticket): string
+    {
+        $row = (array) $ticket;
+        $lines = [];
+
+        foreach (self::SUMMARY_MAP as $label => $candidates) {
+            foreach ($candidates as $key) {
+                if (! array_key_exists($key, $row)) {
+                    continue;
+                }
+
+                $value = trim((string) ($row[$key] ?? ''));
+
+                if ($value === '') {
+                    continue;
+                }
+
+                $lines[] = $label.': '.$value;
+                break;
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

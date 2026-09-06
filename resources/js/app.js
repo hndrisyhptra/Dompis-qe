@@ -237,22 +237,57 @@ window.evidenceUploader = (options = {}) => ({
     },
 });
 
+const emptyDatek = () => ({
+    kategori: '', odc: [], odp: [], gpon: [], kabel: [], ip: [],
+    olt: false, rca: '', est: '', pic: { nama: '', telp: '' },
+});
+
+const normalizeDatek = (raw) => {
+    const d = { ...emptyDatek(), ...(raw && typeof raw === 'object' ? raw : {}) };
+    const list = (v) => (Array.isArray(v) ? v.map(String) : []);
+    d.odc = list(d.odc);
+    d.odp = list(d.odp);
+    d.kabel = list(d.kabel);
+    d.ip = list(d.ip);
+    d.gpon = Array.isArray(d.gpon)
+        ? d.gpon.map((g) => ({
+            name: String(g?.name ?? ''),
+            ip: g?.ip ? String(g.ip) : '',
+            ports: Array.isArray(g?.ports) ? g.ports.map(String) : [],
+        }))
+        : [];
+    d.olt = Boolean(d.olt);
+    d.kategori = d.kategori == null ? '' : String(d.kategori);
+    d.rca = d.rca == null ? '' : String(d.rca);
+    d.est = d.est == null ? '' : String(d.est);
+    d.pic = { nama: String(d.pic?.nama ?? ''), telp: String(d.pic?.telp ?? '') };
+    return d;
+};
+
 window.lopForm = (options = {}) => ({
     form: {
         incident: '', sto: '', branch: '', area: '3', segment: '',
-        wbs_type: '', budget_type: '', job_description: '', ihld_id: '', nama_lop: '',
+        wbs_type: '', budget_type: '', job_description: '', ticket_summary: '', ihld_id: '', nama_lop: '',
         ...(options.initial ?? {}),
+        datek: normalizeDatek(options.initial?.datek),
     },
+    datekText: { odc: '', odp: '', gpon: '', kabel: '' },
+    datekParsing: false,
     template: options.template ?? '{area}{sto}_{wbs_code}_{incident}_{segment}',
     wbsCodes: options.wbsCodes ?? {},
+    segmentLabels: options.segmentLabels ?? {},
     nameManuallyEdited: false,
-    lookup: { loading: false, error: false, notFound: false, message: '', warnings: [], lastQuery: null },
+    lookup: {
+        loading: false, error: false, notFound: false, message: '', warnings: [], lastQuery: null,
+        mode: null, summaryTitle: '', summaryText: '', duplicate: null,
+    },
     manualGen: { loading: false, message: '' },
 
     init() {
         ['incident', 'sto', 'branch', 'area', 'segment', 'wbs_type', 'budget_type', 'job_description']
             .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
         if (!this.form.nama_lop) this.regenerateName(true);
+        this.hydrateDatekText();
     },
 
     regenerateName(force = false) {
@@ -290,6 +325,8 @@ window.lopForm = (options = {}) => ({
         this.lookup.notFound = false;
         this.lookup.message = '';
         this.lookup.warnings = [];
+        this.lookup.duplicate = null;
+        this.resetLookupSummary();
         this.manualGen.message = '';
 
         try {
@@ -305,6 +342,7 @@ window.lopForm = (options = {}) => ({
 
             const json = await res.json();
             this.lookup.lastQuery = incident;
+            this.lookup.duplicate = json.existing_lop || null;
 
             if (!json.found) {
                 this.lookup.error = Boolean(json.error);
@@ -317,9 +355,13 @@ window.lopForm = (options = {}) => ({
             if (json.sto) this.form.sto = json.sto;
             if (json.branch) this.form.branch = json.branch;
             if (json.segment) this.form.segment = json.segment;
+            this.form.ticket_summary = json.summary || '';
+            this.applyDatek(json.datek);
 
             this.lookup.warnings = Array.isArray(json.warnings) ? json.warnings : [];
-            this.lookup.message = 'Data tiket dimuat.';
+            this.lookup.mode = 'found';
+            this.lookup.summaryTitle = 'Tiket ditemukan di database';
+            this.lookup.summaryText = 'STO, Branch, dan Segmen terisi otomatis — masih bisa diubah.';
             this.regenerateName();
         } catch (e) {
             this.lookup.error = true;
@@ -347,17 +389,95 @@ window.lopForm = (options = {}) => ({
             }
 
             this.form.incident = json.incident;
+            this.form.ticket_summary = '';
+            this.applyDatek(null);
             this.lookup.notFound = false;
             this.lookup.error = false;
             this.lookup.warnings = [];
+            this.lookup.duplicate = null;
             this.lookup.lastQuery = json.incident;
-            this.lookup.message = `Nomor tiket manual dibuat: ${json.incident}`;
+            this.lookup.message = '';
+            this.lookup.mode = 'manual';
+            this.lookup.summaryTitle = 'Tiket tidak ditemukan — nomor manual dibuat';
+            this.lookup.summaryText = `${json.incident} · lengkapi STO, Branch, dan Segmen secara manual.`;
             this.regenerateName();
         } catch (e) {
             this.manualGen.message = 'Terjadi kesalahan jaringan saat membuat nomor manual.';
         } finally {
             this.manualGen.loading = false;
         }
+    },
+
+    resetLookupSummary() {
+        this.lookup.mode = null;
+        this.lookup.summaryTitle = '';
+        this.lookup.summaryText = '';
+    },
+
+    hydrateDatekText() {
+        const d = this.form.datek;
+        this.datekText.odc = (d.odc || []).join('\n');
+        this.datekText.odp = (d.odp || []).join('\n');
+        this.datekText.kabel = (d.kabel || []).join('\n');
+        this.datekText.gpon = (d.gpon || [])
+            .map((g) => [g.name || '', g.ip || '', (g.ports || []).join(',')].join(' | '))
+            .join('\n');
+    },
+
+    linesToList(text) {
+        return String(text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+    },
+
+    datekForSubmit() {
+        const d = this.form.datek;
+        const gpon = this.linesToList(this.datekText.gpon).map((line) => {
+            const [name = '', ip = '', ports = ''] = line.split('|').map((s) => s.trim());
+            return { name, ip, ports: ports.split(',').map((p) => p.trim()).filter(Boolean) };
+        }).filter((g) => g.name || g.ip || g.ports.length);
+
+        return {
+            kategori: d.kategori || '',
+            odc: this.linesToList(this.datekText.odc),
+            odp: this.linesToList(this.datekText.odp),
+            gpon,
+            kabel: this.linesToList(this.datekText.kabel),
+            ip: Array.isArray(d.ip) ? d.ip : [],
+            olt: Boolean(d.olt),
+            rca: d.rca || '',
+            est: d.est || '',
+            pic: { nama: d.pic?.nama || '', telp: d.pic?.telp || '' },
+        };
+    },
+
+    datekKosong() {
+        return !this.datekText.odc.trim()
+            && !this.datekText.odp.trim()
+            && !this.datekText.gpon.trim()
+            && !this.datekText.kabel.trim();
+    },
+
+    applyDatek(raw) {
+        this.form.datek = normalizeDatek(raw);
+        this.hydrateDatekText();
+    },
+
+    async parseDatekUlang() {
+        if (this.datekParsing) return;
+        this.datekParsing = true;
+        try {
+            const res = await fetch(`/lop/parse-datek?summary=${encodeURIComponent(this.form.ticket_summary || '')}`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) this.applyDatek(await res.json());
+        } catch (e) {
+            // diamkan - field tetap dapat diisi manual
+        } finally {
+            this.datekParsing = false;
+        }
+    },
+
+    segmentLabel(value) {
+        return this.segmentLabels[value] ?? String(value ?? '').toUpperCase();
     },
 
     markNameEdited() { this.nameManuallyEdited = true; },

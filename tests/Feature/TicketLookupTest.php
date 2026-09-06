@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\QeLop;
 use App\Models\TicketSegmentMap;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
@@ -41,6 +42,7 @@ class TicketLookupTest extends TestCase
             $t->string('incident');
             $t->string('workzone')->nullable();
             $t->string('jenis_tiket_2')->nullable();
+            $t->text('summary')->nullable();
         });
         $schema->create('service_area', function (Blueprint $t) {
             $t->increments('id_sa');
@@ -68,13 +70,14 @@ class TicketLookupTest extends TestCase
         parent::tearDown();
     }
 
-    private function seedExternalTicket(string $incident, ?string $workzone, ?string $jenisTiket2): void
+    private function seedExternalTicket(string $incident, ?string $workzone, ?string $jenisTiket2, ?string $summary = null): void
     {
         $ext = DB::connection('mysql_dompis');
         $ext->table('ticket')->insert([
             'incident' => $incident,
             'workzone' => $workzone,
             'jenis_tiket_2' => $jenisTiket2,
+            'summary' => $summary,
         ]);
     }
 
@@ -108,7 +111,97 @@ class TicketLookupTest extends TestCase
                 'branch' => 'JEMBER',
                 'segment' => 'distribusi',
                 'warnings' => [],
-            ]);
+            ])
+            ->assertJsonPath('summary', "Incident: INC999\nWorkzone: KBS\nJenis Tiket: GAMAS DISTRIBUSI");
+    }
+
+    public function test_lookup_flags_incident_already_used_by_a_lop(): void
+    {
+        $admin = $this->admin();
+        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+
+        $lop = QeLop::create([
+            'incident' => 'INC5000', 'nama_lop' => '3SDA_QEREC_INC5000_ODP', 'wbs_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => 'odp',
+            'job_description' => 'x', 'status_lop' => 'progress', 'created_by' => $admin->id_user,
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'inc5000']))
+            ->assertOk()
+            ->assertJsonPath('existing_lop.nama_lop', '3SDA_QEREC_INC5000_ODP')
+            ->assertJsonPath('existing_lop.trashed', false);
+
+        $lop->delete();
+
+        $this->actingAs($admin)
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC5000']))
+            ->assertOk()
+            ->assertJsonPath('existing_lop.trashed', true);
+    }
+
+    public function test_lookup_has_no_existing_lop_key_for_fresh_incident(): void
+    {
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC-BRAND-NEW']))
+            ->assertOk()
+            ->assertJsonMissingPath('existing_lop');
+    }
+
+    public function test_lookup_resolves_gamas_gpon_to_gpon_segment(): void
+    {
+        Branch::create(['code' => 'BEA', 'name' => 'BANGKALAN', 'region' => 'REGION JATIM']);
+        TicketSegmentMap::create(['source_value' => 'GAMAS GPON', 'segment' => 'gpon']);
+
+        $this->seedExternalTicket('INC888', 'BEA', 'GAMAS GPON');
+        $this->seedExternalBranchChain('BEA', 'BANGKALAN');
+
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC888']))
+            ->assertOk()
+            ->assertJson(['found' => true, 'segment' => 'gpon', 'warnings' => []]);
+    }
+
+    public function test_lookup_extracts_datek_from_summary(): void
+    {
+        Branch::create(['code' => 'PME', 'name' => 'PAMEKASAN', 'region' => 'REGION JATIM']);
+        TicketSegmentMap::create(['source_value' => 'GAMAS DISTRIBUSI', 'segment' => 'distribusi']);
+
+        $this->seedExternalTicket(
+            'INC777', 'PME', 'GAMAS DISTRIBUSI',
+            '[SQM GAMAS] | AKSES | DISTRIBUSI | PME | [ODC-PME-FBK] | '
+            .'Datek ODP Terdampak : [ODP-PME-FBK/29, ODP-PME-FBK/33] | 4 Jam',
+        );
+        $this->seedExternalBranchChain('PME', 'PAMEKASAN');
+
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC777']))
+            ->assertOk()
+            ->assertJsonPath('datek.kategori', 'distribusi')
+            ->assertJsonPath('datek.odc.0', 'ODC-PME-FBK')
+            ->assertJsonPath('datek.odp.0', 'ODP-PME-FBK/29')
+            ->assertJsonPath('datek.odp.1', 'ODP-PME-FBK/33');
+    }
+
+    public function test_parse_datek_endpoint_parses_raw_summary(): void
+    {
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.parse-datek', [
+                'summary' => 'GPON01-D5-SMP-3 [2/10, 2/11], GPON03-D5-SMP-2 [7/4] | PIC : RANU / 082139794255',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('gpon.0.name', 'GPON01-D5-SMP-3')
+            ->assertJsonPath('gpon.0.ports.0', '2/10')
+            ->assertJsonPath('pic.nama', 'RANU');
+    }
+
+    public function test_parse_datek_requires_create_permission(): void
+    {
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+
+        $this->actingAs($teknisi)
+            ->getJson(route('lop.parse-datek', ['summary' => 'x']))
+            ->assertForbidden();
     }
 
     public function test_lookup_warns_when_segment_not_mapped(): void

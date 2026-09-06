@@ -11,6 +11,7 @@ enum LopSegment: string
     case TIANG = 'tiang';
     case JC = 'jc';
     case OTB = 'otb';
+    case GPON = 'gpon';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum LopSegment: string
             self::TIANG => 'Tiang',
             self::JC => 'JC',
             self::OTB => 'OTB',
+            self::GPON => 'GPON',
         };
     }
 }

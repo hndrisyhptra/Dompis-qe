@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\TicketSegmentMap;
 use App\Models\User;
+use Database\Seeders\TicketSegmentMapSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -19,6 +20,16 @@ class TicketSegmentMapTest extends TestCase
         $this->assertTrue(Schema::hasColumns('ticket_segment_maps', [
             'id_ticket_segment_map', 'source_value', 'segment', 'created_at', 'updated_at',
         ]));
+    }
+
+    public function test_seeder_maps_all_gamas_categories_including_gpon(): void
+    {
+        $this->seed(TicketSegmentMapSeeder::class);
+
+        $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS FEEDER', 'segment' => 'feeder']);
+        $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS DISTRIBUSI', 'segment' => 'distribusi']);
+        $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS ODP', 'segment' => 'odp']);
+        $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS GPON', 'segment' => 'gpon']);
     }
 
     public function test_super_admin_can_manage_mappings(): void

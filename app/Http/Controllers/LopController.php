@@ -14,6 +14,7 @@ use App\Http\Requests\UpdateLopRequest;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Services\DatekParserService;
 use App\Services\EvidenceApprovalService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
@@ -35,6 +36,7 @@ class LopController extends Controller
         private readonly EvidenceApprovalService $approvalService,
         private readonly TicketLookupService $ticketLookup,
         private readonly ManualIncidentService $manualIncident,
+        private readonly DatekParserService $datekParser,
     ) {}
 
     /**
@@ -140,6 +142,9 @@ class LopController extends Controller
     /**
      * Lookup data tiket dari DB operasional eksternal untuk auto-fill form
      * Input LOP Baru (STO, Branch, Segmen). Dipanggil via fetch dari Alpine.
+     * Sekaligus mengecek apakah nomor incident sudah dipakai LOP lain di
+     * `dompis_qe` (termasuk yang sudah di-soft-delete, karena aturan unik
+     * pada qe_lops.incident juga mencakupnya).
      */
     public function ticketLookup(Request $request): JsonResponse
     {
@@ -149,7 +154,20 @@ class LopController extends Controller
             'incident' => ['required', 'string', 'max:100'],
         ]);
 
-        return response()->json($this->ticketLookup->lookup($data['incident']));
+        $incident = mb_strtoupper(trim($data['incident']));
+        $result = $this->ticketLookup->lookup($incident);
+
+        $existing = QeLop::withTrashed()->where('incident', $incident)->first();
+
+        if ($existing !== null) {
+            $result['existing_lop'] = [
+                'nama_lop' => $existing->nama_lop,
+                'status' => $existing->status_lop?->label(),
+                'trashed' => $existing->trashed(),
+            ];
+        }
+
+        return response()->json($result);
     }
 
     /**
@@ -180,6 +198,21 @@ class LopController extends Controller
             'incident' => $incident,
             'branch' => $branch->name,
         ]);
+    }
+
+    /**
+     * Ekstraksi "datek terdampak" (ODC/ODP/GPON/kabel/dll) dari teks ringkasan
+     * tiket. Dipakai tombol "Parse ulang" di form saat admin mengubah ringkasan.
+     */
+    public function parseDatek(Request $request): JsonResponse
+    {
+        $this->authorize('create', QeLop::class);
+
+        $data = $request->validate([
+            'summary' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        return response()->json($this->datekParser->parse($data['summary'] ?? null));
     }
 
     public function store(StoreLopRequest $request): RedirectResponse

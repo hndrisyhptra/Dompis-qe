@@ -36,8 +36,8 @@
         </div>
     </header>
 
-    {{-- Bucket status (LOP draft tidak termasuk pemetaan WBS) --}}
-    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    {{-- Bucket status --}}
+    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
         <a href="{{ route('wbs.show', [$wbsType->value, ...$carry]) }}"
            class="rounded-2xl border p-4 shadow-sm transition
                   {{ $bucketFilter === ''
@@ -144,6 +144,11 @@
                             <x-table-action label="Detail LOP" onclick="document.getElementById('lop-detail-{{ $lop->id_qe_lops }}').showModal()">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
                             </x-table-action>
+                            @can('assign', $lop)
+                                <x-table-action :label="$lop->activeAssignment ? 'Reassign Teknisi' : 'Assign Teknisi'" tone="primary" onclick="document.getElementById('assign-technician-{{ $lop->id_qe_lops }}').showModal()">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-6.75-3.75A3.75 3.75 0 1 1 6.75 6.75a3.75 3.75 0 0 1 7.5 0ZM3 20.25a6.75 6.75 0 0 1 13.5 0v.75H3v-.75Z" /></svg>
+                                </x-table-action>
+                            @endcan
                             <x-table-action label="Tracking Riwayat" tone="info" onclick="document.getElementById('lop-tracking-{{ $lop->id_qe_lops }}').showModal()">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                             </x-table-action>
@@ -159,6 +164,9 @@
     @foreach ($lops as $lop)
         <x-lop-detail-modal :id="'lop-detail-'.$lop->id_qe_lops" :$lop />
         <x-lop-tracking-modal :id="'lop-tracking-'.$lop->id_qe_lops" :$lop />
+        @can('assign', $lop)
+            <x-assign-technician-modal :id="'assign-technician-'.$lop->id_qe_lops" :$lop :$technicians :return-to="'wbs:'.$wbsType->value" />
+        @endcan
     @endforeach
 
     <div>{{ $lops->links() }}</div>

@@ -393,7 +393,7 @@
         <div class="flex flex-col gap-3 border-b border-ink-100 p-5 dark:border-ink-800 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Prioritas Operasional</h2>
-                <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">LOP reject, waiting review, draft, dan update terbaru ditampilkan lebih dahulu.</p>
+                <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">LOP reject, waiting review, unassigned, dan update terbaru ditampilkan lebih dahulu.</p>
             </div>
             @unless ($isSuperAdmin)
                 <a href="{{ route('lop.index') }}" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400">Lihat Inbox <span aria-hidden="true">→</span></a>

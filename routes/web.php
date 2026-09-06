@@ -65,6 +65,7 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/create', [LopController::class, 'create'])->name('create');
     Route::get('/ticket-lookup', [LopController::class, 'ticketLookup'])->name('ticket-lookup');
     Route::get('/manual-incident', [LopController::class, 'manualIncident'])->name('manual-incident');
+    Route::get('/parse-datek', [LopController::class, 'parseDatek'])->name('parse-datek');
     Route::post('/', [LopController::class, 'store'])->name('store');
     Route::get('/{qe_lop}', [LopController::class, 'show'])->name('show');
     Route::get('/{qe_lop}/edit', [LopController::class, 'edit'])->name('edit');

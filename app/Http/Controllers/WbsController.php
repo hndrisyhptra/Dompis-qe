@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\LopStatus;
 use App\Enums\UserRole;
 use App\Enums\WbsType;
 use App\Models\Branch;
@@ -12,6 +11,7 @@ use App\Services\ProjectProgressService;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
@@ -24,11 +24,13 @@ class WbsController extends Controller
 {
     /**
      * Definisi bucket status. Satu sumber kebenaran untuk controller + view.
-     * LOP berstatus `draft` (belum di-assign) sengaja tidak masuk pemetaan WBS.
+     * LOP berstatus `draft` = sudah diinput tapi belum di-assign ke teknisi;
+     * ditampilkan sebagai bucket "Belum Ditugaskan".
      *
      * @var array<string, array{label: string, statuses: array<int, string>, variant: string}>
      */
     public const BUCKETS = [
+        'unassigned' => ['label' => 'Unassigned', 'statuses' => ['draft'], 'variant' => 'neutral'],
         'assigned' => ['label' => 'Assigned', 'statuses' => ['assigned', 'picked_up'], 'variant' => 'info'],
         'progress' => ['label' => 'Dikerjakan', 'statuses' => ['survey', 'progress'], 'variant' => 'info'],
         'review' => ['label' => 'Review', 'statuses' => ['waiting_approval'], 'variant' => 'warning'],
@@ -156,9 +158,23 @@ class WbsController extends Controller
             'branchBreakdown' => $branchBreakdown,
             'lops' => $lops,
             'search' => $search,
+            'technicians' => $this->activeTechnicians(),
             ...$this->locationOptions($regionFilter, $branchFilter),
             ...$this->scopeContext($user, $isSuperAdmin, $regionFilter, $branchFilter),
         ]);
+    }
+
+    /**
+     * Teknisi aktif untuk modal assign (dipakai di tabel WBS bila user berhak).
+     */
+    private function activeTechnicians()
+    {
+        return User::query()
+            ->with('branch')
+            ->whereHas('role', fn ($query) => $query->where('code', UserRole::TEKNISI->value))
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -232,7 +248,7 @@ class WbsController extends Controller
     }
 
     /**
-     * @return array{regions: \Illuminate\Support\Collection, branches: \Illuminate\Support\Collection, regionFilter: string, branchFilter: string}
+     * @return array{regions: Collection, branches: Collection, regionFilter: string, branchFilter: string}
      */
     private function locationOptions(string $regionFilter, string $branchFilter): array
     {
@@ -277,14 +293,12 @@ class WbsController extends Controller
     }
 
     /**
-     * Query dasar pemetaan WBS: LOP untuk 1 jenis WBS, TANPA yang masih draft
-     * (draft = belum di-assign, belum masuk pipeline operasional).
+     * Query dasar pemetaan WBS: seluruh LOP untuk 1 jenis WBS (termasuk draft,
+     * yang muncul di bucket "Belum Ditugaskan").
      */
     private function baseQuery(WbsType $type): Builder
     {
-        return QeLop::query()
-            ->where('wbs_type', $type->value)
-            ->where('status_lop', '!=', LopStatus::DRAFT->value);
+        return QeLop::query()->where('wbs_type', $type->value);
     }
 
     /**

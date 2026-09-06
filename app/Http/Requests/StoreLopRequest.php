@@ -6,6 +6,7 @@ use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\WbsType;
 use App\Models\QeLop;
+use App\Support\DatekRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,7 +33,9 @@ class StoreLopRequest extends FormRequest
                 Rule::enum(LopBudgetType::class),
             ],
             'job_description' => ['required', 'string', 'max:2000'],
+            'ticket_summary' => ['nullable', 'string', 'max:5000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
+            ...DatekRules::rules(),
         ];
     }
 
@@ -44,6 +47,7 @@ class StoreLopRequest extends FormRequest
             'ihld_id' => filled($this->input('ihld_id'))
                 ? trim((string) $this->input('ihld_id'))
                 : null,
+            'datek' => DatekRules::decode($this->input('datek')),
         ]);
     }
 }

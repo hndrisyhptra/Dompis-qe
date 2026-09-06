@@ -23,7 +23,7 @@ enum LopStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::DRAFT => 'Draft',
+            self::DRAFT => 'Unassigned',
             self::ASSIGNED => 'Assigned',
             self::PICKED_UP => 'Picked Up',
             self::SURVEY => 'Survey',

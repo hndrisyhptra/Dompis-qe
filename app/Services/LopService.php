@@ -41,6 +41,8 @@ class LopService
                 'segment' => $data['segment'],
                 'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
                 'job_description' => $data['job_description'],
+                'ticket_summary' => $data['ticket_summary'] ?? null,
+                'datek' => $data['datek'] ?? null,
                 'ihld_id' => $data['ihld_id'] ?? null,
                 'package_id' => $data['package_id'] ?? null,
                 'status_lop' => LopStatus::DRAFT,
@@ -67,6 +69,8 @@ class LopService
             'segment' => $data['segment'],
             'budget_type' => $data['wbs_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
             'job_description' => $data['job_description'],
+            'ticket_summary' => $data['ticket_summary'] ?? null,
+            'datek' => $data['datek'] ?? null,
             'ihld_id' => $data['ihld_id'] ?? null,
         ]);
 
