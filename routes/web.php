@@ -16,6 +16,7 @@ use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RegionController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
 use App\Http\Controllers\TicketSegmentMapController;
@@ -81,6 +82,13 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
 Route::middleware(['auth'])->prefix('program')->name('program.')->group(function () {
     Route::get('/', [ProgramController::class, 'index'])->name('index');
     Route::get('/{program}', [ProgramController::class, 'show'])->name('show');
+});
+
+Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
+    Route::get('/boq-actual', [ReportController::class, 'boqActual'])->name('boq-actual');
+    Route::get('/boq-actual/export', [ReportController::class, 'boqActualExport'])->name('boq-actual.export');
+    Route::get('/sisa-material', [ReportController::class, 'sisaMaterial'])->name('sisa-material');
+    Route::get('/sisa-material/export', [ReportController::class, 'sisaMaterialExport'])->name('sisa-material.export');
 });
 
 Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {

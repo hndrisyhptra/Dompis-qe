@@ -38,5 +38,10 @@ class AppServiceProvider extends ServiceProvider
          * lain.
          */
         Gate::define('manage-master-data', fn (User $user) => $user->hasPermission('manage_master_data'));
+
+        // Menu Laporan (BOQ Actual / Sisa Material). Permission `reporting`
+        // dipegang MANAGER + SUPER_ADMIN sejak seeder awal; ADMIN ditambahkan
+        // lewat migration 2026_09_07_000004 (terscope branch di controller).
+        Gate::define('view-reports', fn (User $user) => $user->hasPermission('reporting'));
     }
 }

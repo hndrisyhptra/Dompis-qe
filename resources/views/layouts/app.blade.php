@@ -178,6 +178,36 @@
                 </div>
             @endunless
 
+            {{-- Laporan: BOQ Actual & Sisa Material. Permission `reporting`
+                 (MANAGER, SUPER_ADMIN, dan ADMIN sejak migration 000004). --}}
+            @if (auth()->user()?->hasPermission('reporting'))
+                <div x-data="{ open: {{ request()->routeIs('reports.*') ? 'true' : 'false' }} }">
+                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                            </svg>
+                            Laporan
+                        </span>
+                        {!! $chevron !!}
+                    </button>
+                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                        @foreach ([
+                            'reports.boq-actual' => 'Tabel BOQ Actual',
+                            'reports.sisa-material' => 'Sisa Material',
+                        ] as $routeName => $label)
+                            <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ request()->routeIs($routeName) ? $navSubLinkActive : $navSubLinkInactive }}">
+                                @if (request()->routeIs($routeName))
+                                    <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                                @endif
+                                <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                                {{ $label }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             {{-- Master Designator: khusus role dengan permission manage_master_data
                  (saat ini cuma SUPER_ADMIN). --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))

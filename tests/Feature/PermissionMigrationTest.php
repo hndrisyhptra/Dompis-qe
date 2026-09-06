@@ -48,11 +48,18 @@ class PermissionMigrationTest extends TestCase
             ->where('roles.code', $roleCode)
             ->count();
 
-        $this->assertSame(3, $countFor('ADMIN'));
+        // ADMIN: create_lop, assign_lop, approve_evidence + reporting
+        // (reporting ditambahkan migration 2026_09_07_000004 untuk menu Laporan).
+        $this->assertSame(4, $countFor('ADMIN'));
         $this->assertSame(4, $countFor('TEKNISI'));
         $this->assertSame(3, $countFor('MANAGER'));
         $this->assertSame(2, $countFor('APPROVER'));
         $this->assertSame(15, $countFor('SUPER_ADMIN'));
+
+        $this->assertDatabaseHas('role_permissions', [
+            'role_id' => DB::table('roles')->where('code', 'ADMIN')->value('id'),
+            'permission_id' => DB::table('permissions')->where('code', 'reporting')->value('id'),
+        ]);
     }
 
     public function test_super_admin_role_permissions_covers_every_permission_code(): void

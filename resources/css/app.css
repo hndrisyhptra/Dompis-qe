@@ -52,3 +52,47 @@
        kontras layer, sama seperti gray-950 vs gray-900 di Dompis Cons. */
     --color-ink-950: #0d1117;
 }
+
+/* Cetak laporan (halaman ?print=1) - sembunyikan chrome, ratakan warna,
+   pakai border tabel tegas supaya hasil PDF browser terbaca. */
+@media print {
+    aside,
+    header,
+    .no-print {
+        display: none !important;
+    }
+
+    .lg\:pl-64 {
+        padding-left: 0 !important;
+    }
+
+    main {
+        padding: 0 !important;
+    }
+
+    .report-print {
+        max-width: none !important;
+    }
+
+    * {
+        color: #000 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    th,
+    td {
+        border: 1px solid #999 !important;
+        padding: 4px 6px !important;
+        font-size: 11px;
+    }
+
+    tr {
+        page-break-inside: avoid;
+    }
+}
