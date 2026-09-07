@@ -48,6 +48,7 @@ class ProjectProgressService
             4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()
+                && $evidences->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty()
                 && $items->every(fn ($item) => $item->qty_actual !== null),
         ];
 

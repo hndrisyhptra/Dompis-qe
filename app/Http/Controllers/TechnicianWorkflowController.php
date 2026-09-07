@@ -78,7 +78,7 @@ class TechnicianWorkflowController extends Controller
             'material_arrival' => 2,
             'pre', 'insera', 'before' => 3,
             'progress' => 4,
-            'after' => 5,
+            'after', 'slot_port' => 5,
         };
 
         return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $step])
@@ -126,7 +126,7 @@ class TechnicianWorkflowController extends Controller
             'material_arrival' => 2,
             'pre', 'insera', 'before' => 3,
             'progress' => 4,
-            'after' => 5,
+            'after', 'slot_port' => 5,
             default => 3,
         };
 

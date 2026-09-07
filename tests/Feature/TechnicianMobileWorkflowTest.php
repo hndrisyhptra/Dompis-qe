@@ -250,6 +250,36 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertTrue(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][4]);
     }
 
+    public function test_step_after_requires_slot_port_evidence(): void
+    {
+        Storage::fake('public');
+        [, $technician, $lop] = $this->assignedProject();
+        $type = DesignatorType::where('code', 'MATERIAL')->value('id_designator_type');
+        $d = Designator::create(['code' => 'M-SLOT', 'item_name' => 'ODP', 'unit' => 'pcs', 'designator_type_id' => $type]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
+            'items' => [['designator_id' => $d->id_designator, 'qty' => 1]],
+        ]);
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'after', 'type' => 'PHOTO', 'designator_id' => $d->id_designator,
+            'files' => [UploadedFile::fake()->image('after.jpg')],
+        ]);
+        $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
+            'usage' => [['designator_id' => $d->id_designator, 'qty_actual' => 1]],
+        ]);
+
+        // After + rekap lengkap tapi belum ada foto slot port -> step 5 belum lengkap.
+        $this->assertFalse(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][5]);
+
+        // slot_port bersifat global (tanpa designator_id) -> step 5 lengkap.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'slot_port', 'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('slot-port.jpg')],
+        ])->assertRedirect(route('technician.projects.show', [$lop, 'step' => 5]));
+        $this->assertTrue(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][5]);
+    }
+
     public function test_multiple_evidence_upload_is_scoped_to_reserved_designator(): void
     {
         Storage::fake('public');
@@ -398,6 +428,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         foreach ([
             ['progress', $designator->id_designator],
             ['after', $designator->id_designator],
+            ['slot_port', null],
         ] as [$category, $designatorId]) {
             $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
                 'category' => $category,

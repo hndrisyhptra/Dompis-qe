@@ -176,7 +176,7 @@ class TechnicianWorkflowService
             EvidenceCategory::PRE, EvidenceCategory::INSERA => EvidenceStep::SURVEY->value,
             EvidenceCategory::MATERIAL_ARRIVAL, EvidenceCategory::BEFORE => EvidenceStep::BEFORE->value,
             EvidenceCategory::PROGRESS => EvidenceStep::PROGRESS->value,
-            EvidenceCategory::AFTER => EvidenceStep::AFTER->value,
+            EvidenceCategory::AFTER, EvidenceCategory::SLOT_PORT => EvidenceStep::AFTER->value,
         };
 
         return $data;
@@ -238,7 +238,10 @@ class TechnicianWorkflowService
             && $validEvidence->where('category', EvidenceCategory::INSERA)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
         $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
-        $step5 = $step1 && $reservedIds->diff($afterIds)->isEmpty() && $materialUsageComplete;
+        $step5 = $step1
+            && $reservedIds->diff($afterIds)->isEmpty()
+            && $validEvidence->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty()
+            && $materialUsageComplete;
 
         $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : (! $step4 ? 4 : 5)));
 
@@ -254,6 +257,7 @@ class TechnicianWorkflowService
             'step5Complete' => $step5,
             'currentStep' => $currentStep,
             'materialUsageComplete' => $materialUsageComplete,
+            'slotPortComplete' => $validEvidence->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty(),
             'missingProgress' => $items->whereIn('designator_id', $reservedIds->diff($progressIds)),
             'missingAfter' => $items->whereIn('designator_id', $reservedIds->diff($afterIds)),
         ];

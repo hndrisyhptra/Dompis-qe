@@ -9,7 +9,7 @@
         2 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::MATERIAL_ARRIVAL),
         3 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::PRE, \App\Enums\EvidenceCategory::INSERA, \App\Enums\EvidenceCategory::BEFORE], true)),
         4 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::PROGRESS),
-        5 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::AFTER),
+        5 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::AFTER, \App\Enums\EvidenceCategory::SLOT_PORT], true)),
     ];
     $stepLabels = [1 => 'Reservasi & Lokasi', 2 => 'Material Tiba', 3 => 'Evidence Pra', 4 => 'Progress', 5 => 'After'];
     $stepShortLabels = [1 => 'Reservasi', 2 => 'Material', 3 => 'Pra', 4 => 'Progress', 5 => 'After'];

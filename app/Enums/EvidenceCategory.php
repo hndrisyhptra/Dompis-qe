@@ -10,6 +10,7 @@ enum EvidenceCategory: string
     case BEFORE = 'before';
     case PROGRESS = 'progress';
     case AFTER = 'after';
+    case SLOT_PORT = 'slot_port';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum EvidenceCategory: string
             self::BEFORE => 'Before',
             self::PROGRESS => 'Progress',
             self::AFTER => 'After',
+            self::SLOT_PORT => 'Slot Port',
         };
     }
 }
