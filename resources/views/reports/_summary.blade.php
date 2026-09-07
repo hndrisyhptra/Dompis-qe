@@ -4,14 +4,14 @@
     $tiles = [
         ['label' => 'Jumlah LOP', 'value' => number_format($g['lop_count'] ?? 0)],
         ['label' => $data['mode'] === 'rekap' ? 'Jumlah Designator' : 'Designator', 'value' => number_format($g['designator_count'] ?? 0)],
-        ['label' => 'Σ Qty Actual', 'value' => (float) $g['qty_actual']],
+        ['label' => 'Total Qty Actual', 'value' => (float) $g['qty_actual']],
     ];
     if ($report === 'sisa') {
-        $tiles[] = ['label' => 'Σ Sisa Material', 'value' => (float) $g['sisa'], 'accent' => ((float) $g['sisa'] > 0)];
+        $tiles[] = ['label' => 'Total Sisa Material', 'value' => (float) $g['sisa'], 'accent' => ((float) $g['sisa'] > 0)];
     }
     if ($priced) {
         $v = $report === 'boq' ? $g['total_actual'] : $g['nilai_sisa'];
-        $tiles[] = ['label' => $report === 'boq' ? 'Σ Nilai Actual' : 'Σ Nilai Sisa', 'value' => 'Rp ' . number_format($v ?? 0, 0, ',', '.'), 'money' => true];
+        $tiles[] = ['label' => $report === 'boq' ? 'Total Nilai Actual' : 'Total Nilai Sisa', 'value' => 'Rp ' . number_format($v ?? 0, 0, ',', '.'), 'money' => true];
     }
 
     $gridCols = match (count($tiles)) {

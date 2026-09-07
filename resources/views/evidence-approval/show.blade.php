@@ -44,7 +44,7 @@
             @if ($evidence->status === \App\Enums\EvidenceStatus::PENDING)
                 <section class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
                     <h2 class="text-sm font-extrabold">Keputusan Review</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pastikan objek, kualitas foto, dan kesesuaian designator sudah benar.</p>
-                    <form method="POST" action="{{ route('evidence-approval.approve', $evidence) }}" class="mt-4" onsubmit="return confirm('Setujui evidence ini?');">@csrf<button class="min-h-11 w-full rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20">Approve Evidence</button></form>
+                    <button type="button" onclick="document.getElementById('approve-evidence').showModal()" class="mt-4 min-h-11 w-full rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20">Approve Evidence</button>
                     <button type="button" onclick="document.getElementById('reject-evidence').showModal()" class="mt-3 min-h-11 w-full rounded-xl border border-brand-200 text-sm font-extrabold text-brand-600 dark:border-brand-800">Reject Evidence</button>
                 </section>
             @else
@@ -54,6 +54,23 @@
     </div>
 
     @if ($evidence->status === \App\Enums\EvidenceStatus::PENDING)
+        <x-modal id="approve-evidence" title="Approve Evidence">
+            <div class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg>
+                </span>
+                <div class="min-w-0">
+                    <p class="text-sm font-extrabold text-emerald-900 dark:text-emerald-100">Setujui evidence ini?</p>
+                    <p class="mt-1 text-xs leading-5 text-emerald-800/80 dark:text-emerald-200/80">Evidence <span class="font-bold">{{ $fileName }}</span> akan ditandai Approved. Keputusan masih dapat direset selama LOP belum selesai.</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('evidence-approval.approve', $evidence) }}" class="mt-5 flex gap-2">
+                @csrf
+                <button type="button" onclick="document.getElementById('approve-evidence').close()" class="min-h-11 flex-1 rounded-xl border border-ink-200 text-sm font-bold dark:border-ink-700">Batal</button>
+                <button class="min-h-11 flex-1 rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">Ya, Approve</button>
+            </form>
+        </x-modal>
+
         <x-modal id="reject-evidence" title="Reject Evidence">
             <form method="POST" action="{{ route('evidence-approval.reject', $evidence) }}">@csrf<div class="rounded-xl bg-brand-50 p-3 text-xs leading-5 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300">Alasan akan langsung dikirim kepada teknisi dan ditampilkan pada evidence yang perlu diperbaiki.</div><label class="mt-4 block text-xs font-bold">Alasan penolakan</label><textarea name="review_note" required rows="4" placeholder="Contoh: foto terlalu gelap, objek utama tidak terlihat..." class="mt-2 w-full rounded-xl border border-ink-200 bg-white p-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800"></textarea><div class="mt-4 flex gap-2"><button type="button" onclick="document.getElementById('reject-evidence').close()" class="min-h-11 flex-1 rounded-xl border border-ink-200 text-sm font-bold dark:border-ink-700">Batal</button><button class="min-h-11 flex-1 rounded-xl bg-brand-600 text-sm font-extrabold text-white">Reject & kirim</button></div></form>
         </x-modal>

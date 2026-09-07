@@ -9,7 +9,7 @@
     $tdNum = 'px-4 py-2 text-right tabular-nums text-ink-800 dark:text-ink-100';
     $money = fn ($v) => $v === null ? '—' : 'Rp ' . number_format($v, 0, ',', '.');
     $valueKey = $report === 'boq' ? 'total_actual' : 'nilai_sisa';
-    $valueLabel = $report === 'boq' ? 'Σ Total Actual' : 'Σ Nilai Sisa';
+    $valueLabel = $report === 'boq' ? 'Total Actual' : 'Total Nilai Sisa';
 @endphp
 
 <x-table class="!rounded-2xl shadow-sm">
@@ -19,9 +19,9 @@
             <th class="{{ $th }}">Designator</th>
             <th class="{{ $th }}">Uraian</th>
             <th class="{{ $th }}">Satuan</th>
-            <th class="{{ $thNum }}">Σ Qty Rencana</th>
-            <th class="{{ $thNum }}">Σ Qty Actual</th>
-            <th class="{{ $thNum }}">Σ Sisa</th>
+            <th class="{{ $thNum }}">Total Qty Rencana</th>
+            <th class="{{ $thNum }}">Total Qty Actual</th>
+            <th class="{{ $thNum }}">Total Sisa</th>
             @if ($priced)
                 <th class="{{ $thNum }}">Harga KHS</th>
                 <th class="{{ $thNum }}">{{ $valueLabel }}</th>

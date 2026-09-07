@@ -139,4 +139,100 @@ class EvidenceWorkflowTest extends TestCase
             'status_after' => 'waiting_approval',
         ]);
     }
+
+    private function waitingApprovalLop(User $admin): QeLop
+    {
+        return QeLop::create([
+            'incident' => 'LOP-WF-'.uniqid(),
+            'nama_lop' => 'Review Completion',
+            'program_type' => 'recovery',
+            'status_lop' => 'waiting_approval',
+            'created_by' => $admin->id_user,
+        ]);
+    }
+
+    public function test_complete_review_marks_lop_completed_when_all_evidence_approved(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $approver = User::factory()->role(UserRole::APPROVER->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->waitingApprovalLop($admin);
+
+        $service = app(EvidenceService::class);
+        foreach (['a.jpg', 'b.jpg'] as $name) {
+            $service->approve(
+                $service->upload($lop, ['step' => 'AFTER', 'type' => 'PHOTO'], UploadedFile::fake()->image($name), $teknisi),
+                $approver,
+            );
+        }
+
+        $this->actingAs($approver)
+            ->post(route('evidence-approval.lop.complete', $lop))
+            ->assertRedirect(route('evidence-approval.index'));
+
+        $this->assertSame('completed', $lop->fresh()->status_lop->value);
+        $this->assertDatabaseHas('qe_lop_histories', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'status_before' => 'waiting_approval',
+            'status_after' => 'completed',
+        ]);
+    }
+
+    public function test_complete_review_is_blocked_while_any_evidence_pending(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $approver = User::factory()->role(UserRole::APPROVER->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->waitingApprovalLop($admin);
+
+        $service = app(EvidenceService::class);
+        $approved = $service->upload($lop, ['step' => 'AFTER', 'type' => 'PHOTO'], UploadedFile::fake()->image('a.jpg'), $teknisi);
+        $service->upload($lop, ['step' => 'AFTER', 'type' => 'PHOTO'], UploadedFile::fake()->image('b.jpg'), $teknisi);
+        $service->approve($approved, $approver);
+
+        $this->actingAs($approver)
+            ->post(route('evidence-approval.lop.complete', $lop))
+            ->assertSessionHasErrors('review');
+
+        $this->assertSame('waiting_approval', $lop->fresh()->status_lop->value);
+    }
+
+    public function test_complete_review_is_blocked_when_an_evidence_is_rejected(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $approver = User::factory()->role(UserRole::APPROVER->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->waitingApprovalLop($admin);
+
+        $service = app(EvidenceService::class);
+        $rejected = $service->upload($lop, ['step' => 'AFTER', 'type' => 'PHOTO'], UploadedFile::fake()->image('bad.jpg'), $teknisi);
+        $approved = $service->upload($lop, ['step' => 'AFTER', 'type' => 'PHOTO'], UploadedFile::fake()->image('good.jpg'), $teknisi);
+
+        // Reject satu evidence -> LOP otomatis pindah ke 'rejected'.
+        $service->reject($rejected, $approver, 'Foto buram');
+        $service->approve($approved, $approver);
+        $this->assertSame('rejected', $lop->fresh()->status_lop->value);
+
+        // Review tidak bisa diselesaikan selama masih ada evidence yang ditolak;
+        // LOP menunggu perbaikan teknisi lalu direview ulang.
+        $this->actingAs($approver)
+            ->post(route('evidence-approval.lop.complete', $lop))
+            ->assertSessionHasErrors('review');
+
+        $this->assertSame('rejected', $lop->fresh()->status_lop->value);
+    }
+
+    public function test_complete_review_is_forbidden_for_non_reviewer(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->waitingApprovalLop($admin);
+
+        $this->actingAs($teknisi)
+            ->post(route('evidence-approval.lop.complete', $lop))
+            ->assertForbidden();
+    }
 }

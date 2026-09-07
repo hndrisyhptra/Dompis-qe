@@ -129,7 +129,7 @@
                         <label class="cursor-pointer rounded-xl border p-4 transition" :class="form.budget_type === '{{ $budgetType->value }}' ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/15 dark:bg-brand-950/30' : 'border-ink-200 hover:border-ink-300 dark:border-ink-700'">
                             <input type="radio" name="budget_type" value="{{ $budgetType->value }}" x-model="form.budget_type" class="sr-only">
                             <span class="block text-sm font-bold text-ink-900 dark:text-white">{{ $budgetType->label() }}</span>
-                            <span class="mt-1 block text-xs text-ink-500">{{ $budgetType->value === 'CAPEX' ? 'Belanja modal / investasi' : 'Biaya operasional' }}</span>
+                            <span class="mt-1 block text-xs text-ink-500">{{ $budgetType->description() }}</span>
                         </label>
                     @endforeach
                 </div>

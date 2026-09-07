@@ -188,13 +188,13 @@ class MaterialReportService
                 'designator_code' => 'Designator',
                 'designator_name' => 'Uraian',
                 'unit' => 'Satuan',
-                'qty' => 'Σ Qty Rencana',
-                'qty_actual' => 'Σ Qty Actual',
-                'sisa' => 'Σ Sisa',
+                'qty' => 'Total Qty Rencana',
+                'qty_actual' => 'Total Qty Actual',
+                'sisa' => 'Total Sisa',
             ];
             if ($priced) {
                 $cols['price'] = 'Harga KHS';
-                $cols[$report === 'boq' ? 'total_actual' : 'nilai_sisa'] = $report === 'boq' ? 'Σ Total Actual' : 'Σ Nilai Sisa';
+                $cols[$report === 'boq' ? 'total_actual' : 'nilai_sisa'] = $report === 'boq' ? 'Total Actual' : 'Total Nilai Sisa';
             }
             $cols['lop_count'] = 'Jml LOP';
 

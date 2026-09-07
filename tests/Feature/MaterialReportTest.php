@@ -348,7 +348,7 @@ class MaterialReportTest extends TestCase
             ->assertOk();
 
         Excel::assertDownloaded('sisa-material-rekap-'.now()->format('Ymd-His').'.xlsx', function (SisaMaterialExport $export) {
-            return count($export->array()) > 0 && in_array('Σ Sisa', $export->headings(), true);
+            return count($export->array()) > 0 && in_array('Total Sisa', $export->headings(), true);
         });
     }
 

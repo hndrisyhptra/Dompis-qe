@@ -230,9 +230,17 @@
                 </form>
             </section>
 
-            <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
+            @php $canSubmit = $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] && $state['step5Complete']; @endphp
+            <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900" x-data="{ showSubmitConfirm: false }">
                 <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Foto slot port lengkap.' : 'Foto slot port belum ada.' }} {{ $state['materialUsageComplete'] ? 'Rekap material lengkap.' : 'Rekap qty material belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
-                <form method="POST" action="{{ route('technician.projects.submit', $lop) }}" class="mt-4" onsubmit="return confirm('Ajukan seluruh evidence untuk approval?');">@csrf<button class="min-h-12 w-full rounded-2xl {{ $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] && $state['step5Complete'] ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Ajukan Approval</button></form>
+                <button type="button" @click="showSubmitConfirm = true" @disabled(! $canSubmit)
+                        class="mt-4 min-h-12 w-full rounded-2xl text-sm font-extrabold {{ $canSubmit ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">Ajukan Approval</button>
+
+                <x-confirm-modal state="showSubmitConfirm"
+                    title="Ajukan seluruh evidence untuk approval?"
+                    message="Setelah diajukan, status project menjadi Menunggu Approval dan evidence tidak dapat diubah sampai reviewer selesai memeriksa."
+                    confirm-label="Ya, ajukan"
+                    :action="route('technician.projects.submit', $lop)" />
             </div>
         </section>
     @endif

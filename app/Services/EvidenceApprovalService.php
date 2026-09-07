@@ -11,9 +11,43 @@ use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class EvidenceApprovalService
 {
+    public function __construct(private readonly LopService $lopService) {}
+
+    /**
+     * Menyelesaikan review sebuah LOP: transisi waiting_approval -> completed.
+     * Hanya boleh bila LOP masih menunggu approval DAN seluruh evidence sudah
+     * disetujui. Jika ada evidence yang ditolak, LOP tidak diselesaikan —
+     * evidence itu harus diperbaiki teknisi lalu direview ulang.
+     */
+    public function completeReview(QeLop $lop, User $actor): void
+    {
+        if ($lop->status_lop !== LopStatus::WAITING_APPROVAL) {
+            throw ValidationException::withMessages([
+                'review' => 'LOP tidak sedang menunggu approval sehingga review tidak dapat diselesaikan.',
+            ]);
+        }
+
+        $lop->loadMissing('evidences');
+        $summary = $this->summary($lop);
+
+        if ($summary['total'] === 0 || $summary['approved'] !== $summary['total']) {
+            throw ValidationException::withMessages([
+                'review' => 'Review belum bisa diselesaikan. Semua evidence harus berstatus disetujui — jika ada yang ditolak, tunggu teknisi memperbaikinya lalu review ulang.',
+            ]);
+        }
+
+        $this->lopService->transitionStatus(
+            $lop,
+            LopStatus::COMPLETED,
+            $actor,
+            'Review evidence selesai — seluruh evidence disetujui.',
+        );
+    }
+
     public function indexData(User $user, array $filters): array
     {
         $status = $filters['status'] ?? EvidenceStatus::PENDING->value;

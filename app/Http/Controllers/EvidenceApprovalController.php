@@ -71,4 +71,15 @@ class EvidenceApprovalController extends Controller
 
         return back()->with('status', 'Keputusan review direset ke Pending.');
     }
+
+    public function completeReview(Request $request, QeLop $qe_lop): RedirectResponse
+    {
+        $this->authorize('reviewEvidence', $qe_lop);
+
+        $this->approvalService->completeReview($qe_lop, $request->user());
+
+        return redirect()
+            ->route('evidence-approval.index')
+            ->with('status', "Review {$qe_lop->incident} selesai — LOP ditandai Completed.");
+    }
 }

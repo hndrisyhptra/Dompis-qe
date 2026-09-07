@@ -23,6 +23,13 @@
         <div class="min-w-72 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900"><div class="flex items-center justify-between text-xs"><span class="font-bold text-ink-500">Progress Approval</span><strong class="text-lg text-ink-900 dark:text-white">{{ $approvalSummary['approval_percentage'] }}%</strong></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $approvalSummary['rejected'] ? 'bg-brand-600' : ($approvalSummary['approval_percentage'] === 100 ? 'bg-emerald-500' : 'bg-amber-400') }}" style="width: {{ $approvalSummary['approval_percentage'] }}%"></div></div><div class="mt-3 flex gap-1.5"><x-badge variant="warning">{{ $approvalSummary['pending'] }} pending</x-badge><x-badge variant="success">{{ $approvalSummary['approved'] }} approve</x-badge>@if($approvalSummary['rejected'])<x-badge variant="danger">{{ $approvalSummary['rejected'] }} reject</x-badge>@endif</div></div>
     </header>
 
+    @if (session('status'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">{{ session('status') }}</div>
+    @endif
+    @error('review')
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">{{ $message }}</div>
+    @enderror
+
     <nav class="rounded-2xl border border-ink-100 bg-white px-2 py-3 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:p-4">
         <div class="grid grid-cols-5 items-start">
             @foreach ($stepLabels as $number => $label)
@@ -85,6 +92,72 @@
         </section>
     @endif
 
-    <div class="flex justify-between gap-3 border-t border-ink-100 pt-5 dark:border-ink-800">@if($currentStep > 1)<a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep - 1]) }}" class="inline-flex min-h-11 items-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">← Step sebelumnya</a>@else<span></span>@endif @if($currentStep < 4)<a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep + 1]) }}" class="inline-flex min-h-11 items-center rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Step berikutnya →</a>@else<a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-ink-700">Selesai review</a>@endif</div>
+    @php
+        $lastStep = count($stepLabels);
+        $isCompleted = $lop->status_lop === \App\Enums\LopStatus::COMPLETED;
+        $isRejected = $lop->status_lop === \App\Enums\LopStatus::REJECTED;
+        $awaitingApproval = $lop->status_lop === \App\Enums\LopStatus::WAITING_APPROVAL;
+        $totalEvidence = $approvalSummary['total'];
+        $pendingLeft = $approvalSummary['pending'];
+        $rejectedLeft = $approvalSummary['rejected'];
+        // "Selesai Review" hanya untuk kondisi semua evidence sudah disetujui.
+        $allApproved = $totalEvidence > 0 && $approvalSummary['approved'] === $totalEvidence;
+    @endphp
+    <div class="flex flex-col gap-3 border-t border-ink-100 pt-5 dark:border-ink-800 sm:flex-row sm:items-center sm:justify-between">
+        @if ($currentStep > 1)
+            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep - 1]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">← Step sebelumnya</a>
+        @else
+            <span class="hidden sm:block"></span>
+        @endif
+
+        @if ($currentStep < $lastStep)
+            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep + 1]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Step berikutnya →</a>
+        @elseif ($isCompleted)
+            <span class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-4 text-sm font-extrabold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Review selesai
+            </span>
+        @elseif ($isRejected)
+            <div class="flex flex-col items-end gap-1 text-right">
+                <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
+                <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Evidence ditolak, menunggu perbaikan teknisi.</p>
+            </div>
+        @elseif (! $awaitingApproval)
+            <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
+        @elseif ($allApproved)
+            <button type="button" onclick="document.getElementById('complete-review').showModal()" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Selesai Review
+            </button>
+        @else
+            <div class="flex flex-col items-end gap-1 text-right">
+                <button type="button" disabled class="inline-flex min-h-11 cursor-not-allowed items-center justify-center rounded-xl bg-ink-200 px-4 text-sm font-extrabold text-ink-400 dark:bg-ink-800 dark:text-ink-500">Selesai Review</button>
+                <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    @if ($pendingLeft > 0)
+                        {{ $pendingLeft }} evidence belum diperiksa.
+                    @else
+                        {{ $rejectedLeft }} evidence ditolak.
+                    @endif
+                </p>
+            </div>
+        @endif
+    </div>
 </div>
+
+@if ($awaitingApproval && $allApproved)
+    <x-modal id="complete-review" title="Selesaikan Review">
+        <div class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg>
+            </span>
+            <div class="min-w-0">
+                <p class="text-sm font-extrabold text-emerald-900 dark:text-emerald-100">Selesaikan review LOP ini?</p>
+                <p class="mt-1 text-xs leading-5 text-emerald-800/80 dark:text-emerald-200/80">Semua {{ $totalEvidence }} evidence sudah disetujui. Status LOP <span class="font-bold">{{ $lop->incident }}</span> akan berubah menjadi <span class="font-bold">Selesai (Completed)</span> dan tidak bisa direview lagi.</p>
+            </div>
+        </div>
+        <form method="POST" action="{{ route('evidence-approval.lop.complete', $lop) }}" class="mt-5 flex gap-2">
+            @csrf
+            <button type="button" onclick="document.getElementById('complete-review').close()" class="min-h-11 flex-1 rounded-xl border border-ink-200 text-sm font-bold dark:border-ink-700">Batal</button>
+            <button class="min-h-11 flex-1 rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">Ya, selesaikan</button>
+        </form>
+    </x-modal>
+@endif
 @endsection
