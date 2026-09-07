@@ -24,7 +24,7 @@
 
 <section class="mt-4 rounded-3xl bg-ink-900 p-5 text-white shadow-xl shadow-ink-900/10">
     <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 break-words text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
+        <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 wrap-break-word text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
         <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
     </div>
     <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -137,7 +137,7 @@
         </section>
     @elseif ($step === 3)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Simpan titik lokasi dan lengkapi bukti awal pekerjaan.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Tag lokasi pekerjaan dan foto sebab/kondisi awal pekerjaan.</p></div>
             <div x-data="{ latitude: '{{ $state['survey']?->latitude }}', longitude: '{{ $state['survey']?->longitude }}', accuracy: '{{ $state['survey']?->accuracy }}', source: '{{ $state['survey']?->location_source ?? 'manual' }}', locating: false, error: '', locate() { this.locating = true; this.error = ''; if (!navigator.geolocation) { this.error='GPS tidak didukung perangkat.'; this.locating=false; return; } navigator.geolocation.getCurrentPosition(p => { this.latitude=p.coords.latitude.toFixed(7); this.longitude=p.coords.longitude.toFixed(7); this.accuracy=p.coords.accuracy.toFixed(2); this.source='gps'; this.locating=false; }, () => { this.error='Lokasi gagal diambil. Aktifkan izin GPS atau isi manual.'; this.locating=false; }, { enableHighAccuracy: true, timeout: 15000 }); } }"
                  class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
                 <div class="flex items-start justify-between gap-3"><div><h3 class="text-sm font-bold">Tag lokasi pekerjaan</h3><p class="mt-1 text-xs text-ink-500">Gunakan GPS atau masukkan koordinat manual.</p></div>@if($state['survey'])<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">Tersimpan</span>@endif</div>
@@ -150,13 +150,7 @@
                 </form>
             </div>
 
-            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Evidence pra" description="Foto kondisi awal area pekerjaan." :existing="$evidenceFor('pre')" />
-
-            @foreach ($state['items'] as $item)
-                <x-technician-evidence-uploader :lop="$lop" category="before" :designator-id="$item->designator_id"
-                    :title="'Before · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(float)$item->qty.' '.$item->designator->unit"
-                    :existing="$evidenceFor('before', $item->designator_id)" />
-            @endforeach
+            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Foto sebab/kondisi awal pekerjaan" description="Beberapa foto kondisi awal area pekerjaan sebelum instalasi." :existing="$evidenceFor('pre')" />
 
             <form method="POST" action="{{ route('technician.projects.survey-complete', $lop) }}">@csrf<button class="min-h-12 w-full rounded-2xl {{ $state['step3Complete'] ? 'bg-brand-600 text-white' : 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Selesaikan Survey & Lanjut Progress</button></form>
         </section>

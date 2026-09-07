@@ -187,7 +187,7 @@ class TechnicianWorkflowService
         $state = $this->state($lop);
 
         if (! $state['step3Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Lengkapi lokasi, evidence pra, dan before setiap item.']);
+            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan dan foto kondisi awal.']);
         }
 
         if ($lop->status_lop === LopStatus::SURVEY) {
@@ -223,19 +223,18 @@ class TechnicianWorkflowService
         $items = $lop->materialReservation?->items ?? collect();
         $validEvidence = $lop->evidences->filter(fn ($evidence) => $evidence->status !== EvidenceStatus::REJECTED);
         $reservedIds = $items->pluck('designator_id')->unique();
-        $beforeIds = $validEvidence->where('category', EvidenceCategory::BEFORE)->pluck('designator_id')->unique();
         $progressIds = $validEvidence->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $validEvidence->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
-        // Step 1 Reservasi · Step 2 Material Tiba · Step 3 Evidence Pra ·
+        // Step 1 Reservasi · Step 2 Material Tiba · Step 3 Evidence Pra
+        // (lokasi + foto kondisi awal, TIDAK per designator) ·
         // Step 4 Progress (per designator) · Step 5 After (per designator).
         $step1 = $items->isNotEmpty();
         $step2 = $step1
             && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
         $step3 = $step2
             && $lop->survey !== null
-            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty()
-            && $reservedIds->diff($beforeIds)->isEmpty();
+            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
         $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
         $step5 = $step1 && $reservedIds->diff($afterIds)->isEmpty() && $materialUsageComplete;
@@ -254,7 +253,6 @@ class TechnicianWorkflowService
             'step5Complete' => $step5,
             'currentStep' => $currentStep,
             'materialUsageComplete' => $materialUsageComplete,
-            'missingBefore' => $items->whereIn('designator_id', $reservedIds->diff($beforeIds)),
             'missingProgress' => $items->whereIn('designator_id', $reservedIds->diff($progressIds)),
             'missingAfter' => $items->whereIn('designator_id', $reservedIds->diff($afterIds)),
         ];

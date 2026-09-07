@@ -32,7 +32,6 @@ class ProjectProgressService
         $items = $lop->materialReservation?->items ?? collect();
         $evidences = $lop->evidences;
         $reservedIds = $items->pluck('designator_id')->unique();
-        $beforeIds = $evidences->where('category', EvidenceCategory::BEFORE)->pluck('designator_id')->unique();
         $progressIds = $evidences->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $evidences->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
@@ -40,10 +39,10 @@ class ProjectProgressService
             1 => $items->isNotEmpty(),
             2 => $items->isNotEmpty()
                 && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty(),
+            // Step 3 Pra: tag lokasi + foto kondisi awal saja (bukan per designator).
             3 => $items->isNotEmpty()
                 && $lop->survey !== null
-                && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty()
-                && $reservedIds->diff($beforeIds)->isEmpty(),
+                && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty(),
             4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()

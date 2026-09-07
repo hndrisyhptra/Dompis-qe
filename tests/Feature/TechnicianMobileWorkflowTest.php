@@ -101,6 +101,47 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertSee('Tag lokasi pekerjaan');
     }
 
+    public function test_step_pra_only_needs_location_and_pre_photo_not_per_designator(): void
+    {
+        Storage::fake('public');
+        [, $technician, $lop] = $this->assignedProject();
+        $type = DesignatorType::where('code', 'MATERIAL')->value('id_designator_type');
+        $d1 = Designator::create(['code' => 'M-PRA-1', 'item_name' => 'ODP', 'unit' => 'pcs', 'designator_type_id' => $type]);
+        $d2 = Designator::create(['code' => 'M-PRA-2', 'item_name' => 'Closure', 'unit' => 'pcs', 'designator_type_id' => $type]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
+            'items' => [
+                ['designator_id' => $d1->id_designator, 'qty' => 2],
+                ['designator_id' => $d2->id_designator, 'qty' => 3],
+            ],
+        ]);
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'material_arrival', 'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('m.jpg')],
+        ]);
+        $this->actingAs($technician)->put(route('technician.projects.location', $lop), [
+            'latitude' => -6.2, 'longitude' => 106.8, 'accuracy' => 8, 'location_source' => 'gps',
+        ]);
+
+        $progress = app(ProjectProgressService::class);
+
+        // Lokasi ada, foto pra belum -> step 3 belum lengkap.
+        $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
+
+        // Satu foto pra global (tanpa designator) -> step 3 lengkap, tanpa before per item.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'pre', 'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('pra.jpg')],
+        ]);
+        $this->assertTrue($progress->summary($lop->fresh())['steps'][3]);
+
+        $this->actingAs($technician)
+            ->post(route('technician.projects.survey-complete', $lop))
+            ->assertRedirect();
+        $this->assertSame('progress', $lop->fresh()->status_lop->value);
+    }
+
     public function test_material_arrival_is_its_own_step_two_and_gates_evidence_pra(): void
     {
         Storage::fake('public');
