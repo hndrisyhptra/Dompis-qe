@@ -94,11 +94,30 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Evidence Material Tiba');
 
+        // Step 3 masih terkunci selama step 2 (Material Tiba) belum lengkap.
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 3]))
+            ->assertRedirect(route('technician.projects.show', [$lop, 'step' => 2]));
+    }
+
+    public function test_steps_ahead_of_the_first_incomplete_step_are_locked(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+
+        // Belum reservasi -> hanya step 1 yang terbuka; step 2-5 dikunci.
+        foreach ([2, 3, 4, 5] as $ahead) {
+            $this->actingAs($technician)
+                ->get(route('technician.projects.show', [$lop, 'step' => $ahead]))
+                ->assertRedirect(route('technician.projects.show', [$lop, 'step' => 1]));
+        }
+
+        // Tanpa param step -> jatuh ke step pertama yang belum lengkap (step 1).
+        $this->actingAs($technician)
+            ->get(route('technician.projects.show', $lop))
             ->assertOk()
-            ->assertSee('Evidence Pra')
-            ->assertSee('Tag lokasi pekerjaan');
+            ->assertSee('Reservasi material')
+            ->assertSee('aria-disabled="true"', false); // stepper step berikutnya terkunci
     }
 
     public function test_step_pra_needs_location_pre_and_insera_not_per_designator(): void

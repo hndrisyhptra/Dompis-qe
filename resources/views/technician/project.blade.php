@@ -74,7 +74,7 @@
 @else
     <section class="mt-5 rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
         <div class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Field workflow</p><h2 class="mt-1 text-sm font-extrabold">Step {{ $step }} dari 5</h2></div><span class="text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete'], $state['step5Complete']])->filter()->count() }}/5 lengkap</span></div>
-        <x-lop-progress-stepper :current="$step" :state="$state" />
+        <x-lop-progress-stepper :current="$step" :state="$state" :max-step="$maxStep ?? $state['currentStep']" />
     </section>
 
     @if ($step === 1)
@@ -133,7 +133,7 @@
         <section class="mt-5 space-y-4">
             <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 2</p><h2 class="mt-1 text-lg font-extrabold">Evidence Material Tiba</h2><p class="mt-1 text-xs leading-5 text-ink-500">Foto material yang sudah tiba di lokasi sebelum pekerjaan dimulai. Minimal 1 foto.</p></div>
             <x-technician-evidence-uploader :lop="$lop" category="material_arrival" title="Material tiba" description="Foto material yang sudah tersedia di lokasi. Cukup 1 foto." :existing="$evidenceFor('material_arrival')" />
-            <a href="{{ route('technician.projects.show', [$lop, 'step' => 3]) }}" class="grid min-h-12 place-items-center rounded-2xl {{ $state['step2Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Lanjut Evidence Pra</a>
+            <a href="{{ route('technician.projects.show', [$lop, 'step' => 3]) }}" @unless ($state['step2Complete']) aria-disabled="true" @endunless class="grid min-h-12 place-items-center rounded-2xl text-sm font-extrabold {{ $state['step2Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">{{ $state['step2Complete'] ? 'Lanjut Evidence Pra' : 'Lengkapi step ini untuk lanjut' }}</a>
         </section>
     @elseif ($step === 3)
         <section class="mt-5 space-y-4">
@@ -167,7 +167,7 @@
             <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
                 <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist progress</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingProgress']->isEmpty() ? 'Semua designator sudah memiliki evidence progress.' : $state['missingProgress']->count().' designator belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step4Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step4Complete'] ? '✓' : '!' }}</span></div>
             </div>
-            <a href="{{ route('technician.projects.show', [$lop, 'step' => 5]) }}" class="grid min-h-12 place-items-center rounded-2xl {{ $state['step4Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Lanjut Evidence After</a>
+            <a href="{{ route('technician.projects.show', [$lop, 'step' => 5]) }}" @unless ($state['step4Complete']) aria-disabled="true" @endunless class="grid min-h-12 place-items-center rounded-2xl text-sm font-extrabold {{ $state['step4Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">{{ $state['step4Complete'] ? 'Lanjut Evidence After' : 'Lengkapi step ini untuk lanjut' }}</a>
         </section>
     @elseif ($step === 5)
         <section class="mt-5 space-y-4">

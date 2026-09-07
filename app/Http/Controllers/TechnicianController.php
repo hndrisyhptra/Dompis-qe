@@ -56,16 +56,26 @@ class TechnicianController extends Controller
         ]);
     }
 
-    public function project(Request $request, QeLop $qe_lop): View
+    public function project(Request $request, QeLop $qe_lop): View|RedirectResponse
     {
         $this->authorize('view', $qe_lop);
         $state = $this->workflowService->state($qe_lop);
-        $requestedStep = max(1, min(5, $request->integer('step', $state['currentStep'])));
+
+        // Step terkunci: hanya boleh membuka step yang <= step pertama yang
+        // belum lengkap (currentStep). Step yang sudah selesai tetap boleh
+        // dibuka untuk review; step di depannya dikunci.
+        $maxStep = $state['currentStep'];
+        $requestedStep = max(1, min(5, $request->integer('step', $maxStep)));
+
+        if ($requestedStep > $maxStep) {
+            return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $maxStep]);
+        }
 
         return view('technician.project', [
             'lop' => $qe_lop,
             'state' => $state,
             'step' => $requestedStep,
+            'maxStep' => $maxStep,
             'designators' => Designator::query()
                 ->whereRelation('type', 'code', 'MATERIAL')
                 ->orderBy('code')->get(),
