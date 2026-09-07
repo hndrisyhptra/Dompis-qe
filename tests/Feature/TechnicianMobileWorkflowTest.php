@@ -346,6 +346,23 @@ class TechnicianMobileWorkflowTest extends TestCase
         Storage::disk('public')->assertExists($fresh->file_path);
     }
 
+    public function test_technician_can_resume_a_rejected_lop_back_to_progress(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $lop->update(['status_lop' => 'rejected']);
+
+        $this->actingAs($technician)
+            ->post(route('technician.projects.resume', $lop))
+            ->assertRedirect(route('technician.projects.show', $lop));
+
+        $this->assertSame('progress', $lop->fresh()->status_lop->value);
+        $this->assertDatabaseHas('qe_lop_histories', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'status_before' => 'rejected',
+            'status_after' => 'progress',
+        ]);
+    }
+
     public function test_evidence_gallery_shows_review_statuses_and_rejection_reason(): void
     {
         Storage::fake('public');

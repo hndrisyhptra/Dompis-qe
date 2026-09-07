@@ -118,8 +118,10 @@ class QeLopPolicy
             return $lop->status_lop->value === 'waiting_approval';
         }
 
-        // Teknisi hanya boleh transisi LOP yang sedang ditugaskan padanya,
-        // dan hanya untuk status pekerjaan lapangan (bukan approval/completed).
+        // Teknisi hanya boleh transisi LOP yang sedang ditugaskan padanya, dan
+        // hanya untuk status pekerjaan lapangan (bukan approval/completed).
+        // 'rejected' termasuk: teknisi menekan "Perbaikan Evidence" untuk
+        // mengembalikan LOP ke 'progress' (transisi sah di LopStatus::transitions()).
         if ($user->hasRole(UserRole::TEKNISI)) {
             $isAssignedToMe = $lop->assignments()
                 ->where('technician_id', $user->id_user)
@@ -127,7 +129,7 @@ class QeLopPolicy
                 ->exists();
 
             return $isAssignedToMe && in_array($lop->status_lop->value, [
-                'assigned', 'picked_up', 'survey', 'progress',
+                'assigned', 'picked_up', 'survey', 'progress', 'rejected',
             ], true);
         }
 

@@ -111,4 +111,14 @@ class QeLop extends Model
     {
         return $this->activeAssignment?->technician;
     }
+
+    /**
+     * Nomor tiket dibuat manual (prefix INP dari ManualIncidentService) vs.
+     * nomor tiket asli hasil lookup DB tiket eksternal (prefix INC).
+     * Hanya nomor manual yang boleh diubah lewat Edit LOP.
+     */
+    public function usesManualIncident(): bool
+    {
+        return str_starts_with((string) $this->incident, 'INP');
+    }
 }

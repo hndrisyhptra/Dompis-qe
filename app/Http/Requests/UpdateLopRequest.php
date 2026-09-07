@@ -18,11 +18,18 @@ class UpdateLopRequest extends FormRequest
 
     public function rules(): array
     {
-        $lopId = $this->route('qe_lop')?->id_qe_lops;
+        $lop = $this->route('qe_lop');
+        $lopId = $lop?->id_qe_lops;
+
+        // Nomor tiket asli (INC…) tidak boleh diubah; hanya nomor manual (INP…).
+        // prepareForValidation() sudah memaksa balik nilai lama untuk tiket asli,
+        // jadi rule regex hanya relevan saat LOP memang bernomor manual.
+        $incidentIsManual = $lop === null || $lop->usesManualIncident();
 
         return [
             'incident' => [
                 'required', 'string', 'max:100',
+                ...($incidentIsManual ? ['regex:/^INP\d+$/'] : []),
                 Rule::unique('qe_lops', 'incident')->ignore($lopId, 'id_qe_lops'),
             ],
             'nama_lop' => ['nullable', 'string', 'max:255'],
@@ -43,10 +50,24 @@ class UpdateLopRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'incident.regex' => 'Nomor tiket manual harus memakai format INP diikuti angka (contoh: INP3102092601).',
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
+        $lop = $this->route('qe_lop');
+
+        // LOP bernomor tiket asli: abaikan input user, kunci ke nilai lama.
+        $incident = $lop !== null && ! $lop->usesManualIncident()
+            ? $lop->incident
+            : mb_strtoupper(trim((string) $this->input('incident')));
+
         $this->merge([
-            'incident' => mb_strtoupper(trim((string) $this->input('incident'))),
+            'incident' => $incident,
             'sto' => mb_strtoupper(trim((string) $this->input('sto'))),
             'ihld_id' => filled($this->input('ihld_id'))
                 ? trim((string) $this->input('ihld_id'))
