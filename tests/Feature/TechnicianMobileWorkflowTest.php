@@ -101,7 +101,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertSee('Tag lokasi pekerjaan');
     }
 
-    public function test_step_pra_only_needs_location_and_pre_photo_not_per_designator(): void
+    public function test_step_pra_needs_location_pre_and_insera_not_per_designator(): void
     {
         Storage::fake('public');
         [, $technician, $lop] = $this->assignedProject();
@@ -129,10 +129,17 @@ class TechnicianMobileWorkflowTest extends TestCase
         // Lokasi ada, foto pra belum -> step 3 belum lengkap.
         $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
 
-        // Satu foto pra global (tanpa designator) -> step 3 lengkap, tanpa before per item.
+        // Foto pra global saja belum cukup -> masih butuh capture Insera.
         $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
             'category' => 'pre', 'type' => 'PHOTO',
             'files' => [UploadedFile::fake()->image('pra.jpg')],
+        ]);
+        $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
+
+        // + capture tiket Insera (global, tanpa designator) -> step 3 lengkap.
+        $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
+            'category' => 'insera', 'type' => 'PHOTO',
+            'files' => [UploadedFile::fake()->image('insera.jpg')],
         ]);
         $this->assertTrue($progress->summary($lop->fresh())['steps'][3]);
 
@@ -371,6 +378,7 @@ class TechnicianMobileWorkflowTest extends TestCase
 
         foreach ([
             ['pre', null],
+            ['insera', null],
             ['material_arrival', null],
             ['before', $designator->id_designator],
         ] as [$category, $designatorId]) {

@@ -173,7 +173,7 @@ class TechnicianWorkflowService
         }
 
         $data['step'] = match ($category) {
-            EvidenceCategory::PRE => EvidenceStep::SURVEY->value,
+            EvidenceCategory::PRE, EvidenceCategory::INSERA => EvidenceStep::SURVEY->value,
             EvidenceCategory::MATERIAL_ARRIVAL, EvidenceCategory::BEFORE => EvidenceStep::BEFORE->value,
             EvidenceCategory::PROGRESS => EvidenceStep::PROGRESS->value,
             EvidenceCategory::AFTER => EvidenceStep::AFTER->value,
@@ -187,7 +187,7 @@ class TechnicianWorkflowService
         $state = $this->state($lop);
 
         if (! $state['step3Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan dan foto kondisi awal.']);
+            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan, foto kondisi awal, dan capture tiket Insera.']);
         }
 
         if ($lop->status_lop === LopStatus::SURVEY) {
@@ -234,7 +234,8 @@ class TechnicianWorkflowService
             && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
         $step3 = $step2
             && $lop->survey !== null
-            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
+            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty()
+            && $validEvidence->where('category', EvidenceCategory::INSERA)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
         $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
         $step5 = $step1 && $reservedIds->diff($afterIds)->isEmpty() && $materialUsageComplete;

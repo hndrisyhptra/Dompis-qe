@@ -7,7 +7,7 @@
     $stepEvidence = [
         1 => collect(),
         2 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::MATERIAL_ARRIVAL),
-        3 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::PRE, \App\Enums\EvidenceCategory::BEFORE], true)),
+        3 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::PRE, \App\Enums\EvidenceCategory::INSERA, \App\Enums\EvidenceCategory::BEFORE], true)),
         4 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::PROGRESS),
         5 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::AFTER),
     ];

@@ -5,6 +5,7 @@ namespace App\Enums;
 enum EvidenceCategory: string
 {
     case PRE = 'pre';
+    case INSERA = 'insera';
     case MATERIAL_ARRIVAL = 'material_arrival';
     case BEFORE = 'before';
     case PROGRESS = 'progress';
@@ -14,6 +15,7 @@ enum EvidenceCategory: string
     {
         return match ($this) {
             self::PRE => 'Evidence Pra',
+            self::INSERA => 'Capture Ticket Insera',
             self::MATERIAL_ARRIVAL => 'Material Tiba',
             self::BEFORE => 'Before',
             self::PROGRESS => 'Progress',
