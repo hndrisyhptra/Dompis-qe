@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
@@ -11,6 +12,7 @@ use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class EvidenceApprovalService
@@ -80,6 +82,11 @@ class EvidenceApprovalService
                 'evidences as pending_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::PENDING),
                 'evidences as approved_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::APPROVED),
                 'evidences as rejected_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::REJECTED),
+                // Evidence yang sudah pernah ditolak lalu diunggah ulang teknisi
+                // (jalur replace menaruh metadata.replaced_at) & kini menunggu review.
+                'evidences as reuploaded_pending_count' => fn ($query) => $query
+                    ->where('status', EvidenceStatus::PENDING)
+                    ->whereNotNull('metadata->replaced_at'),
             ])
             ->whereHas('evidences', $evidenceFilter);
 
@@ -117,10 +124,42 @@ class EvidenceApprovalService
             'evidences.reviewer',
         ]);
 
+        $pending = $lop->evidences->where('status', EvidenceStatus::PENDING);
+
         return [
             'lop' => $lop,
             'approvalSummary' => $this->summary($lop),
+            // Step pertama yang punya evidence pending, untuk membuka review
+            // langsung di bagian yang perlu diperiksa.
+            'suggestedStep' => $this->firstPendingStep($pending),
+            // Evidence yang diunggah ulang teknisi setelah ditolak, kini pending.
+            'reuploadedPending' => $pending
+                ->filter(fn ($e) => filled(data_get($e->metadata, 'replaced_at')))
+                ->count(),
         ];
+    }
+
+    /**
+     * Petakan evidence pending -> step review terkait, ambil step terkecil.
+     * 1 (Reservasi & Lokasi) kalau tidak ada evidence pending.
+     *
+     * @param  Collection<int, QeEvidence>  $pendingEvidences
+     */
+    private function firstPendingStep(Collection $pendingEvidences): int
+    {
+        $stepOf = [
+            EvidenceCategory::MATERIAL_ARRIVAL->value => 2,
+            EvidenceCategory::PRE->value => 3,
+            EvidenceCategory::INSERA->value => 3,
+            EvidenceCategory::BEFORE->value => 3,
+            EvidenceCategory::PROGRESS->value => 4,
+            EvidenceCategory::AFTER->value => 5,
+            EvidenceCategory::SLOT_PORT->value => 5,
+        ];
+
+        return $pendingEvidences
+            ->map(fn (QeEvidence $e) => $stepOf[$e->category?->value] ?? 3)
+            ->min() ?? 1;
     }
 
     public function summary(QeLop $lop): array

@@ -63,8 +63,19 @@
         <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
             @forelse ($lops as $lop)
                 @php($approval = $lop->approval_summary)
-                <tr class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
-                    <td class="px-5 py-4"><p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p><p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p></td>
+                @php($reuploaded = (int) ($lop->reuploaded_pending_count ?? 0))
+                <tr class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40 {{ $reuploaded > 0 ? 'bg-amber-50/50 dark:bg-amber-950/10' : '' }}">
+                    <td class="px-5 py-4">
+                        <p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>
+                        <p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p>
+                        <p class="mt-1 text-xs text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p>
+                        @if ($reuploaded > 0)
+                            <span class="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.02 9.35h5.25V4.1M20.1 8.1A9 9 0 1 0 21 12"/></svg>
+                                {{ $reuploaded }} evidence diperbaiki teknisi — perlu review ulang
+                            </span>
+                        @endif
+                    </td>
                     <td class="px-5 py-4"><div class="flex items-center gap-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink-100 text-xs font-extrabold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span><div><p class="whitespace-nowrap text-sm font-semibold">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $isSuperAdmin ? 'Assigned oleh '.($lop->activeAssignment?->assigner?->name ?? '—') : 'Assignment Anda' }}</p></div></div></td>
                     <td class="px-5 py-4"><p class="text-sm font-extrabold">{{ $approval['total'] }} file</p><div class="mt-2 flex flex-wrap gap-1">@if($approval['pending'])<x-badge variant="warning">{{ $approval['pending'] }} pending</x-badge>@endif @if($approval['approved'])<x-badge variant="success">{{ $approval['approved'] }} approve</x-badge>@endif @if($approval['rejected'])<x-badge variant="danger">{{ $approval['rejected'] }} reject</x-badge>@endif</div></td>
                     <td class="min-w-56 px-5 py-4"><div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">Evidence disetujui</span><strong>{{ $approval['approval_percentage'] }}%</strong></div><div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $approval['rejected'] ? 'bg-brand-600' : ($approval['approval_percentage'] === 100 ? 'bg-emerald-500' : 'bg-amber-400') }}" style="width: {{ $approval['approval_percentage'] }}%"></div></div><p class="mt-1.5 text-[10px] text-ink-400">{{ $approval['approved'] }} dari {{ $approval['total'] }} evidence approve · {{ $approval['review_percentage'] }}% sudah direview</p></td>

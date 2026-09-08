@@ -351,6 +351,9 @@ class MaterialReportService
             'total_actual' => $priced ? (float) $rows->sum(fn ($r) => $r['total_actual'] ?? 0) : null,
             'nilai_sisa' => $priced ? (float) $rows->sum(fn ($r) => $r['nilai_sisa'] ?? 0) : null,
             'price_missing_count' => $rows->where('price_missing', true)->pluck('designator_id')->unique()->count(),
+            'line_count' => $rows->count(),
+            'not_recapped_count' => $rows->whereNull('qty_actual')->count(),
+            'sisa_items_count' => $rows->filter(fn ($r) => ($r['sisa'] ?? 0) > 0)->count(),
         ];
     }
 

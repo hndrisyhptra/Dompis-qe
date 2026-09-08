@@ -30,6 +30,13 @@
         <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">{{ $message }}</div>
     @enderror
 
+    @if (($reuploadedPending ?? 0) > 0)
+        <div class="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.02 9.35h5.25V4.1M20.1 8.1A9 9 0 1 0 21 12"/></svg>
+            <span><span class="font-bold">{{ $reuploadedPending }} evidence sudah diunggah ulang</span> oleh teknisi setelah sebelumnya ditolak. Halaman ini otomatis membuka di step yang perlu diperiksa.</span>
+        </div>
+    @endif
+
     <nav class="rounded-2xl border border-ink-100 bg-white px-2 py-3 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:p-4">
         <div class="grid grid-cols-5 items-start">
             @foreach ($stepLabels as $number => $label)

@@ -256,4 +256,55 @@ class EvidencePermissionTest extends TestCase
             ->post(route('evidence-approval.reset', $evidence))
             ->assertForbidden();
     }
+
+    public function test_review_opens_at_first_step_that_still_has_pending_evidence(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin, 'waiting_approval');
+        $this->assignLop($lop, $admin, $technician);
+
+        // Step 4 (progress) sudah approved, step 5 (after) masih pending.
+        QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops, 'uploaded_by' => $technician->id_user,
+            'step' => 'PROGRESS', 'type' => 'PHOTO', 'category' => 'progress',
+            'file_path' => 'evidences/p.jpg', 'status' => 'approved',
+        ]);
+        QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops, 'uploaded_by' => $technician->id_user,
+            'step' => 'AFTER', 'type' => 'PHOTO', 'category' => 'after',
+            'file_path' => 'evidences/a.jpg', 'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.lop.review', $lop))
+            ->assertOk()
+            ->assertViewHas('currentStep', 5);
+
+        // ?step= eksplisit tetap dihormati.
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 2]))
+            ->assertViewHas('currentStep', 2);
+    }
+
+    public function test_reuploaded_evidence_after_reject_is_flagged_on_the_index(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin, 'waiting_approval');
+        $this->assignLop($lop, $admin, $technician);
+
+        QeEvidence::create([
+            'qe_lop_id' => $lop->id_qe_lops, 'uploaded_by' => $technician->id_user,
+            'step' => 'AFTER', 'type' => 'PHOTO', 'category' => 'after',
+            'file_path' => 'evidences/fixed.jpg', 'status' => 'pending',
+            'metadata' => ['original_name' => 'fixed.jpg', 'replaced_at' => now()->toIso8601String()],
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.index'))
+            ->assertOk()
+            ->assertSee('evidence diperbaiki teknisi')
+            ->assertViewHas('lops', fn ($lops) => (int) $lops->first()->reuploaded_pending_count === 1);
+    }
 }

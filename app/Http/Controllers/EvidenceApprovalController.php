@@ -32,10 +32,15 @@ class EvidenceApprovalController extends Controller
     {
         $this->authorize('reviewEvidence', $qe_lop);
 
-        return view('evidence-approval.lop-review', [
-            ...$this->approvalService->reviewData($qe_lop),
-            'currentStep' => max(1, min(5, $request->integer('step', 1))),
-        ]);
+        $data = $this->approvalService->reviewData($qe_lop);
+
+        // Tanpa ?step= eksplisit, buka langsung di step yang evidence-nya
+        // masih perlu direview (mis. setelah teknisi mengunggah perbaikan).
+        $step = $request->has('step')
+            ? max(1, min(5, $request->integer('step')))
+            : $data['suggestedStep'];
+
+        return view('evidence-approval.lop-review', [...$data, 'currentStep' => $step]);
     }
 
     public function show(QeEvidence $evidence): View
