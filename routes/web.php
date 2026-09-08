@@ -70,6 +70,7 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/parse-datek', [LopController::class, 'parseDatek'])->name('parse-datek');
     Route::post('/', [LopController::class, 'store'])->name('store');
     Route::get('/{qe_lop}', [LopController::class, 'show'])->name('show');
+    Route::get('/{qe_lop}/evidence-archive', [LopController::class, 'downloadEvidenceArchive'])->name('evidence-archive');
     Route::get('/{qe_lop}/edit', [LopController::class, 'edit'])->name('edit');
     Route::put('/{qe_lop}', [LopController::class, 'update'])->name('update');
     Route::post('/{qe_lop}/transition', [LopController::class, 'transitionStatus'])->name('transition');

@@ -70,6 +70,18 @@ class ProgramBucketTest extends TestCase
             ->assertDontSee('PREV-ONE');
     }
 
+    public function test_download_evidence_action_shows_only_for_completed_lops(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $done = $this->lop($admin, 'REC-DONE', 'recovery', 'completed');
+        $active = $this->lop($admin, 'REC-ACTIVE', 'recovery', 'progress');
+
+        $this->actingAs($admin)->get(route('program.show', 'recovery'))
+            ->assertOk()
+            ->assertSee(route('lop.evidence-archive', $done), false)
+            ->assertDontSee(route('lop.evidence-archive', $active), false);
+    }
+
     public function test_non_super_admin_is_locked_to_their_own_branch(): void
     {
         $creator = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();

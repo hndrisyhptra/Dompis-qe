@@ -120,9 +120,15 @@
         @if ($currentStep < $lastStep)
             <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep + 1]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Step berikutnya →</a>
         @elseif ($isCompleted)
-            <span class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-4 text-sm font-extrabold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Review selesai
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+                <span class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-4 text-sm font-extrabold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Review selesai
+                </span>
+                <a href="{{ route('lop.evidence-archive', $lop) }}" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20 hover:bg-brand-700">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                    Download Evidence
+                </a>
+            </div>
         @elseif ($isRejected)
             <div class="flex flex-col items-end gap-1 text-right">
                 <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>

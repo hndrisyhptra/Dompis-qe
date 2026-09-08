@@ -16,6 +16,7 @@ use App\Models\QeLop;
 use App\Models\User;
 use App\Services\DatekParserService;
 use App\Services\EvidenceApprovalService;
+use App\Services\EvidenceArchiveService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
 use App\Services\ManualIncidentService;
@@ -26,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class LopController extends Controller
 {
@@ -37,6 +39,7 @@ class LopController extends Controller
         private readonly TicketLookupService $ticketLookup,
         private readonly ManualIncidentService $manualIncident,
         private readonly DatekParserService $datekParser,
+        private readonly EvidenceArchiveService $evidenceArchive,
     ) {}
 
     /**
@@ -127,6 +130,29 @@ class LopController extends Controller
         return view('lop.history', [
             'lops' => $query->latest()->paginate(20),
         ]);
+    }
+
+    /**
+     * Unduh seluruh evidence gambar LOP sebagai satu file ZIP
+     * ({namaLop}.zip -> folder {namaLop}/). Hanya untuk LOP completed.
+     */
+    public function downloadEvidenceArchive(QeLop $qe_lop): Response
+    {
+        $this->authorize('view', $qe_lop);
+
+        abort_unless($qe_lop->status_lop === LopStatus::COMPLETED, 404);
+
+        try {
+            [$path, $filename] = $this->evidenceArchive->build($qe_lop);
+        } catch (\RuntimeException $e) {
+            abort(404, $e->getMessage() === 'empty'
+                ? 'LOP ini tidak memiliki evidence gambar.'
+                : 'Gagal membuat arsip evidence.');
+        }
+
+        return response()
+            ->download($path, $filename, ['Content-Type' => 'application/zip'])
+            ->deleteFileAfterSend(true);
     }
 
     public function create(): View

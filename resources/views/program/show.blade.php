@@ -111,14 +111,14 @@
     <x-table class="!rounded-2xl shadow-sm">
         <thead class="bg-ink-50/80 dark:bg-ink-800"><tr>
             @foreach (['Project', 'Teknisi', 'Progress', 'Status', 'Update'] as $heading)
-                <th class="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-ink-500">{{ $heading }}</th>
+                <th class="whitespace-nowrap px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-ink-500">{{ $heading }}</th>
             @endforeach
-            <th class="px-5 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-ink-500">Aksi</th>
+            <th class="whitespace-nowrap px-5 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-ink-500">Aksi</th>
         </tr></thead>
         <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
             @forelse ($lops as $lop)
                 @php($summary = $lop->progress_summary)
-                <tr class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                <tr class="align-top transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                     <td class="px-5 py-4">
                         <p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>
                         <p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p>
@@ -126,12 +126,12 @@
                     </td>
                     <td class="px-5 py-4">
                         <div class="flex items-center gap-2">
-                            <span class="grid h-8 w-8 place-items-center rounded-full bg-ink-100 text-xs font-bold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span>
-                            <span class="whitespace-nowrap text-sm font-semibold">{{ $lop->activeAssignment?->technician?->name ?? 'Not Assigned' }}</span>
+                            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-100 text-xs font-bold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span>
+                            <span class="text-sm font-semibold">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</span>
                         </div>
                     </td>
                     <td class="min-w-52 px-5 py-4">
-                        <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step</span><strong>{{ $summary['percentage'] }}%</strong></div>
+                        <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step</span><strong class="tabular-nums">{{ $summary['percentage'] }}%</strong></div>
                         <div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
                             <div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-brand-600' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-blue-500')) }}" style="width: {{ $summary['percentage'] }}%"></div>
                         </div>
@@ -140,7 +140,12 @@
                     <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
                     <td class="whitespace-nowrap px-5 py-4 text-xs text-ink-500">{{ $lop->updated_at->diffForHumans() }}</td>
                     <td class="px-5 py-4">
-                        <div class="flex items-center justify-end gap-1.5">
+                        <div class="flex flex-wrap items-center justify-end gap-1.5">
+                            @if ($lop->status_lop === \App\Enums\LopStatus::COMPLETED)
+                                <x-table-action label="Download evidence (.zip)" tone="success" :href="route('lop.evidence-archive', $lop)">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                                </x-table-action>
+                            @endif
                             <x-table-action label="Detail LOP" onclick="document.getElementById('lop-detail-{{ $lop->id_qe_lops }}').showModal()">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
                             </x-table-action>
