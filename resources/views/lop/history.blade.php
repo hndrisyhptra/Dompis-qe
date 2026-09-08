@@ -34,14 +34,23 @@
                         <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <div class="flex items-center justify-end gap-3">
+                        <div class="flex items-center justify-end gap-1.5">
                             @if ($lop->status_lop === \App\Enums\LopStatus::COMPLETED)
-                                <a href="{{ route('lop.evidence-archive', $lop) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-brand-700">
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                                    Download Evidence
-                                </a>
+                                <x-table-action label="Download evidence (.zip)" tone="success" :href="route('lop.evidence-archive', $lop)">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                                </x-table-action>
                             @endif
-                            <a href="{{ route('lop.show', $lop) }}" class="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">Detail</a>
+                            <x-table-action label="Detail LOP" onclick="document.getElementById('lop-detail-{{ $lop->id_qe_lops }}').showModal()">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
+                            </x-table-action>
+                            @can('update', $lop)
+                                <x-table-action label="Edit LOP" tone="primary" :href="route('lop.edit', $lop)">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 16.5V12a2.25 2.25 0 0 0-2.25-2.25h-6A2.25 2.25 0 0 0 6 12v4.5A2.25 2.25 0 0 0 8.25 18.75h6A2.25 2.25 0 0 0 16.5 16.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 9V7.5A1.5 1.5 0 0 0 10.5 6h-3A1.5 1.5 0 0 0 6 7.5V9"/><path stroke-linecap="round" stroke-linejoin="round" d="m12 12.75 1.5 1.5 3-3"/></svg>
+                                </x-table-action>
+                            @endcan
+                            <x-table-action label="Tracking Riwayat" tone="info" onclick="document.getElementById('lop-tracking-{{ $lop->id_qe_lops }}').showModal()">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                            </x-table-action>
                         </div>
                     </td>
                 </tr>
@@ -52,6 +61,11 @@
             @endforelse
         </tbody>
     </x-table>
+
+    @foreach ($lops as $lop)
+        <x-lop-detail-modal :id="'lop-detail-'.$lop->id_qe_lops" :$lop />
+        <x-lop-tracking-modal :id="'lop-tracking-'.$lop->id_qe_lops" :$lop />
+    @endforeach
 
     <div class="mt-4">
         {{ $lops->links() }}

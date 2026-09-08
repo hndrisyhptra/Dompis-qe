@@ -122,13 +122,23 @@ class LopController extends Controller
         $this->authorize('viewAny', QeLop::class);
 
         $query = QeLop::query()
-            ->with(['creator', 'activeAssignment.technician'])
+            ->with([
+                'creator', 'activeAssignment.technician', 'assignments.technician',
+                'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
+                'survey', 'evidences',
+            ])
             ->where('status_lop', LopStatus::COMPLETED->value);
 
         $query = $this->scopeForUser($query, $request);
 
+        $lops = $query->latest()->paginate(20)->withQueryString();
+        foreach ($lops->getCollection() as $lop) {
+            $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
+            $lop->setAttribute('approval_summary', $this->approvalService->summary($lop));
+        }
+
         return view('lop.history', [
-            'lops' => $query->latest()->paginate(20),
+            'lops' => $lops,
         ]);
     }
 
@@ -279,9 +289,12 @@ class LopController extends Controller
     public function update(UpdateLopRequest $request, QeLop $qe_lop): RedirectResponse
     {
         $this->lopService->update($qe_lop, $request->validated());
+        $qe_lop->refresh();
+
+        $target = $qe_lop->status_lop === LopStatus::COMPLETED ? 'lop.history' : 'lop.index';
 
         return redirect()
-            ->route('lop.index')
+            ->route($target)
             ->with('status', 'LOP berhasil diperbarui.');
     }
 
