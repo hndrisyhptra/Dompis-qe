@@ -273,7 +273,16 @@ class MaterialReportService
             ->whereNull('l.deleted_at')
             ->where('r.status', 'submitted')
             ->when($filters['program'], fn ($q, $v) => $q->where('l.program_type', $v))
-            ->when($filters['segment'], fn ($q, $v) => $q->where('l.segment', $v))
+            ->when($filters['segment'], function ($q, $v) {
+                // segment kini JSON array; pakai JSON_CONTAINS untuk MySQL, fallback LIKE untuk SQLite/tests
+                $driver = $q->getModel()->getConnection()->getDriverName();
+                if ($driver === 'mysql') {
+                    $q->whereRaw('JSON_CONTAINS(l.segment, JSON_QUOTE(?))', [$v]);
+                } else {
+                    $q->where('l.segment', 'like', '%"'.$v.'"%')
+                        ->orWhere('l.segment', 'like', '%'.$v.'%');
+                }
+            })
             ->when($filters['status'], fn ($q, $v) => $q->whereIn('l.status_lop', $v))
             ->when($filters['q'], fn ($q, $v) => $q->where(fn ($w) => $w
                 ->where('l.nama_lop', 'like', "%{$v}%")
@@ -321,7 +330,7 @@ class MaterialReportService
             'lop_incident' => $lop->incident,
             'lop_branch' => $lop->branch,
             'lop_program' => $lop->program_type?->label(),
-            'lop_segment' => $lop->segment?->label(),
+            'lop_segment' => $lop->segmentLabel(),
             'lop_status' => $lop->status_lop?->label(),
             'lop_status_raw' => $lop->status_lop?->value,
             'designator_id' => $item->designator_id,

@@ -46,15 +46,109 @@ class QeLop extends Model
         'created_by',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $lop) {
+            $raw = $lop->attributes['segment'] ?? null;
+
+            // Normalisasi string tunggal "odp" -> '["odp"]' agar konsisten dengan cast array + JSON kolom.
+            // Pakai set raw JSON string (bypass cast double-encoding) karena saving() berjalan setelah mutasi awal.
+            if (is_string($raw) && $raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (! is_array($decoded)) {
+                    $val = strtolower(trim($raw));
+                    if (str_contains($val, ',')) {
+                        $parts = array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), explode(',', $val))));
+                        $lop->attributes['segment'] = json_encode($parts);
+                    } else {
+                        $lop->attributes['segment'] = $val !== '' ? json_encode([$val]) : json_encode([]);
+                    }
+                    // Tandai agar cast tidak meng-encode ulang (sudah JSON string)
+                    // Dengan menulis langsung ke attributes, cast akan menganggap sudah final string.
+                }
+            }
+
+            if ($raw === '') {
+                $lop->attributes['segment'] = json_encode([]);
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
             'program_type' => ProgramType::class,
-            'segment' => LopSegment::class,
+            'segment' => 'array',
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
             'datek' => 'array',
         ];
+    }
+
+    /**
+     * Normalisasi segment agar selalu array string lowercase.
+     * Support data lama: string "odp", CSV "odp,tiang", atau JSON array.
+     *
+     * @return list<string>
+     */
+    public function segments(): array
+    {
+        $raw = $this->attributes['segment'] ?? null;
+
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        // Jika sudah array (dari cast), pakai langsung
+        if (is_array($raw)) {
+            return array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), $raw)));
+        }
+
+        // Jika string JSON array
+        $decoded = json_decode((string) $raw, true);
+        if (is_array($decoded)) {
+            return array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), $decoded)));
+        }
+
+        // CSV atau single string
+        if (str_contains((string) $raw, ',')) {
+            return array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), explode(',', (string) $raw))));
+        }
+
+        return [strtolower(trim((string) $raw))];
+    }
+
+    /**
+     * Segment pertama (compat helper untuk program non-relok atau display singkat).
+     */
+    public function primarySegment(): ?LopSegment
+    {
+        $list = $this->segments();
+
+        $first = $list[0] ?? null;
+
+        return $first ? LopSegment::tryFrom($first) : null;
+    }
+
+    /**
+     * Label gabungan untuk display, mis. "ODP, Tiang".
+     */
+    public function segmentLabel(): string
+    {
+        $list = $this->segments();
+        if ($list === []) {
+            return '—';
+        }
+
+        return implode(', ', array_map(fn ($v) => LopSegment::tryFrom($v)?->label() ?? strtoupper($v), $list));
+    }
+
+    /**
+     * Cek apakah LOP ini multi-segmen.
+     */
+    public function isMultiSegment(): bool
+    {
+        return count($this->segments()) > 1;
     }
 
     /*

@@ -24,21 +24,53 @@ class LopService
     public function __construct(private readonly LopNamingService $namingService) {}
 
     /**
+     * Normalisasi segment: untuk relok_utilitas simpan array (preserve order, unique, max 3),
+     * untuk program lain simpan array dengan 1 elemen agar konsisten dengan cast array di Model.
+     */
+    private function normalizeSegment(mixed $segment, string $programType): array
+    {
+        if (is_array($segment)) {
+            $list = array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), $segment)));
+            // unique preserve order
+            $seen = [];
+            $unique = [];
+            foreach ($list as $v) {
+                if (isset($seen[$v])) {
+                    continue;
+                }
+                $seen[$v] = true;
+                $unique[] = $v;
+            }
+
+            return $programType === 'relok_utilitas' ? array_slice($unique, 0, 3) : array_slice($unique, 0, 1);
+        }
+
+        $val = strtolower(trim((string) $segment));
+
+        return $val !== '' ? [$val] : [];
+    }
+
+    /**
      * Membuat LOP baru dengan status awal draft.
      */
     public function create(array $data, User $creator): QeLop
     {
         return DB::transaction(function () use ($data, $creator) {
+            $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
+
+            // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)
+            $namingData = array_merge($data, ['segment' => $normalizedSegment]);
+
             $lop = QeLop::create([
                 'incident' => $data['incident'],
                 'nama_lop' => filled($data['nama_lop'] ?? null)
                     ? $data['nama_lop']
-                    : $this->namingService->generate($data),
+                    : $this->namingService->generate($namingData),
                 'program_type' => $data['program_type'],
                 'sto' => $data['sto'],
                 'branch' => $data['branch'],
                 'area' => $data['area'],
-                'segment' => $data['segment'],
+                'segment' => $normalizedSegment,
                 'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
                 'job_description' => $data['job_description'],
                 'ticket_summary' => $data['ticket_summary'] ?? null,
@@ -57,16 +89,19 @@ class LopService
 
     public function update(QeLop $lop, array $data): QeLop
     {
+        $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
+        $namingData = array_merge($data, ['segment' => $normalizedSegment]);
+
         $lop->update([
             'incident' => $data['incident'],
             'nama_lop' => filled($data['nama_lop'] ?? null)
                 ? $data['nama_lop']
-                : $this->namingService->generate($data),
+                : $this->namingService->generate($namingData),
             'program_type' => $data['program_type'],
             'sto' => $data['sto'],
             'branch' => $data['branch'],
             'area' => $data['area'],
-            'segment' => $data['segment'],
+            'segment' => $normalizedSegment,
             'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
             'job_description' => $data['job_description'],
             'ticket_summary' => $data['ticket_summary'] ?? null,

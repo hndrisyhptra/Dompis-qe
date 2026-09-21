@@ -266,7 +266,7 @@ const normalizeDatek = (raw) => {
 
 window.lopForm = (options = {}) => ({
     form: {
-        incident: '', sto: '', branch: '', area: '3', segment: '',
+        incident: '', sto: '', branch: '', area: '3', segment: '', segments: [],
         program_type: '', budget_type: '', job_description: '', ticket_summary: '', ihld_id: '', nama_lop: '',
         ...(options.initial ?? {}),
         datek: normalizeDatek(options.initial?.datek),
@@ -276,6 +276,9 @@ window.lopForm = (options = {}) => ({
     template: options.template ?? '{area}{sto}_{program_code}_{incident}_{segment}',
     programCodes: options.programCodes ?? {},
     segmentLabels: options.segmentLabels ?? {},
+    segmentOpen: false,
+    segmentQuery: '',
+    segmentDropdownPos: { top: 0, left: 0, width: 0 },
     nameManuallyEdited: false,
     lookup: {
         loading: false, error: false, notFound: false, message: '', warnings: [], lastQuery: null,
@@ -284,21 +287,79 @@ window.lopForm = (options = {}) => ({
     manualGen: { loading: false, message: '' },
 
     init() {
-        ['incident', 'sto', 'branch', 'area', 'segment', 'program_type', 'budget_type', 'job_description']
+        // Normalisasi initial: support segment string lama atau array segments
+        const init = options.initial ?? {};
+        // Jika initial.segments adalah array string, pakai itu untuk multi
+        if (Array.isArray(init.segments) && init.segments.length) {
+            this.form.segments = init.segments.map((v) => String(v).toLowerCase().trim()).filter(Boolean);
+        } else if (Array.isArray(init.segment) && init.segment.length) {
+            this.form.segments = init.segment.map((v) => String(v).toLowerCase().trim()).filter(Boolean);
+        } else if (typeof init.segment === 'string' && init.segment) {
+            this.form.segments = [init.segment.toLowerCase().trim()];
+            this.form.segment = init.segment.toLowerCase().trim();
+        } else if (typeof init.segments === 'string' && init.segments) {
+            this.form.segments = [init.segments.toLowerCase().trim()];
+        }
+
+        // Sync single segment dari multi jika program bukan relok
+        if (this.form.segments.length && !this.form.segment) {
+            this.form.segment = this.form.segments[0];
+        }
+
+        ['incident', 'sto', 'branch', 'area', 'segment', 'segments', 'program_type', 'budget_type', 'job_description']
             .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
+        // watcher khusus segments array deep
+        this.$watch('form.segments', () => this.regenerateName(), { deep: true });
+        this.$watch('segmentOpen', (v) => { if (v) this.$nextTick(() => this.updateSegmentPos()); });
+        // update posisi dropdown saat resize/scroll (untuk teleport fixed)
+        window.addEventListener('resize', () => { if (this.segmentOpen) this.updateSegmentPos(); });
+        window.addEventListener('scroll', () => { if (this.segmentOpen) this.updateSegmentPos(); }, true);
         if (!this.form.nama_lop) this.regenerateName(true);
         this.hydrateDatekText();
+    },
+
+    updateSegmentPos() {
+        const el = this.$refs.segmentBtn || this.$refs.segmentTrigger;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        // clamp lebar minimal 280
+        const width = Math.max(r.width, 280);
+        // jika dekat bottom viewport, dropdown akan tetap di bawah trigger (fixed), max-h-56 sudah scroll
+        this.segmentDropdownPos = { top: r.bottom + 8, left: r.left, width: width };
+        // koreksi agar tidak keluar kanan viewport
+        const vw = window.innerWidth;
+        if (this.segmentDropdownPos.left + this.segmentDropdownPos.width > vw - 12) {
+            this.segmentDropdownPos.left = Math.max(12, vw - this.segmentDropdownPos.width - 12);
+        }
     },
 
     regenerateName(force = false) {
         if (this.nameManuallyEdited && !force) return;
         if (this.form.program_type !== 'relok_utilitas') this.form.budget_type = '';
 
+        // Gabungan segmen: untuk relok pakai array segments join _, else single segment
+        let segmentToken = '';
+        if (this.form.program_type === 'relok_utilitas') {
+            const segs = Array.isArray(this.form.segments) ? this.form.segments : [];
+            const tokens = [];
+            const seen = new Set();
+            for (const seg of segs) {
+                const t = this.token(seg, true);
+                if (!t || seen.has(t)) continue;
+                seen.add(t);
+                tokens.push(t);
+            }
+            segmentToken = tokens.join('_');
+        } else {
+            segmentToken = this.token(this.form.segment, true);
+        }
+
         const values = {
             '{area}': this.token(this.form.area, true),
             '{sto}': this.token(this.form.sto, true),
             '{branch}': this.token(this.form.branch, true),
-            '{segment}': this.token(this.form.segment, true),
+            '{segment}': segmentToken,
+            '{segments}': segmentToken,
             '{program}': this.token(this.programLabel(this.form.program_type), true),
             '{program_code}': this.programCodes[this.form.program_type] ?? '',
             '{budget_type}': this.token(this.form.budget_type, true),
@@ -354,7 +415,19 @@ window.lopForm = (options = {}) => ({
 
             if (json.sto) this.form.sto = json.sto;
             if (json.branch) this.form.branch = json.branch;
-            if (json.segment) this.form.segment = json.segment;
+            if (json.segment) {
+                if (this.form.program_type === 'relok_utilitas') {
+                    // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
+                    const seg = String(json.segment).toLowerCase().trim();
+                    if (seg && !this.form.segments.includes(seg) && this.form.segments.length < 3) {
+                        this.form.segments.push(seg);
+                    }
+                    // Sync single juga untuk kompatibilitas
+                    if (!this.form.segment) this.form.segment = seg;
+                } else {
+                    this.form.segment = json.segment;
+                }
+            }
             this.form.ticket_summary = json.summary || '';
             this.applyDatek(json.datek);
 
@@ -474,6 +547,37 @@ window.lopForm = (options = {}) => ({
         } finally {
             this.datekParsing = false;
         }
+    },
+
+    // --- Segment combobox helpers (khusus relok_utilitas multi) ---
+    segmentOptions() {
+        return Object.entries(this.segmentLabels).map(([value, label]) => ({ value, label }));
+    },
+
+    filteredSegments() {
+        const q = String(this.segmentQuery ?? '').toLowerCase().trim();
+        const opts = this.segmentOptions();
+        if (!q) return opts;
+        return opts.filter((o) => o.value.toLowerCase().includes(q) || String(o.label).toLowerCase().includes(q));
+    },
+
+    isSegmentSelected(value) {
+        return Array.isArray(this.form.segments) && this.form.segments.includes(value);
+    },
+
+    toggleSegment(value) {
+        const val = String(value).toLowerCase().trim();
+        if (!val) return;
+        const idx = this.form.segments.indexOf(val);
+        if (idx >= 0) {
+            this.form.segments.splice(idx, 1);
+        } else {
+            if (this.form.segments.length >= 3) return;
+            this.form.segments.push(val);
+            // keep single sync for fallback
+            if (!this.form.segment) this.form.segment = val;
+        }
+        this.regenerateName();
     },
 
     segmentLabel(value) {

@@ -54,7 +54,7 @@ class LopManualInputTest extends TestCase
         $this->assertDatabaseHas('qe_lops', [
             'incident' => 'INC123456',
             'nama_lop' => '3SDA_QEREC_INC123456_ODP',
-            'segment' => 'odp',
+            'segment' => json_encode(['odp']),
             'budget_type' => null,
             'ticket_summary' => "Incident: INC123456\nWorkzone: SDA\nStatus: OPEN",
             'ihld_id' => null,

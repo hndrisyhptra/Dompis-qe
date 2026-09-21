@@ -15,14 +15,14 @@
         </div>
     @endif
 
-    <section class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
+    <section class="rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900 overflow-visible isolate">
+        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 overflow-hidden rounded-t-2xl">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">01</span>
                 <div><h2 class="font-semibold text-ink-900 dark:text-white">Data pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Informasi utama untuk mengenali lokasi dan lingkup LOP.</p></div>
             </div>
         </div>
-        <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+        <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6 overflow-visible">
             @if (($formMethod ?? 'POST') === 'POST')
                 {{-- Input LOP Baru: incident memicu lookup ke DB tiket untuk auto-fill STO/Branch/Segmen. --}}
                 <div>
@@ -111,9 +111,80 @@
 
             <x-select name="area" label="Area" x-model="form.area"><option value="3">Area 3</option></x-select>
 
-            <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment">
-                @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
-            </x-select>
+            {{-- Segmen: single untuk recovery/preventive, combobox multi (max 3) khusus relok_utilitas --}}
+            <div x-show="form.program_type !== 'relok_utilitas'">
+                <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment" x-bind:disabled="form.program_type === 'relok_utilitas'">
+                    @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
+                </x-select>
+            </div>
+
+            <div x-show="form.program_type === 'relok_utilitas'" x-cloak>
+                <label class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen <span class="font-normal text-ink-400">(maks 3, nama LOP akan menyesuaikan)</span></label>
+                <div class="relative" x-ref="segmentTrigger" @click.outside="segmentOpen = false">
+                    {{-- Hidden inputs untuk submit array segment[] — disabled saat bukan relok agar tidak ikut ter-submit --}}
+                    <template x-for="seg in form.segments" :key="seg">
+                        <input type="hidden" name="segment[]" :value="seg" x-bind:disabled="form.program_type !== 'relok_utilitas'">
+                    </template>
+
+                    {{-- Trigger --}}
+                    <button type="button" x-ref="segmentBtn" @click="segmentOpen = !segmentOpen; $nextTick(() => updateSegmentPos())"
+                            class="flex min-h-10.5 w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-left text-sm shadow-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:bg-ink-800"
+                            :class="segmentOpen ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-ink-100 dark:border-ink-700'">
+                        <span class="flex flex-1 flex-wrap gap-1.5">
+                            <template x-if="form.segments.length === 0">
+                                <span class="text-ink-400">Pilih segmen (maks 3)</span>
+                            </template>
+                            <template x-for="seg in form.segments" :key="seg">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                                    <span x-text="segmentLabel(seg)"></span>
+                                    <span @click.stop="toggleSegment(seg)" class="ml-1 cursor-pointer rounded-full p-0.5 hover:bg-brand-100 dark:hover:bg-brand-900">×</span>
+                                </span>
+                            </template>
+                        </span>
+                        <svg class="h-4 w-4 shrink-0 text-ink-400 transition" :class="segmentOpen && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+                    </button>
+
+                    {{-- Dropdown — teleported ke body agar tidak terpotong overflow section (Opsi B) --}}
+                    <template x-teleport="body">
+                        <div x-show="segmentOpen && form.program_type === 'relok_utilitas'" x-transition
+                             @click.outside="segmentOpen = false"
+                             class="fixed z-50 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-2xl dark:border-ink-700 dark:bg-ink-800"
+                             :style="`top:${segmentDropdownPos.top}px; left:${segmentDropdownPos.left}px; width:${segmentDropdownPos.width}px`">
+                            <div class="border-b border-ink-100 p-2 dark:border-ink-700">
+                                <input type="text" x-model="segmentQuery" placeholder="Cari segmen..."
+                                       class="w-full rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm placeholder:text-ink-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
+                                <p class="mt-1.5 text-xs" :class="form.segments.length >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-ink-400'">
+                                    <span x-text="`${form.segments.length}/3 terpilih`"></span>
+                                    <span x-show="form.segments.length >= 3"> — maksimal tercapai</span>
+                                </p>
+                            </div>
+                            <div class="max-h-56 overflow-y-auto p-1.5">
+                                <template x-for="opt in filteredSegments()" :key="opt.value">
+                                    <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition hover:bg-ink-50 dark:hover:bg-ink-700"
+                                           :class="isSegmentSelected(opt.value) ? 'bg-brand-50 dark:bg-brand-950/30' : ''">
+                                        <input type="checkbox" :checked="isSegmentSelected(opt.value)"
+                                               @change="toggleSegment(opt.value)"
+                                               :disabled="!isSegmentSelected(opt.value) && form.segments.length >= 3"
+                                               class="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30 disabled:opacity-40">
+                                        <span class="flex-1 font-medium text-ink-900 dark:text-white" x-text="opt.label"></span>
+                                        <span x-show="isSegmentSelected(opt.value)" class="text-xs font-bold text-brand-600 dark:text-brand-400">#<span x-text="form.segments.indexOf(opt.value)+1"></span></span>
+                                    </label>
+                                </template>
+                                <p x-show="filteredSegments().length === 0" class="px-3 py-6 text-center text-sm text-ink-400">Tidak ada segmen cocok</p>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-ink-100 bg-ink-50 px-3 py-2 dark:border-ink-700 dark:bg-ink-900/50">
+                                <button type="button" @click="form.segments = []; segmentQuery = ''; $nextTick(() => updateSegmentPos())"
+                                        class="text-xs font-semibold text-ink-500 hover:text-ink-700 dark:text-ink-400">Bersihkan</button>
+                                <button type="button" @click="segmentOpen = false"
+                                        class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700">Selesai</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                @error('segment')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                @error('segment.*')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                <p class="mt-1.5 text-xs text-ink-400">Urutan dipilih akan jadi urutan di Nama LOP dengan join <span class="font-mono">_</span> (contoh: ODP_TIANG).</p>
+            </div>
 
             <div>
                 <x-select name="program_type" label="Program" placeholder="Pilih jenis Program" x-model="form.program_type">

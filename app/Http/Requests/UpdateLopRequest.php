@@ -26,7 +26,13 @@ class UpdateLopRequest extends FormRequest
         // jadi rule regex hanya relevan saat LOP memang bernomor manual.
         $incidentIsManual = $lop === null || $lop->usesManualIncident();
 
-        return [
+        $isRelok = $this->input('program_type') === ProgramType::RELOK_UTILITAS->value;
+
+        $segmentRules = $isRelok
+            ? ['required', 'array', 'min:1', 'max:3']
+            : ['required', Rule::enum(LopSegment::class)];
+
+        $rules = [
             'incident' => [
                 'required', 'string', 'max:100',
                 ...($incidentIsManual ? ['regex:/^INP\d+$/'] : []),
@@ -37,7 +43,7 @@ class UpdateLopRequest extends FormRequest
             'sto' => ['required', 'string', 'max:100'],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],
             'area' => ['required', 'string', 'max:20'],
-            'segment' => ['required', Rule::enum(LopSegment::class)],
+            'segment' => $segmentRules,
             'budget_type' => [
                 'nullable',
                 'required_if:program_type,'.ProgramType::RELOK_UTILITAS->value,
@@ -48,12 +54,20 @@ class UpdateLopRequest extends FormRequest
             'ihld_id' => ['nullable', 'string', 'max:100'],
             ...DatekRules::rules(),
         ];
+
+        if ($isRelok) {
+            $rules['segment.*'] = ['required', 'string', Rule::enum(LopSegment::class)];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
     {
         return [
             'incident.regex' => 'Nomor tiket manual harus memakai format INP diikuti angka (contoh: INP3102092601).',
+            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas.',
+            'segment.min' => 'Pilih minimal 1 segmen.',
         ];
     }
 
@@ -66,9 +80,40 @@ class UpdateLopRequest extends FormRequest
             ? $lop->incident
             : mb_strtoupper(trim((string) $this->input('incident')));
 
+        $program = $this->input('program_type');
+        $segmentInput = $this->input('segment');
+
+        if ($program === ProgramType::RELOK_UTILITAS->value) {
+            if (is_string($segmentInput)) {
+                $segmentInput = $segmentInput !== '' ? [trim($segmentInput)] : [];
+            } elseif (! is_array($segmentInput)) {
+                $segmentInput = $segmentInput !== null ? [(string) $segmentInput] : [];
+            }
+
+            $normalized = [];
+            $seen = [];
+            foreach ((array) $segmentInput as $v) {
+                $val = strtolower(trim((string) $v));
+                if ($val === '' || isset($seen[$val])) {
+                    continue;
+                }
+                $seen[$val] = true;
+                $normalized[] = $val;
+            }
+            $segmentNormalized = $normalized;
+        } else {
+            if (is_array($segmentInput)) {
+                $segmentInput = $segmentInput[0] ?? null;
+            }
+            $segmentNormalized = $segmentInput !== null && $segmentInput !== ''
+                ? strtolower(trim((string) $segmentInput))
+                : $segmentInput;
+        }
+
         $this->merge([
             'incident' => $incident,
             'sto' => mb_strtoupper(trim((string) $this->input('sto'))),
+            'segment' => $segmentNormalized,
             'ihld_id' => filled($this->input('ihld_id'))
                 ? trim((string) $this->input('ihld_id'))
                 : null,

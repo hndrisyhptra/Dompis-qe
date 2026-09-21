@@ -25,11 +25,31 @@ class LopNamingService
             ? ProgramType::tryFrom($data['program_type'] instanceof ProgramType ? $data['program_type']->value : $data['program_type'])
             : null;
 
+        // Segment bisa array (multi untuk relok_utilitas) atau string single
+        $segmentRaw = $data['segment'] ?? $data['segments'] ?? '';
+        if (is_array($segmentRaw)) {
+            // preserve order, unique, join dengan _
+            $seen = [];
+            $tokens = [];
+            foreach ($segmentRaw as $seg) {
+                $t = $this->token((string) $seg, true);
+                if ($t === '' || isset($seen[$t])) {
+                    continue;
+                }
+                $seen[$t] = true;
+                $tokens[] = $t;
+            }
+            $segmentToken = implode('_', $tokens);
+        } else {
+            $segmentToken = $this->token((string) $segmentRaw, true);
+        }
+
         $values = [
             '{area}' => $this->token($data['area'] ?? '', true),
             '{sto}' => $this->token($data['sto'] ?? '', true),
             '{branch}' => $this->token($data['branch'] ?? '', true),
-            '{segment}' => $this->token($data['segment'] ?? '', true),
+            '{segment}' => $segmentToken,
+            '{segments}' => $segmentToken,
             '{program}' => $this->token($program?->label() ?? '', true),
             '{program_code}' => $program?->code() ?? '',
             '{budget_type}' => $this->token($data['budget_type'] ?? '', true),
@@ -65,7 +85,8 @@ class LopNamingService
             '{area}' => 'Area',
             '{sto}' => 'Kode STO',
             '{branch}' => 'Branch',
-            '{segment}' => 'Segmen',
+            '{segment}' => 'Segmen (multi: ODP_TIANG)',
+            '{segments}' => 'Segmen (alias {segment})',
             '{program}' => 'Nama Program lengkap',
             '{program_code}' => 'Kode singkat Program',
             '{budget_type}' => 'CAPEX atau OPEX',

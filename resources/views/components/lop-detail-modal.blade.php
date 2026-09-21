@@ -14,7 +14,7 @@
     $details = [
         'STO' => $lop->sto ?: '—',
         'Area' => $lop->area ? 'Area '.$lop->area : '—',
-        'Segmen' => $lop->segment?->label() ?? '—',
+        'Segmen' => $lop->segmentLabel() ?: '—',
         'Jenis Anggaran' => $lop->budget_type?->label() ?? 'Tidak berlaku',
         'ID IHLD' => $lop->ihld_id ?: 'Belum tersedia',
         'Terakhir diperbarui' => $lop->updated_at->diffForHumans(),

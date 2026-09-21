@@ -178,7 +178,7 @@
                                 </span>
                                 <div class="min-w-0"><p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p><p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p></div>
                             </div>
-                            <div class="grid grid-cols-4 gap-2 sm:min-w-[420px]">
+                            <div class="grid grid-cols-4 gap-2 sm:min-w-105">
                                 @foreach ([
                                     ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white'],
                                     ['Assign', $region['summary']['assigned'], 'text-blue-700 dark:text-blue-300'],
@@ -192,7 +192,7 @@
 
                         <div class="border-t border-ink-100 dark:border-ink-800">
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[720px] border-separate border-spacing-0 text-xs">
+                                <table class="w-full min-w-180 border-separate border-spacing-0 text-xs">
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
                                             <th class="sticky left-0 z-10 min-w-52 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
@@ -260,7 +260,7 @@
                                     <p class="mt-1 text-[10px] text-ink-400">{{ count($region['branches']) }} branch</p>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-4 gap-2 sm:min-w-[390px]">
+                            <div class="grid grid-cols-4 gap-2 sm:min-w-97.5">
                                 @foreach ([
                                     ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white'],
                                     ['Assigned', $region['summary']['pipeline']['assigned'], 'text-blue-700 dark:text-blue-300'],
@@ -277,7 +277,7 @@
 
                         <div class="border-t border-ink-100 dark:border-ink-800">
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[1080px] border-separate border-spacing-0 text-xs">
+                                <table class="w-full min-w-270 border-separate border-spacing-0 text-xs">
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
                                             <th class="sticky left-0 z-10 min-w-48 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
@@ -401,7 +401,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px]">
+            <table class="w-full min-w-190">
                 <thead class="bg-ink-50/80 text-left dark:bg-ink-800/70">
                     <tr>
                         @foreach (['Project', 'Lokasi & Program', 'Teknisi', 'Progress', 'Status', 'Aksi'] as $heading)
