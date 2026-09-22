@@ -48,8 +48,16 @@
                 <option value="">Semua Program</option>
                 @foreach (\App\Enums\ProgramType::cases() as $type)<option value="{{ $type->value }}" @selected($programFilter === $type->value)>{{ $type->label() }}</option>@endforeach
             </select>
-            <div class="flex gap-2"><button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>@if ($search || $statusFilter || $programFilter)<a href="{{ route('lop.index') }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>@endif</div>
+            <div class="flex gap-2"><button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>@if ($search || $statusFilter || $programFilter || ($branchFilter ?? '') || ($missingIhld ?? false) || ($unassigned ?? false) || ($assignedFilter ?? false))<a href="{{ route('lop.index') }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>@endif</div>
         </form>
+        @if (($branchFilter ?? '') || ($missingIhld ?? false) || ($unassigned ?? false) || ($assignedFilter ?? false))
+        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+            @if ($branchFilter ?? '')<span class="rounded-full bg-ink-100 px-2.5 py-1 font-bold text-ink-700 dark:bg-ink-800 dark:text-ink-200">Branch: {{ $branchFilter }}</span>@endif
+            @if ($missingIhld ?? false)<span class="rounded-full bg-brand-50 px-2.5 py-1 font-bold text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">Belum ada ID IHLD</span>@endif
+            @if ($unassigned ?? false)<span class="rounded-full bg-ink-100 px-2.5 py-1 font-bold text-ink-700 dark:bg-ink-800 dark:text-ink-200">Belum ditugaskan</span>@endif
+            @if ($assignedFilter ?? false)<span class="rounded-full bg-ink-100 px-2.5 py-1 font-bold text-ink-700 dark:bg-ink-800 dark:text-ink-200">Sudah ditugaskan</span>@endif
+        </div>
+        @endif
     </section>
 
     <x-table class="!rounded-2xl shadow-sm">

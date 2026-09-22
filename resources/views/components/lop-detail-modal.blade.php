@@ -227,12 +227,12 @@
                     </div>
                 @endif
 
-                @php($datek = $lop->datek)
+                @php $datek = $lop->datek; @endphp
                 @if (filled($datek))
                     <div>
-                        <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Datek terdampak</p>
+                        <p class="mb-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">Data jaringan</p>
                         <div class="space-y-2.5 rounded-2xl border border-ink-100 p-4 dark:border-ink-800">
-                            @foreach (['ODC' => $datek['odc'] ?? [], 'ODP' => $datek['odp'] ?? [], 'Kabel' => $datek['kabel'] ?? [], 'IP' => $datek['ip'] ?? []] as $label => $items)
+                            @foreach (['ODC' => $datek['odc'] ?? [], 'ODP' => $datek['odp'] ?? [], 'Kabel' => $datek['kabel'] ?? []] as $label => $items)
                                 @if (! empty($items))
                                     <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
                                         <span class="w-10 shrink-0 text-xs text-ink-400">{{ $label }}</span>
@@ -250,7 +250,7 @@
                                     @endforeach
                                 </div>
                             @endif
-                            @php($meta = collect(['OLT terdampak' => ! empty($datek['olt']) ? 'Ya' : null, 'RCA' => $datek['rca'] ?? null, 'EST' => $datek['est'] ?? null, 'PIC' => trim(($datek['pic']['nama'] ?? '').' '.($datek['pic']['telp'] ?? '')) ?: null])->filter())
+                            @php $meta = collect(['OLT' => ! empty($datek['olt']) ? 'Ikut terdampak' : null, 'Penyebab' => $datek['rca'] ?? null, 'Estimasi' => $datek['est'] ?? null, 'PIC' => trim(($datek['pic']['nama'] ?? '').' '.($datek['pic']['telp'] ?? '')) ?: null])->filter(); @endphp
                             @if ($meta->isNotEmpty())
                                 <div class="grid gap-x-4 gap-y-1 border-t border-ink-100 pt-2.5 text-xs sm:grid-cols-2 dark:border-ink-800">
                                     @foreach ($meta as $label => $value)

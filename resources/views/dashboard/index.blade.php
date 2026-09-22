@@ -5,6 +5,7 @@
 @section('content')
 @php
     $hasFilters = collect($filters)->contains(fn ($value) => $value !== '');
+    $statusBucket = ['draft' => 'unassigned', 'assigned' => 'assigned', 'picked_up' => 'assigned', 'survey' => 'progress', 'progress' => 'progress', 'waiting_approval' => 'review', 'completed' => 'done', 'rejected' => 'rejected'];
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -24,20 +25,14 @@
             </p>
         </div>
 
+        @if (auth()->user()?->hasPermission('approve_evidence'))
         <div class="flex flex-wrap gap-2">
-            @can('create', \App\Models\QeLop::class)
-                <a href="{{ route('lop.create') }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                    Input LOP
-                </a>
-            @endcan
-            @if (auth()->user()?->hasPermission('approve_evidence'))
                 <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 transition hover:border-brand-200 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:text-brand-300">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15c-3.2 0-6.1-1.25-8.25-3.29Z"/></svg>
                     Approval Evidence
                 </a>
-            @endif
         </div>
+        @endif
     </header>
 
     @if ($scopeWarning)
@@ -149,9 +144,17 @@
                             @default<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.75h4.5m-7.5 0h10.5A1.5 1.5 0 0 1 18.75 5.25v15H5.25v-15a1.5 1.5 0 0 1 1.5-1.5ZM8.25 9h7.5m-7.5 4.5h4.5"/></svg>
                         @endswitch
                     </span>
-                    <strong class="text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-3xl">{{ number_format($value) }}</strong>
+                    @php($cardHref = match ($key) {
+                        'total' => route('program.index'),
+                        'active' => route('lop.index'),
+                        'review' => route('lop.index', ['status' => \App\Enums\LopStatus::WAITING_APPROVAL->value]),
+                        'completed' => route('lop.history'),
+                        'ihld' => route('lop.index', ['missing_ihld' => 1]),
+                        default => null,
+                    })
+                    <a href="{{ $cardHref }}" title="Lihat {{ $label }}" class="text-2xl font-extrabold tracking-tight text-ink-900 transition hover:text-brand-600 hover:underline dark:text-white dark:hover:text-brand-400 sm:text-3xl">{{ number_format($value) }}</a>
                 </div>
-                <p class="mt-4 text-xs font-extrabold text-ink-800 dark:text-ink-100 sm:text-sm">{{ $label }}</p>
+                <p class="mt-4 text-xs font-extrabold text-ink-800 dark:text-ink-100 sm:text-sm"><a href="{{ $cardHref }}" class="transition hover:text-brand-600 hover:underline dark:hover:text-brand-400">{{ $label }}</a></p>
                 <p class="mt-1 text-[10px] leading-4 text-ink-400 dark:text-ink-500">{{ $helper }}</p>
             </article>
         @endforeach
@@ -180,12 +183,12 @@
                             </div>
                             <div class="grid grid-cols-4 gap-2 sm:min-w-105">
                                 @foreach ([
-                                    ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white'],
-                                    ['Assign', $region['summary']['assigned'], 'text-blue-700 dark:text-blue-300'],
-                                    ['In Review', $region['summary']['in_review'], 'text-amber-700 dark:text-amber-300'],
-                                    ['Complete', $region['summary']['percentage'].'%', 'text-emerald-700 dark:text-emerald-300'],
-                                ] as [$label, $value, $tone])
-                                    <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800"><p class="text-sm font-extrabold {{ $tone }}">{{ $value }}</p><p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p></div>
+                                    ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white', $region['name'] !== 'REGION BELUM TERDATA' ? route('program.index', ['region' => $region['name']]) : route('program.index')],
+                                    ['Assign', $region['summary']['assigned'], 'text-blue-700 dark:text-blue-300', route('lop.index', ['assigned' => 1])],
+                                    ['In Review', $region['summary']['in_review'], 'text-amber-700 dark:text-amber-300', route('lop.index', ['status' => \App\Enums\LopStatus::WAITING_APPROVAL->value])],
+                                    ['Complete', $region['summary']['percentage'].'%', 'text-emerald-700 dark:text-emerald-300', null],
+                                ] as [$label, $value, $tone, $href])
+                                    <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800">@if ($href)<a href="{{ $href }}" title="Lihat {{ $label }} — {{ $region['name'] }}" class="text-sm font-extrabold {{ $tone }} transition hover:underline">{{ $value }}</a>@else<p class="text-sm font-extrabold {{ $tone }}">{{ $value }}</p>@endif<p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p></div>
                                 @endforeach
                             </div>
                         </div>
@@ -208,19 +211,19 @@
                                                         <span>{{ $branch['name'] }}</span><span class="ml-auto text-[9px] font-semibold text-emerald-500">{{ count($branch['program']) }} Program</span>
                                                     </button>
                                                 </td>
-                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['total'] }}</td>
-                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['assigned'] }}</td>
-                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['in_review'] }}</td>
-                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700">{{ $branch['summary']['complete'] }}</td>
+                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><a href="{{ route('lop.index', ['branch' => $branch['name']]) }}" title="Lihat LOP — {{ $branch['name'] }}" class="font-bold transition hover:text-brand-600 hover:underline">{{ $branch['summary']['total'] }}</a></td>
+                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><a href="{{ route('lop.index', ['branch' => $branch['name'], 'assigned' => 1]) }}" title="Lihat yang sudah ditugaskan — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $branch['summary']['assigned'] }}</a></td>
+                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><a href="{{ route('lop.index', ['branch' => $branch['name'], 'status' => \App\Enums\LopStatus::WAITING_APPROVAL->value]) }}" title="Lihat In Review — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $branch['summary']['in_review'] }}</a></td>
+                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><a href="{{ route('lop.history') }}" title="Lihat yang selesai" class="transition hover:text-brand-600 hover:underline">{{ $branch['summary']['complete'] }}</a></td>
                                                 <td class="px-3 py-3 text-center"><span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">{{ $branch['summary']['percentage'] }}%</span></td>
                                             </tr>
                                             @foreach ($branch['program'] as $program)
                                                 <tr x-show="branchOpen" x-cloak class="transition hover:bg-ink-50 dark:hover:bg-ink-800/40">
                                                     <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center font-semibold dark:border-ink-800">{{ $program['total'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['assigned'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['in_review'] }}</td>
-                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['complete']  }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center font-semibold dark:border-ink-800"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name']]) }}" title="Lihat {{ $program['label'] }} — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['total'] }}</a></td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name'], 'bucket' => 'assigned']) }}" title="Lihat Assigned — {{ $program['label'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['assigned'] }}</a></td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name'], 'bucket' => 'review']) }}" title="Lihat In Review — {{ $program['label'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['in_review'] }}</a></td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name'], 'bucket' => 'done']) }}" title="Lihat Selesai — {{ $program['label'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['complete']  }}</a></td>
                                                     <td class="px-3 py-3 text-center"><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ $program['percentage'] === 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-ink-300' }}">{{ $program['percentage'] }}%</span></td>
                                                 </tr>
                                             @endforeach
@@ -262,13 +265,13 @@
                             </div>
                             <div class="grid grid-cols-4 gap-2 sm:min-w-97.5">
                                 @foreach ([
-                                    ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white'],
-                                    ['Assigned', $region['summary']['pipeline']['assigned'], 'text-blue-700 dark:text-blue-300'],
-                                    ['In Review', $region['summary']['pipeline']['waiting_approval'], 'text-amber-700 dark:text-amber-300'],
-                                    ['Complete', $region['summary']['pipeline']['completed'], 'text-emerald-700 dark:text-emerald-300'],
-                                ] as [$label, $value, $tone])
+                                    ['Total', $region['summary']['total'], 'text-ink-900 dark:text-white', $region['name'] !== 'REGION BELUM TERDATA' ? route('program.index', ['region' => $region['name']]) : route('program.index')],
+                                    ['Assigned', $region['summary']['pipeline']['assigned'], 'text-blue-700 dark:text-blue-300', route('lop.index', ['assigned' => 1])],
+                                    ['In Review', $region['summary']['pipeline']['waiting_approval'], 'text-amber-700 dark:text-amber-300', route('lop.index', ['status' => \App\Enums\LopStatus::WAITING_APPROVAL->value])],
+                                    ['Complete', $region['summary']['pipeline']['completed'], 'text-emerald-700 dark:text-emerald-300', route('lop.history')],
+                                ] as [$label, $value, $tone, $href])
                                     <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800">
-                                        <p class="text-sm font-extrabold {{ $tone }}">{{ $value }}</p>
+                                        <a href="{{ $href }}" title="Lihat {{ $label }} — {{ $region['name'] }}" class="text-sm font-extrabold {{ $tone }} transition hover:underline">{{ $value }}</a>
                                         <p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p>
                                     </div>
                                 @endforeach
@@ -295,14 +298,14 @@
                                                         <span class="ml-auto text-[9px] font-semibold text-blue-500">{{ count($branch['program']) }} Program</span>
                                                     </button>
                                                 </td>
-                                                @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-200 px-3 py-3 text-center font-extrabold dark:border-ink-700">{{ $branch['summary']['pipeline'][$status['value']] }}</td>@endforeach
-                                                <td class="bg-blue-100/60 px-3 py-3 text-center font-extrabold text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">{{ $branch['summary']['total'] }}</td>
+                                                @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-200 px-3 py-3 text-center font-extrabold dark:border-ink-700">@if ($status['value'] === 'draft')<a href="{{ route('lop.index', ['branch' => $branch['name'], 'unassigned' => 1]) }}" title="Lihat Belum Ditugaskan — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $branch['summary']['pipeline'][$status['value']] }}</a>@else<a href="{{ route('lop.index', ['branch' => $branch['name'], 'status' => $status['value']]) }}" title="Lihat {{ $status['label'] }} — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $branch['summary']['pipeline'][$status['value']] }}</a>@endif</td>@endforeach
+                                                <td class="bg-blue-100/60 px-3 py-3 text-center font-extrabold text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"><a href="{{ route('lop.index', ['branch' => $branch['name']]) }}" title="Lihat LOP — {{ $branch['name'] }}" class="transition hover:underline">{{ $branch['summary']['total'] }}</a></td>
                                             </tr>
                                             @foreach ($branch['program'] as $program)
                                                 <tr x-show="branchOpen" x-cloak class="transition hover:bg-ink-50 dark:hover:bg-ink-800/40">
                                                     <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
-                                                    @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-100 px-3 py-3 text-center font-medium text-ink-600 dark:border-ink-800 dark:text-ink-300">{{ $program['pipeline'][$status['value']] }}</td>@endforeach
-                                                    <td class="bg-ink-50 px-3 py-3 text-center font-extrabold text-ink-900 dark:bg-ink-800/60 dark:text-white">{{ $program['total'] }}</td>
+                                                    @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-100 px-3 py-3 text-center font-medium text-ink-600 dark:border-ink-800 dark:text-ink-300"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name'], 'bucket' => $statusBucket[$status['value']] ?? '']) }}" title="Lihat {{ $status['label'] }} — {{ $program['label'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['pipeline'][$status['value']] }}</a></td>@endforeach
+                                                    <td class="bg-ink-50 px-3 py-3 text-center font-extrabold text-ink-900 dark:bg-ink-800/60 dark:text-white"><a href="{{ route('program.show', ['program' => $program['value'], 'branch' => $branch['name']]) }}" title="Lihat {{ $program['label'] }} — {{ $branch['name'] }}" class="transition hover:text-brand-600 hover:underline">{{ $program['total'] }}</a></td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -425,7 +428,7 @@
                             <td class="px-5 py-4"><div class="flex justify-end gap-1.5"><x-table-action label="Detail LOP" onclick="document.getElementById('dashboard-lop-detail-{{ $lop->id_qe_lops }}').showModal()"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></x-table-action>@can('reviewEvidence', $lop)<x-table-action label="Review Evidence" tone="success" :href="$summary['evidence_count'] ? route('evidence-approval.lop.review', $lop) : null" :disabled="! $summary['evidence_count']"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75m-3-7.04A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75-3.2 0-6.1-1.25-8.25-3.29Z"/></svg></x-table-action>@endcan</div></td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-6 py-14 text-center"><span class="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-ink-50 text-ink-400 dark:bg-ink-800"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5Zm0 4.5 9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg></span><p class="mt-3 text-sm font-bold text-ink-700 dark:text-ink-200">Belum ada data LOP</p><p class="mt-1 text-xs text-ink-400">Ubah filter atau tambahkan LOP baru.</p></td></tr>
+                        <tr><td colspan="6" class="px-6 py-14 text-center"><span class="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-ink-50 text-ink-400 dark:bg-ink-800"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5Zm0 4.5 9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg></span><p class="mt-3 text-sm font-bold text-ink-700 dark:text-ink-200">Belum ada data LOP</p><p class="mt-1 text-xs text-ink-400">Ubah filter atau buat LOP pertama.</p>@can('create', \App\Models\QeLop::class)<a href="{{ route('lop.create') }}" class="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>Buat LOP pertama</a>@endcan</td></tr>
                     @endforelse
                 </tbody>
             </table>

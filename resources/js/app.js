@@ -282,6 +282,8 @@ window.lopForm = (options = {}) => ({
     areas: options.areas ?? [],
     branches: options.branches ?? [],
     serviceAreas: options.serviceAreas ?? [],
+    perangkatOpen: true,
+    jalurOpen: true,
     nameManuallyEdited: false,
 
     get filteredBranches() {

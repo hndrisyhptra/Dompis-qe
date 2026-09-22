@@ -87,6 +87,28 @@ class LopController extends Controller
             $query->where('program_type', $program);
         }
 
+        if ($branch = $request->string('branch')->trim()->value()) {
+            $query->where('branch', $branch);
+        }
+
+        $missingIhld = $request->boolean('missing_ihld');
+        if ($missingIhld) {
+            $query->where(fn ($builder) => $builder
+                ->whereNull('ihld_id')
+                ->orWhere('ihld_id', ''));
+        }
+
+        $unassigned = $request->boolean('unassigned');
+        if ($unassigned) {
+            $query->where('status_lop', LopStatus::DRAFT->value)
+                ->whereDoesntHave('activeAssignment');
+        }
+
+        $assigned = $request->boolean('assigned');
+        if ($assigned) {
+            $query->whereHas('activeAssignment');
+        }
+
         $lops = $query->latest()->paginate(20)->withQueryString();
         foreach ($lops->getCollection() as $lop) {
             $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
@@ -99,6 +121,10 @@ class LopController extends Controller
             'search' => $search,
             'statusFilter' => $status,
             'programFilter' => $program,
+            'branchFilter' => $branch ?? '',
+            'missingIhld' => $missingIhld,
+            'unassigned' => $unassigned,
+            'assignedFilter' => $assigned,
             'stats' => [
                 'active' => (clone $statsQuery)->count(),
                 'waiting' => (clone $statsQuery)->where('status_lop', LopStatus::WAITING_APPROVAL->value)->count(),

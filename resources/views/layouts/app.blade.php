@@ -86,6 +86,21 @@
             </div>
             @endif
 
+            @can('create', \App\Models\QeLop::class)
+                <a href="{{ route('lop.create') }}"
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? $navLinkActive : $navLinkInactive }}">
+                    @if (request()->routeIs('lop.create'))
+                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                    @endif
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('lop.create') ? $navIconActive : $navIcon }}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </div>
+                    Input LOP Baru
+                </a>
+            @endcan
+
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
             <div x-data="{ open: {{ request()->routeIs('lop.*') ? 'true' : 'false' }} }">
                 <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
@@ -115,21 +130,6 @@
                 </div>
             </div>
             @endunless
-
-            @can('create', \App\Models\QeLop::class)
-                <a href="{{ route('lop.create') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? $navLinkActive : $navLinkInactive }}">
-                    @if (request()->routeIs('lop.create'))
-                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                    @endif
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('lop.create') ? $navIconActive : $navIcon }}">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                    </div>
-                    Input LOP Baru
-                </a>
-            @endcan
 
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::TEKNISI))
                 <div x-data="{ open: {{ request()->routeIs('program.*') ? 'true' : 'false' }} }">

@@ -262,18 +262,13 @@
         <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div class="flex items-start gap-3">
-                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h12" /></svg>
-                    </span>
-                    <div>
-                        <h2 class="font-semibold text-ink-900 dark:text-white">Datek Terdampak</h2>
-                        <p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Diekstrak otomatis dari Ringkasan Tiket. Periksa dan sesuaikan bila perlu.</p>
-                    </div>
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-900 text-sm font-bold text-white dark:bg-ink-700">02a</span>
+                    <div><h2 class="font-semibold text-ink-900 dark:text-white">Data jaringan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Terisi otomatis dari ringkasan tiket. Kosongkan bila tidak terdampak.</p></div>
                 </div>
                 <button type="button" @click="parseDatekUlang()" :disabled="datekParsing || !form.ticket_summary"
                         class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200">
                     <svg class="h-3.5 w-3.5" :class="datekParsing && 'animate-spin'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.498 5.493A9 9 0 1 0 21 12.75" /></svg>
-                    <span x-text="datekParsing ? 'Memproses...' : 'Parse ulang dari Ringkasan'"></span>
+                    <span x-text="datekParsing ? 'Memproses...' : 'Isi otomatis'"></span>
                 </button>
             </div>
         </div>
@@ -282,56 +277,56 @@
 
             <div class="grid gap-5 sm:grid-cols-2">
                 <div>
-                    <label for="datek_odc" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">ODC Terdampak</label>
-                    <textarea id="datek_odc" rows="3" x-model="datekText.odc" placeholder="Satu ODC per baris&#10;mis. ODC-PME-FBK"
+                    <label for="datek_odc" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">ODC</label>
+                    <textarea id="datek_odc" rows="3" x-model="datekText.odc" placeholder="ODC-PME-FBK"
                               class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 font-mono text-xs text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
                 </div>
                 <div>
-                    <label for="datek_odp" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">ODP Terdampak</label>
-                    <textarea id="datek_odp" rows="3" x-model="datekText.odp" placeholder="Satu ODP per baris&#10;mis. ODP-PME-FBK/29"
+                    <label for="datek_odp" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">ODP</label>
+                    <textarea id="datek_odp" rows="3" x-model="datekText.odp" placeholder="ODP-PME-FBK/29"
                               class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 font-mono text-xs text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
                 </div>
                 <div>
-                    <label for="datek_gpon" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">GPON Terdampak</label>
-                    <textarea id="datek_gpon" rows="3" x-model="datekText.gpon" placeholder="Satu GPON per baris: nama | ip | port,port&#10;mis. GPON01-D5-SMP-3 | | 2/10,2/11"
+                    <label for="datek_gpon" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">GPON</label>
+                    <textarea id="datek_gpon" rows="3" x-model="datekText.gpon" placeholder="GPON01-D5-SMP-3 | | 2/10,2/11"
                               class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 font-mono text-xs text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
-                    <p class="mt-1 text-xs text-ink-400">Format tiap baris: <span class="font-mono">nama | ip | port,port</span></p>
+                    <p class="mt-1 text-xs text-ink-400">Format: <span class="font-mono">nama | ip | port</span></p>
                 </div>
                 <div>
-                    <label for="datek_kabel" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Kabel Terdampak</label>
-                    <textarea id="datek_kabel" rows="3" x-model="datekText.kabel" placeholder="Satu kode kabel per baris&#10;mis. DS-SMP-FE-14-01-04/01-10"
+                    <label for="datek_kabel" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Kabel</label>
+                    <textarea id="datek_kabel" rows="3" x-model="datekText.kabel" placeholder="DS-SMP-FE-14-01-04/01-10"
                               class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 font-mono text-xs text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
                 </div>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <label class="flex items-center gap-2 self-end pb-2 text-sm text-ink-700 dark:text-ink-300">
-                    <input type="checkbox" x-model="form.datek.olt" class="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30">
-                    Perangkat OLT terdampak
-                </label>
+            <label class="flex items-start gap-2 text-sm text-ink-700 dark:text-ink-300">
+                <input type="checkbox" x-model="form.datek.olt" class="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30">
+                <span>OLT ikut terdampak<span class="block text-xs font-normal text-ink-400">Centang bila alarm OLT ikut menyala, bukan hanya 1 ODP.</span></span>
+            </label>
+
+            <div class="grid gap-4 sm:grid-cols-2">
                 <div>
-                    <label for="datek_rca" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">RCA / Root Cause</label>
-                    <input id="datek_rca" type="text" x-model="form.datek.rca" placeholder="mis. PON PORT DOWN"
+                    <label for="datek_rca" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Penyebab</label>
+                    <input id="datek_rca" type="text" x-model="form.datek.rca" placeholder="PON PORT DOWN"
                            class="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
                 </div>
                 <div>
-                    <label for="datek_est" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Estimasi (EST)</label>
-                    <input id="datek_est" type="text" x-model="form.datek.est" placeholder="mis. 22/06/2026 15:00"
+                    <label for="datek_est" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Estimasi selesai</label>
+                    <input id="datek_est" type="text" x-model="form.datek.est" placeholder="22/06/2026 15:00"
                            class="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
                 </div>
                 <div>
-                    <label for="datek_pic_nama" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">PIC — Nama</label>
-                    <input id="datek_pic_nama" type="text" x-model="form.datek.pic.nama" placeholder="mis. RANU"
+                    <label for="datek_pic_nama" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Nama PIC</label>
+                    <input id="datek_pic_nama" type="text" x-model="form.datek.pic.nama" placeholder="RANU"
                            class="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
                 </div>
                 <div>
-                    <label for="datek_pic_telp" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">PIC — Telp</label>
-                    <input id="datek_pic_telp" type="text" x-model="form.datek.pic.telp" placeholder="mis. 082139794255"
+                    <label for="datek_pic_telp" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">No. HP PIC</label>
+                    <input id="datek_pic_telp" type="text" x-model="form.datek.pic.telp" placeholder="082139794255"
                            class="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
                 </div>
             </div>
 
-            <p class="text-xs text-ink-400">Terisi otomatis dari ringkasan tiket; semua kolom boleh diubah manual sebelum menyimpan.</p>
             @error('datek')<p class="text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
         </div>
     </section>
