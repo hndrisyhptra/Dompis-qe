@@ -226,7 +226,7 @@
                     </div>
                 </div>
 
-                <div x-data="{ open: {{ request()->routeIs(['master-data.*', 'regions.*', 'branches.*', 'designator-categories.*', 'designator-types.*']) ? 'true' : 'false' }} }">
+                <div x-data="{ open: {{ request()->routeIs(['master-data.*', 'regions.*', 'branches.*', 'service-areas.*', 'designator-categories.*', 'designator-types.*']) ? 'true' : 'false' }} }">
                     <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                         <span class="flex items-center gap-2.5">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -241,6 +241,7 @@
                             'master-data.index' => 'Ringkasan',
                             'regions.index' => 'Region',
                             'branches.index' => 'Branch',
+                            'service-areas.index' => 'Service Area',
                             'designator-categories.index' => 'Kategori Designator',
                             'designator-types.index' => 'Tipe Designator',
                         ] as $routeName => $label)

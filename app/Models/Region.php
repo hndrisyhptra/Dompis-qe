@@ -34,6 +34,11 @@ class Region extends Model
         return $this->hasMany(Branch::class, 'region_id', 'id_region');
     }
 
+    public function serviceAreas(): HasMany
+    {
+        return $this->hasMany(ServiceArea::class, 'region_id', 'id_region');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

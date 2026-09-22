@@ -17,6 +17,7 @@ use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ServiceAreaController;
 use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
 use App\Http\Controllers\TicketSegmentMapController;
@@ -155,6 +156,15 @@ Route::middleware(['auth'])->prefix('branches')->name('branches.')->group(functi
     Route::get('/{branch}/edit', [BranchController::class, 'edit'])->name('edit');
     Route::put('/{branch}', [BranchController::class, 'update'])->name('update');
     Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
+});
+
+Route::middleware(['auth'])->prefix('service-areas')->name('service-areas.')->group(function () {
+    Route::get('/', [ServiceAreaController::class, 'index'])->name('index');
+    Route::get('/create', [ServiceAreaController::class, 'create'])->name('create');
+    Route::post('/', [ServiceAreaController::class, 'store'])->name('store');
+    Route::get('/{service_area}/edit', [ServiceAreaController::class, 'edit'])->name('edit');
+    Route::put('/{service_area}', [ServiceAreaController::class, 'update'])->name('update');
+    Route::delete('/{service_area}', [ServiceAreaController::class, 'destroy'])->name('destroy');
 });
 
 Route::middleware(['auth'])->prefix('designator-categories')->name('designator-categories.')->group(function () {

@@ -9,6 +9,7 @@ use App\Models\DesignatorPackagePrice;
 use App\Models\DesignatorType;
 use App\Models\Package;
 use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\TicketSegmentMap;
 use Illuminate\View\View;
 
@@ -25,6 +26,7 @@ class MasterDataController extends Controller
         $entities = [
             ['label' => 'Region', 'route' => 'regions.index', 'count' => Region::count(), 'desc' => 'Wilayah operasional (JATIM, JATENG DIY, BALNUS).'],
             ['label' => 'Branch', 'route' => 'branches.index', 'count' => Branch::count(), 'desc' => 'Cabang / witel di bawah tiap region.'],
+            ['label' => 'Service Area', 'route' => 'service-areas.index', 'count' => ServiceArea::count(), 'desc' => 'Workzone / STO — pemetaan service area ke branch & region.'],
             ['label' => 'Kategori Designator', 'route' => 'designator-categories.index', 'count' => DesignatorCategory::count(), 'desc' => 'Pengelompokan item pekerjaan (ODP, ODC, Kabel, ...).'],
             ['label' => 'Tipe Designator', 'route' => 'designator-types.index', 'count' => DesignatorType::count(), 'desc' => 'Jenis pekerjaan designator (Material, Jasa, Instalasi, ...).'],
             ['label' => 'Designator', 'route' => 'designators.index', 'count' => Designator::count(), 'desc' => 'Katalog item/material untuk BOQ & reservasi.'],

@@ -5,19 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Branch extends Model
+class ServiceArea extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $primaryKey = 'id_branch';
+    protected $table = 'service_areas';
+
+    protected $primaryKey = 'id_service_area';
 
     protected $fillable = [
-        'code',
+        'workzone',
         'name',
-        'region',
+        'branch_id',
         'region_id',
         'is_active',
         'created_by',
@@ -31,22 +32,12 @@ class Branch extends Model
         ];
     }
 
-    public function users(): HasMany
+    public function branch(): BelongsTo
     {
-        return $this->hasMany(User::class, 'branch_id');
+        return $this->belongsTo(Branch::class, 'branch_id', 'id_branch');
     }
 
-    public function serviceAreas(): HasMany
-    {
-        return $this->hasMany(ServiceArea::class, 'branch_id', 'id_branch');
-    }
-
-    /**
-     * Relasi ke master Region. Dinamai regionRef() (bukan region()) supaya
-     * tidak bentrok dengan kolom string denormalisasi `branches.region`
-     * yang masih dibaca banyak tempat (dashboard, evidence-approval).
-     */
-    public function regionRef(): BelongsTo
+    public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class, 'region_id', 'id_region');
     }
