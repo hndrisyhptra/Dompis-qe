@@ -19,7 +19,7 @@
             <th class="{{ $th }}">Designator</th>
             <th class="{{ $th }}">Uraian</th>
             <th class="{{ $th }}">Satuan</th>
-            <th class="{{ $thNum }}">Total Qty Rencana</th>
+            <th class="{{ $thNum }}">Total Qty Plan</th>
             <th class="{{ $thNum }}">Total Qty Actual</th>
             <th class="{{ $thNum }}">Total Sisa</th>
             @if ($priced)

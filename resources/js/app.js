@@ -597,5 +597,193 @@ window.lopForm = (options = {}) => ({
     },
 });
 
+window.lopReportModal = () => ({
+    lopId: null,
+    lopInfo: {},
+    reportType: 'boq', // boq | sisa
+    loading: false,
+    error: '',
+    priced: false,
+    packageInfo: null,
+    columns: {},
+    lines: [],
+    grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
+
+    get title() {
+        return this.reportType === 'boq' ? 'BOQ Actual' : 'Sisa Material';
+    },
+
+    get isEmpty() {
+        return !this.loading && !this.error && this.lines.length === 0;
+    },
+
+    isEmpty() {
+        return this.lines.length === 0;
+    },
+
+    async openReport(detail) {
+        // detail: {id, type: 'boq'|'sisa'}
+        const id = detail?.id;
+        const type = detail?.type || 'boq';
+        if (!id) return;
+        this.lopId = id;
+        this.reportType = type;
+        this.lopInfo = { incident: detail.incident || '', nama_lop: detail.nama || '', branch: detail.branch || '', program: detail.program || '' };
+        // jika detail sudah bawa info lop, pakai; else fetch akan isi
+        this.$refs.dialog?.showModal();
+        document.body.classList.add('overflow-hidden');
+        await this.fetchReport();
+    },
+
+    closeReport() {
+        document.body.classList.remove('overflow-hidden');
+        // keep data for next open cache? clear after close
+    },
+
+    async switchReport(type) {
+        if (type === this.reportType) return;
+        this.reportType = type;
+        await this.fetchReport();
+    },
+
+    async fetchReport() {
+        if (!this.lopId) return;
+        this.loading = true;
+        this.error = '';
+        try {
+            const url = `/reports/lop/${this.lopId}/${this.reportType === 'boq' ? 'boq-actual' : 'sisa-material'}?json=1`;
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!res.ok) {
+                const txt = await res.text();
+                let msg = `Gagal (${res.status})`;
+                try { const j = JSON.parse(txt); msg = j.message || msg; } catch (_) {}
+                throw new Error(msg);
+            }
+            const json = await res.json();
+            // json: {report, lop, priced, package, columns, groups, grand}
+            this.priced = !!json.priced;
+            this.packageInfo = json.package || null;
+            this.columns = json.columns || {};
+            // groups: perLop single group {lines, subtotal, lop}
+            const groups = Array.isArray(json.groups) ? json.groups : [];
+            const first = groups[0];
+            this.lines = first?.lines || [];
+            this.grand = json.grand || this.grand;
+            // update lopInfo dari json jika kosong
+            if (json.lop) {
+                this.lopInfo = { incident: json.lop.incident || this.lopInfo.incident, nama_lop: json.lop.nama_lop || this.lopInfo.nama_lop, branch: json.lop.branch || this.lopInfo.branch, program: json.lop.program || this.lopInfo.program };
+            }
+        } catch (e) {
+            this.error = e?.message || 'Gagal memuat laporan';
+            this.lines = [];
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    retry() { this.fetchReport(); },
+
+    exportUrl(format) {
+        if (!this.lopId) return '#';
+        const base = `/reports/lop/${this.lopId}/${this.reportType === 'boq' ? 'boq-actual' : 'sisa-material'}/export`;
+        return `${base}?format=${format}`;
+    },
+
+    doPrint() {
+        // cetak isi modal saja
+        const dlg = this.$refs.dialog;
+        if (!dlg) return;
+        const content = dlg.querySelector('.overflow-y-auto')?.innerHTML || dlg.innerHTML;
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.write(`<html><head><title>${this.title} - ${this.lopInfo.incident || ''}</title><style>body{font-family:Inter,system-ui,sans-serif;padding:24px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #e5e7eb;padding:8px;font-size:12px} th{background:#f9fafb}</style></head><body><h1>${this.title}</h1><p>${this.lopInfo.incident || ''} · ${this.lopInfo.nama_lop || ''}</p>${content}</body></html>`);
+        w.document.close();
+        w.focus();
+        w.print();
+    },
+
+    formatNumber(v) {
+        if (v == null || v === '') return '—';
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+    },
+
+    formatMoney(v) {
+        if (v == null || v === '') return '—';
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return 'Rp ' + n.toLocaleString('id-ID');
+    },
+});
+
+// Detail LOP — tab Material & Laporan tanpa scroll horizontal, view only (dipakai di lop-detail-modal)
+window.detailLaporanTab = (lopId) => ({
+    tab: 'overview',
+    type: 'boq',
+    loading: false,
+    error: '',
+    priced: false,
+    packageInfo: null,
+    lines: [],
+    grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
+    _fetched: { boq: false, sisa: false },
+
+    async fetchIfNeeded(t) {
+        const key = t || this.type;
+        if (this._fetched[key]) return;
+        await this.fetchReport(key);
+    },
+
+    async switchType(t) {
+        this.type = t;
+        await this.fetchIfNeeded(t);
+    },
+
+    async fetchReport(t) {
+        const type = t || this.type;
+        this.loading = true;
+        this.error = '';
+        try {
+            const url = `/reports/lop/${lopId}/${type === 'boq' ? 'boq-actual' : 'sisa-material'}?json=1`;
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!res.ok) {
+                const txt = await res.text();
+                let msg = `Gagal (${res.status})`;
+                try { const j = JSON.parse(txt); msg = j.message || msg; } catch (_) {}
+                throw new Error(msg);
+            }
+            const json = await res.json();
+            this.priced = !!json.priced;
+            this.packageInfo = json.package || null;
+            const groups = Array.isArray(json.groups) ? json.groups : [];
+            this.lines = groups[0]?.lines || [];
+            this.grand = json.grand || this.grand;
+            this._fetched[type] = true;
+        } catch (e) {
+            this.error = e?.message || 'Gagal memuat laporan';
+            this.lines = [];
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    retry() { this._fetched[this.type] = false; this.fetchReport(this.type); },
+
+    formatNumber(v) {
+        if (v == null || v === '') return '—';
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+    },
+
+    formatMoney(v) {
+        if (v == null || v === '') return '—';
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return 'Rp ' + n.toLocaleString('id-ID');
+    },
+});
+
 window.Alpine = Alpine;
 Alpine.start();

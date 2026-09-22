@@ -52,7 +52,7 @@
                                 <th class="{{ $th }}">Designator</th>
                                 <th class="{{ $th }}">Uraian</th>
                                 <th class="{{ $th }}">Satuan</th>
-                                <th class="{{ $thNum }}">Qty Rencana</th>
+                                <th class="{{ $thNum }}">Qty Plan</th>
                                 <th class="{{ $thNum }}">Qty Actual</th>
                                 @if ($report === 'sisa')<th class="{{ $thNum }}">Sisa</th>@endif
                                 @if ($priced)

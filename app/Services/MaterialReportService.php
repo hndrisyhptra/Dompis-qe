@@ -39,7 +39,7 @@ class MaterialReportService
      * @return array{
      *   q: ?string, program: ?string, segment: ?string, status: array<int,string>,
      *   package: ?int, date_from: ?string, date_to: ?string, view: string,
-     *   region: string, branch: string
+     *   region: string, branch: string, lop_id: ?int
      * }
      */
     public function normalizeFilters(Request $request): array
@@ -58,6 +58,11 @@ class MaterialReportService
         $view = $request->string('view')->value();
         $view = in_array($view, ['per_lop', 'rekap'], true) ? $view : 'per_lop';
 
+        $lopId = $request->integer('lop_id');
+        if ($lopId <= 0) {
+            $lopId = null;
+        }
+
         return [
             'q' => $request->string('q')->trim()->value() ?: null,
             'program' => ProgramType::tryFrom((string) $request->string('program'))?->value,
@@ -69,6 +74,7 @@ class MaterialReportService
             'view' => $view,
             'region' => '',
             'branch' => '',
+            'lop_id' => $lopId,
         ];
     }
 
@@ -188,7 +194,7 @@ class MaterialReportService
                 'designator_code' => 'Designator',
                 'designator_name' => 'Uraian',
                 'unit' => 'Satuan',
-                'qty' => 'Total Qty Rencana',
+                'qty' => 'Total Qty Plan',
                 'qty_actual' => 'Total Qty Actual',
                 'sisa' => 'Total Sisa',
             ];
@@ -209,7 +215,7 @@ class MaterialReportService
             'designator_code' => 'Designator',
             'designator_name' => 'Uraian',
             'unit' => 'Satuan',
-            'qty' => 'Qty Rencana',
+            'qty' => 'Qty Plan',
             'qty_actual' => 'Qty Actual',
         ];
         if ($report === 'sisa') {
@@ -272,6 +278,7 @@ class MaterialReportService
             ->whereNull('r.deleted_at')
             ->whereNull('l.deleted_at')
             ->where('r.status', 'submitted')
+            ->when($filters['lop_id'] ?? null, fn ($q, $v) => $q->where('l.id_qe_lops', $v))
             ->when($filters['program'], fn ($q, $v) => $q->where('l.program_type', $v))
             ->when($filters['segment'], function ($q, $v) {
                 // segment kini JSON array; pakai JSON_CONTAINS untuk MySQL, fallback LIKE untuk SQLite/tests

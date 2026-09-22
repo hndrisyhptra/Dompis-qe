@@ -9,8 +9,10 @@ use App\Enums\UserRole;
 use App\Exports\BoqActualExport;
 use App\Exports\SisaMaterialExport;
 use App\Models\Package;
+use App\Models\QeLop;
 use App\Services\MaterialReportService;
 use App\Support\LocationScope;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
@@ -55,6 +57,116 @@ class ReportController extends Controller
         $this->authorize('view-reports');
 
         return $this->export($request, 'sisa');
+    }
+
+    // --- Per-LOP laporan (dipanggil dari kolom Aksi LOP, default package = lop->package_id) ---
+
+    public function lopBoqActual(Request $request, QeLop $qe_lop): View|JsonResponse
+    {
+        return $this->lopReport($request, $qe_lop, 'boq');
+    }
+
+    public function lopSisaMaterial(Request $request, QeLop $qe_lop): View|JsonResponse
+    {
+        return $this->lopReport($request, $qe_lop, 'sisa');
+    }
+
+    public function lopBoqActualExport(Request $request, QeLop $qe_lop): Response
+    {
+        return $this->lopExport($request, $qe_lop, 'boq');
+    }
+
+    public function lopSisaMaterialExport(Request $request, QeLop $qe_lop): Response
+    {
+        return $this->lopExport($request, $qe_lop, 'sisa');
+    }
+
+    private function lopReport(Request $request, QeLop $qe_lop, string $report): View|JsonResponse
+    {
+        $this->authorize('view-reports');
+        $this->authorize('view', $qe_lop);
+
+        $user = $request->user();
+        $isBroad = $user->hasRole(UserRole::SUPER_ADMIN, UserRole::MANAGER);
+        [$regionFilter, $branchFilter] = $isBroad ? $this->resolveLocationFilters($request) : ['', ''];
+
+        // Per-LOP: paksa lop_id, view=per_lop, package default = lop->package_id
+        $filters = $this->service->normalizeFilters($request);
+        $filters['lop_id'] = $qe_lop->id_qe_lops;
+        $filters['view'] = 'per_lop';
+        $filters['region'] = $regionFilter;
+        $filters['branch'] = $branchFilter;
+        // default package = LOP package jika request tidak kirim
+        $filters['package'] = $qe_lop->package_id ?? $filters['package'];
+
+        $data = $this->service->perLop($filters, $user, null);
+
+        // Jika request AJAX/JSON, kembalikan payload untuk modal Alpine
+        if ($request->wantsJson() || $request->boolean('json')) {
+            return response()->json([
+                'report' => $report,
+                'lop' => [
+                    'id' => $qe_lop->id_qe_lops,
+                    'incident' => $qe_lop->incident,
+                    'nama_lop' => $qe_lop->nama_lop,
+                    'branch' => $qe_lop->branch,
+                    'program' => $qe_lop->program_type?->label(),
+                ],
+                'priced' => $data['priced'],
+                'package' => $data['package'] ? ['id' => $data['package']->id, 'name' => $data['package']->name] : null,
+                'columns' => $this->service->columns($report, 'per_lop', $data['priced']),
+                'groups' => $data['groups'] instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator ? $data['groups']->items() : $data['groups'],
+                'grand' => $data['grand'],
+            ]);
+        }
+
+        // Fallback: tampilkan halaman laporan single LOP (reuse view per-lop)
+        return view('reports.lop-per-lop', [
+            'title' => $report === 'boq' ? 'BOQ Actual' : 'Sisa Material',
+            'report' => $report,
+            'mode' => 'per_lop',
+            'data' => $data,
+            'priced' => $data['priced'],
+            'package' => $data['package'],
+            'filters' => $filters,
+            'lop' => $qe_lop,
+            ...$this->locationOptions($regionFilter, $branchFilter),
+            ...$this->scopeContext($user, $isBroad, $regionFilter, $branchFilter),
+        ]);
+    }
+
+    private function lopExport(Request $request, QeLop $qe_lop, string $report): Response
+    {
+        $this->authorize('view-reports');
+        $this->authorize('view', $qe_lop);
+
+        $user = $request->user();
+        $isBroad = $user->hasRole(UserRole::SUPER_ADMIN, UserRole::MANAGER);
+        [$regionFilter, $branchFilter] = $isBroad ? $this->resolveLocationFilters($request) : ['', ''];
+
+        $filters = $this->service->normalizeFilters($request);
+        $filters['lop_id'] = $qe_lop->id_qe_lops;
+        $filters['view'] = 'per_lop';
+        $filters['region'] = $regionFilter;
+        $filters['branch'] = $branchFilter;
+        $filters['package'] = $qe_lop->package_id ?? $filters['package'];
+
+        $payload = $this->service->perLop($filters, $user, null);
+
+        $slug = $report === 'boq' ? 'boq-actual' : 'sisa-material';
+        $safeLop = preg_replace('/[^\w\-]+/', '_', $qe_lop->incident ?: $qe_lop->nama_lop);
+        $name = "{$slug}-{$safeLop}-".now()->format('Ymd-His');
+        $format = $request->string('format')->lower()->value() === 'xlsx' ? 'xlsx' : 'csv';
+
+        if ($format === 'xlsx') {
+            $export = $report === 'boq'
+                ? new BoqActualExport($this->service, $payload, 'boq', 'per_lop')
+                : new SisaMaterialExport($this->service, $payload, 'sisa', 'per_lop');
+
+            return Excel::download($export, "{$name}.xlsx");
+        }
+
+        return $this->streamCsv($payload, $report, 'per_lop', "{$name}.csv");
     }
 
     // ---------------------------------------------------------------------

@@ -16,7 +16,7 @@
             'sub' => number_format($g['designator_count'] ?? 0).' designator · '.number_format($g['line_count'] ?? 0).' baris material',
         ],
         [
-            'label' => 'Qty Rencana',
+            'label' => 'Qty Plan',
             'value' => $num($rencana),
             'sub' => 'total kebutuhan pada reservasi',
         ],
