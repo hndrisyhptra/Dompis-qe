@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignatorCategoryController;
@@ -138,6 +139,15 @@ Route::middleware(['auth'])->prefix('packages')->name('packages.')->group(functi
 
 Route::middleware(['auth'])->prefix('master-data')->name('master-data.')->group(function () {
     Route::get('/', [MasterDataController::class, 'index'])->name('index');
+});
+
+Route::middleware(['auth'])->prefix('areas')->name('areas.')->group(function () {
+    Route::get('/', [AreaController::class, 'index'])->name('index');
+    Route::get('/create', [AreaController::class, 'create'])->name('create');
+    Route::post('/', [AreaController::class, 'store'])->name('store');
+    Route::get('/{area}/edit', [AreaController::class, 'edit'])->name('edit');
+    Route::put('/{area}', [AreaController::class, 'update'])->name('update');
+    Route::delete('/{area}', [AreaController::class, 'destroy'])->name('destroy');
 });
 
 Route::middleware(['auth'])->prefix('regions')->name('regions.')->group(function () {

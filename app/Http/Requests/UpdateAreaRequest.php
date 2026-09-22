@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateRegionRequest extends FormRequest
+class UpdateAreaRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,15 +14,12 @@ class UpdateRegionRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('region')?->id_region;
+        $area = $this->route('area');
 
         return [
-            'code' => [
-                'required', 'string', 'max:50',
-                Rule::unique('regions', 'code')->ignore($id, 'id_region'),
-            ],
-            'name' => ['required', 'string', 'max:255'],
-            'area_id' => ['required', 'integer', 'exists:areas,id_area'],
+            'code' => ['required', 'string', 'max:10', Rule::unique('areas', 'code')->ignore($area?->id_area, 'id_area')],
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:500'],
             'is_active' => ['boolean'],
         ];
     }

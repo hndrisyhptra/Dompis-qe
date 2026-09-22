@@ -8,16 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Region extends Model
+class Area extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $primaryKey = 'id_region';
+    protected $primaryKey = 'id_area';
 
     protected $fillable = [
         'code',
         'name',
-        'area_id',
+        'description',
         'is_active',
         'created_by',
         'updated_by',
@@ -30,19 +30,9 @@ class Region extends Model
         ];
     }
 
-    public function branches(): HasMany
+    public function regions(): HasMany
     {
-        return $this->hasMany(Branch::class, 'region_id', 'id_region');
-    }
-
-    public function serviceAreas(): HasMany
-    {
-        return $this->hasMany(ServiceArea::class, 'region_id', 'id_region');
-    }
-
-    public function area(): BelongsTo
-    {
-        return $this->belongsTo(Area::class, 'area_id', 'id_area');
+        return $this->hasMany(Region::class, 'area_id', 'id_area');
     }
 
     public function creator(): BelongsTo

@@ -279,7 +279,20 @@ window.lopForm = (options = {}) => ({
     segmentOpen: false,
     segmentQuery: '',
     segmentDropdownPos: { top: 0, left: 0, width: 0 },
+    areas: options.areas ?? [],
+    branches: options.branches ?? [],
+    serviceAreas: options.serviceAreas ?? [],
     nameManuallyEdited: false,
+
+    get filteredBranches() {
+        if (!this.form.area) return [];
+        return this.branches.filter(b => String(b.area_code || '') === String(this.form.area));
+    },
+
+    get filteredServiceAreas() {
+        if (!this.form.branch) return [];
+        return this.serviceAreas.filter(sa => String(sa.branch || '') === String(this.form.branch));
+    },
     lookup: {
         loading: false, error: false, notFound: false, message: '', warnings: [], lastQuery: null,
         mode: null, summaryTitle: '', summaryText: '', duplicate: null,
@@ -310,6 +323,8 @@ window.lopForm = (options = {}) => ({
             .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
         // watcher khusus segments array deep
         this.$watch('form.segments', () => this.regenerateName(), { deep: true });
+        this.$watch('form.area', () => this.onAreaChange());
+        this.$watch('form.branch', () => this.onBranchChange());
         this.$watch('segmentOpen', (v) => { if (v) this.$nextTick(() => this.updateSegmentPos()); });
         // update posisi dropdown saat resize/scroll (untuk teleport fixed)
         window.addEventListener('resize', () => { if (this.segmentOpen) this.updateSegmentPos(); });
@@ -413,8 +428,22 @@ window.lopForm = (options = {}) => ({
                 return;
             }
 
-            if (json.sto) this.form.sto = json.sto;
-            if (json.branch) this.form.branch = json.branch;
+            if (json.branch) {
+                this.form.branch = json.branch;
+                const b = this.branches.find(x => x.name === json.branch);
+                if (b && b.area_code) this.form.area = b.area_code;
+            }
+            if (json.sto) {
+                if (!json.branch) {
+                    const sa = this.serviceAreas.find(x => x.workzone === json.sto);
+                    if (sa) {
+                        this.form.branch = sa.branch;
+                        const b2 = this.branches.find(x => x.name === sa.branch);
+                        if (b2 && b2.area_code) this.form.area = b2.area_code;
+                    }
+                }
+                this.form.sto = json.sto;
+            }
             if (json.segment) {
                 if (this.form.program_type === 'relok_utilitas') {
                     // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
@@ -447,11 +476,19 @@ window.lopForm = (options = {}) => ({
     async generateManualIncident() {
         if (!this.form.program_type || this.manualGen.loading) return;
 
+        if (this.form.program_type === 'relok_utilitas' && !this.form.branch) {
+            this.manualGen.message = 'Pilih Area → Branch → STO terlebih dahulu sebelum generate INP.';
+            return;
+        }
+
         this.manualGen.loading = true;
         this.manualGen.message = '';
 
         try {
-            const res = await fetch(`/lop/manual-incident?program_type=${encodeURIComponent(this.form.program_type)}`, {
+            const params = new URLSearchParams({ program_type: this.form.program_type });
+            if (this.form.branch) params.set('branch', this.form.branch);
+            if (this.form.sto) params.set('sto', this.form.sto);
+            const res = await fetch(`/lop/manual-incident?${params.toString()}`, {
                 headers: { Accept: 'application/json' },
             });
             const json = await res.json();
@@ -576,6 +613,23 @@ window.lopForm = (options = {}) => ({
             this.form.segments.push(val);
             // keep single sync for fallback
             if (!this.form.segment) this.form.segment = val;
+        }
+        this.regenerateName();
+    },
+
+    onAreaChange() {
+        const ok = this.filteredBranches.some(b => b.name === this.form.branch);
+        if (!ok) {
+            this.form.branch = '';
+            this.form.sto = '';
+        }
+        this.regenerateName();
+    },
+
+    onBranchChange() {
+        const ok = this.filteredServiceAreas.some(sa => sa.workzone === this.form.sto);
+        if (!ok) {
+            this.form.sto = '';
         }
         this.regenerateName();
     },

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Designator;
 use App\Models\DesignatorCategory;
@@ -24,6 +25,7 @@ class MasterDataController extends Controller
         $this->authorize('manage-master-data');
 
         $entities = [
+            ['label' => 'Area', 'route' => 'areas.index', 'count' => Area::count(), 'desc' => 'Area operasional — induk region (saat ini Area 3).'],
             ['label' => 'Region', 'route' => 'regions.index', 'count' => Region::count(), 'desc' => 'Wilayah operasional (JATIM, JATENG DIY, BALNUS).'],
             ['label' => 'Branch', 'route' => 'branches.index', 'count' => Branch::count(), 'desc' => 'Cabang / witel di bawah tiap region.'],
             ['label' => 'Service Area', 'route' => 'service-areas.index', 'count' => ServiceArea::count(), 'desc' => 'Workzone / STO — pemetaan service area ke branch & region.'],

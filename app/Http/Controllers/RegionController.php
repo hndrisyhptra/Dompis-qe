@@ -15,7 +15,7 @@ class RegionController extends Controller
     {
         $this->authorize('manage-master-data');
 
-        $query = Region::query()->withCount('branches');
+        $query = Region::query()->with(['area'])->withCount('branches');
 
         if ($search = $request->string('q')->trim()->value()) {
             $query->where(function ($q) use ($search) {
@@ -34,7 +34,9 @@ class RegionController extends Controller
     {
         $this->authorize('manage-master-data');
 
-        return view('regions.create');
+        return view('regions.create', [
+            'areas' => \App\Models\Area::where('is_active', true)->orderBy('code')->get(),
+        ]);
     }
 
     public function store(StoreRegionRequest $request): RedirectResponse
@@ -52,7 +54,10 @@ class RegionController extends Controller
     {
         $this->authorize('manage-master-data');
 
-        return view('regions.edit', ['region' => $region]);
+        return view('regions.edit', [
+            'region' => $region,
+            'areas' => \App\Models\Area::where('is_active', true)->orderBy('code')->get(),
+        ]);
     }
 
     public function update(UpdateRegionRequest $request, Region $region): RedirectResponse

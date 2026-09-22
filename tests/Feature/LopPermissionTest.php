@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,10 +16,23 @@ class LopPermissionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function seedAreaBranchServiceArea(string $code = 'SDA', string $name = 'SIDOARJO'): void
+    {
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'is_active' => true]);
+        $region->update(['area_id' => $area->id_area]);
+        $branch = Branch::updateOrCreate(['code' => $code], ['name' => $name, 'region' => 'REGION JATIM', 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => $code], ['name' => $name, 'branch_id' => $branch->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+        // also ensure SBY for other tests
+        $branchSby = Branch::updateOrCreate(['code' => 'SBY'], ['name' => 'SURABAYA', 'region' => 'REGION JATIM', 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SBY'], ['name' => 'SURABAYA', 'branch_id' => $branchSby->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+    }
+
     public function test_admin_can_create_lop(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
 
         $response = $this->actingAs($admin)->post(route('lop.store'), [
             'incident' => 'LOP-100',

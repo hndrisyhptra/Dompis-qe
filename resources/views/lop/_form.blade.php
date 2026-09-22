@@ -1,5 +1,5 @@
 <form method="POST" action="{{ $formAction }}"
-      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])) })"
+      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
       class="space-y-5">
     @csrf
     @if ($formMethod !== 'POST') @method($formMethod) @endif
@@ -99,17 +99,35 @@
                     </div>
                 @endif
             @endif
-            <x-input name="sto" label="STO" placeholder="Contoh: SDA" x-model="form.sto" autocomplete="off" />
-
-            <x-select name="branch" label="Branch" placeholder="Pilih region dan branch" x-model="form.branch">
-                @foreach ($branches->groupBy('region') as $region => $items)
-                    <optgroup label="{{ $region ?: 'Region belum ditentukan' }}">
-                        @foreach ($items as $branch)<option value="{{ $branch->name }}">{{ $branch->name }}</option>@endforeach
-                    </optgroup>
-                @endforeach
+            <x-select name="area" label="Area" placeholder="Pilih area" x-model="form.area" @change="onAreaChange()">
+                @foreach ($areas as $area)<option value="{{ $area->code }}">{{ $area->name }} ({{ $area->code }})</option>@endforeach
             </x-select>
 
-            <x-select name="area" label="Area" x-model="form.area"><option value="3">Area 3</option></x-select>
+            <div>
+                <label for="branch" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Branch</label>
+                <select id="branch" name="branch" x-model="form.branch" @change="onBranchChange()"
+                    :disabled="!form.area"
+                    class="w-full rounded-lg border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 px-3.5 py-2.5 text-sm text-ink-900 dark:text-ink-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition disabled:bg-ink-50 disabled:text-ink-400 disabled:cursor-not-allowed">
+                    <option value="">Pilih branch</option>
+                    <template x-for="b in filteredBranches" :key="b.name"><option :value="b.name" x-text="b.name"></option></template>
+                </select>
+                @error('branch')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                <p x-show="!form.area" class="mt-1.5 text-xs text-ink-400">Pilih Area terlebih dahulu.</p>
+                <p x-show="form.area && filteredBranches.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada branch untuk area ini.</p>
+            </div>
+
+            <div>
+                <label for="sto" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">STO / Service Area</label>
+                <select id="sto" name="sto" x-model="form.sto"
+                    :disabled="!form.branch"
+                    class="w-full rounded-lg border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 px-3.5 py-2.5 text-sm text-ink-900 dark:text-ink-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition disabled:bg-ink-50 disabled:text-ink-400 disabled:cursor-not-allowed">
+                    <option value="">Pilih STO</option>
+                    <template x-for="sa in filteredServiceAreas" :key="sa.workzone"><option :value="sa.workzone" x-text="`${sa.workzone} — ${sa.name}`"></option></template>
+                </select>
+                @error('sto')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                <p x-show="!form.branch" class="mt-1.5 text-xs text-ink-400">Pilih Branch terlebih dahulu.</p>
+                <p x-show="form.branch && filteredServiceAreas.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada STO untuk branch ini.</p>
+            </div>
 
             {{-- Segmen: single untuk recovery/preventive, combobox multi (max 3) khusus relok_utilitas --}}
             <div x-show="form.program_type !== 'relok_utilitas'">

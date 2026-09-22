@@ -29,9 +29,9 @@ class StoreLopRequest extends FormRequest
             'incident' => ['required', 'string', 'max:100', 'unique:qe_lops,incident'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
-            'sto' => ['required', 'string', 'max:100'],
+            'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],
-            'area' => ['required', 'string', 'max:20'],
+            'area' => ['required', 'string', 'max:10', Rule::exists('areas', 'code')],
             'segment' => $segmentRules,
             'budget_type' => [
                 'nullable',
@@ -56,7 +56,37 @@ class StoreLopRequest extends FormRequest
         return [
             'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas.',
             'segment.min' => 'Pilih minimal 1 segmen.',
+            'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
+            'branch.exists' => 'Branch tidak ditemukan.',
+            'area.exists' => 'Area tidak ditemukan.',
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($v) {
+            $area = trim((string) $this->input('area'));
+            $branchName = trim((string) $this->input('branch'));
+            $sto = mb_strtoupper(trim((string) $this->input('sto')));
+
+            if ($area === '' || $branchName === '' || $sto === '') {
+                return;
+            }
+
+            // Branch harus masuk ke Area terpilih
+            $branch = \App\Models\Branch::with('regionRef.area')->where('name', $branchName)->first();
+            if ($branch && $branch->regionRef && $branch->regionRef->area) {
+                if ((string) $branch->regionRef->area->code !== (string) $area) {
+                    $v->errors()->add('branch', 'Branch tidak termasuk dalam Area terpilih.');
+                }
+            }
+
+            // STO harus masuk ke Branch terpilih
+            $sa = \App\Models\ServiceArea::where('workzone', $sto)->first();
+            if ($sa && $sa->branch && $sa->branch->name !== $branchName) {
+                $v->errors()->add('sto', 'STO tidak termasuk dalam Branch terpilih.');
+            }
+        });
     }
 
     protected function prepareForValidation(): void
@@ -96,6 +126,8 @@ class StoreLopRequest extends FormRequest
         $this->merge([
             'incident' => mb_strtoupper(trim((string) $this->input('incident'))),
             'sto' => mb_strtoupper(trim((string) $this->input('sto'))),
+            'branch' => trim((string) $this->input('branch')),
+            'area' => trim((string) $this->input('area')),
             'segment' => $segmentNormalized,
             'ihld_id' => filled($this->input('ihld_id'))
                 ? trim((string) $this->input('ihld_id'))

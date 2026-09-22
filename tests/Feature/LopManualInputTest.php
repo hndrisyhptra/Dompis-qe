@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\LopNamingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,10 +17,20 @@ class LopManualInputTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function seedAreaBranchServiceArea(): void
+    {
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'is_active' => true]);
+        $region->update(['area_id' => $area->id_area]);
+        $branch = Branch::updateOrCreate(['code' => 'SDA'], ['name' => 'SIDOARJO', 'region' => 'REGION JATIM', 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SDA'], ['name' => 'SIDOARJO', 'branch_id' => $branch->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+    }
+
     public function test_admin_can_create_lop_with_manual_input_flow_and_generated_name(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
 
         $this->actingAs($admin)->get(route('lop.create'))
             ->assertOk()
@@ -70,6 +83,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
 
         $this->actingAs($admin)->from(route('lop.create'))->post(route('lop.store'), [
             'incident' => 'INC900', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -82,6 +96,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
         $lop = QeLop::create([
             'incident' => 'INC901', 'nama_lop' => '3SDA_QEREC_INC901_Test',
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -103,6 +118,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
         $lop = QeLop::create([
             'incident' => 'INP3102092601', 'nama_lop' => '3SDA_QEREC_INP3102092601_Test',
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -123,6 +139,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
         $lop = QeLop::create([
             'incident' => 'INP3102092601', 'nama_lop' => '3SDA_QEREC_INP3102092601_Test',
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -143,6 +160,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
         $lop = QeLop::create([
             'incident' => 'INC50390302', 'nama_lop' => '3SDA_QEREC_INC50390302_Test',
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -168,6 +186,7 @@ class LopManualInputTest extends TestCase
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
 
         $real = QeLop::create([
             'incident' => 'INC50390302', 'nama_lop' => 'A', 'program_type' => 'recovery',

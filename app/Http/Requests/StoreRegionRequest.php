@@ -16,6 +16,7 @@ class StoreRegionRequest extends FormRequest
         return [
             'code' => ['required', 'string', 'max:50', 'unique:regions,code'],
             'name' => ['required', 'string', 'max:255'],
+            'area_id' => ['required', 'integer', 'exists:areas,id_area'],
             'is_active' => ['boolean'],
         ];
     }

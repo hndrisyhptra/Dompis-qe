@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Designator;
 use App\Models\DesignatorCategory;
@@ -84,17 +85,18 @@ class MasterDataModuleTest extends TestCase
     public function test_region_crud_and_delete_guard(): void
     {
         $admin = $this->superAdmin();
+        $area = Area::firstOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
 
-        $this->actingAs($admin)->post(route('regions.store'), ['code' => 'sulut', 'name' => 'REGION SULUT', 'is_active' => 1])
+        $this->actingAs($admin)->post(route('regions.store'), ['code' => 'sulut', 'name' => 'REGION SULUT', 'area_id' => $area->id_area, 'is_active' => 1])
             ->assertRedirect(route('regions.index'));
         $this->assertDatabaseHas('regions', ['code' => 'SULUT', 'name' => 'REGION SULUT']);
 
         // duplicate code rejected
-        $this->actingAs($admin)->post(route('regions.store'), ['code' => 'SULUT', 'name' => 'Dup'])
+        $this->actingAs($admin)->post(route('regions.store'), ['code' => 'SULUT', 'name' => 'Dup', 'area_id' => $area->id_area])
             ->assertSessionHasErrors('code');
 
         $region = Region::where('code', 'SULUT')->first();
-        $this->actingAs($admin)->put(route('regions.update', $region), ['code' => 'SULUT', 'name' => 'REGION SULAWESI UTARA', 'is_active' => 0])
+        $this->actingAs($admin)->put(route('regions.update', $region), ['code' => 'SULUT', 'name' => 'REGION SULAWESI UTARA', 'area_id' => $area->id_area, 'is_active' => 0])
             ->assertRedirect(route('regions.index'));
         $this->assertDatabaseHas('regions', ['id_region' => $region->id_region, 'name' => 'REGION SULAWESI UTARA', 'is_active' => 0]);
 
@@ -130,9 +132,10 @@ class MasterDataModuleTest extends TestCase
         $admin = $this->superAdmin();
         $this->makeBranch();
         $region = Region::where('code', 'JATIM')->first();
+        $area = Area::firstOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
 
         $this->actingAs($admin)->put(route('regions.update', $region), [
-            'code' => 'JATIM', 'name' => 'REGION JAWA TIMUR', 'is_active' => 1,
+            'code' => 'JATIM', 'name' => 'REGION JAWA TIMUR', 'area_id' => $area->id_area, 'is_active' => 1,
         ])->assertRedirect();
 
         $this->assertDatabaseHas('branches', ['code' => 'SBY', 'region' => 'REGION JAWA TIMUR']);

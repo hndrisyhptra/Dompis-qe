@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\ManualIncidentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +22,15 @@ class ManualIncidentTest extends TestCase
     private function adminForBranch(Branch $branch): User
     {
         return User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+    }
+
+    private function seedAreaBranchServiceArea(Branch $branch, string $workzone = 'SBY'): void
+    {
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'is_active' => true]);
+        $region->update(['area_id' => $area->id_area]);
+        $branch->update(['region_id' => $region->id_region, 'region' => $region->name]);
+        ServiceArea::updateOrCreate(['workzone' => $workzone], ['name' => $workzone, 'branch_id' => $branch->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
     }
 
     public function test_service_builds_expected_format(): void
@@ -117,6 +129,7 @@ class ManualIncidentTest extends TestCase
     {
         Carbon::setTestNow(Carbon::create(2026, 9, 2, 10, 0, 0));
         $branch = Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea($branch, 'SBY');
         $admin = $this->adminForBranch($branch);
 
         $incident = $this->actingAs($admin)

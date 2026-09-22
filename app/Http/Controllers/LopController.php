@@ -11,8 +11,10 @@ use App\Enums\UserRole;
 use App\Http\Requests\StoreLopRequest;
 use App\Http\Requests\TransitionLopStatusRequest;
 use App\Http\Requests\UpdateLopRequest;
+use App\Models\Area;
 use App\Models\Branch;
 use App\Models\QeLop;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\DatekParserService;
 use App\Services\EvidenceApprovalService;
@@ -170,7 +172,9 @@ class LopController extends Controller
         $this->authorize('create', QeLop::class);
 
         return view('lop.create', [
-            'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
+            'areas' => Area::query()->where('is_active', true)->orderBy('code')->get(),
+            'branches' => Branch::query()->with('regionRef')->where('is_active', true)->orderBy('name')->get(),
+            'serviceAreas' => ServiceArea::query()->with(['branch','region'])->where('is_active', true)->orderBy('workzone')->get(),
             ...$this->formOptions(),
         ]);
     }
@@ -208,7 +212,7 @@ class LopController extends Controller
 
     /**
      * Buat nomor tiket manual (INP...) saat incident tidak ada di DB tiket.
-     * Branch mengikuti branch user yang login; Program dipilih di form.
+     * Branch diambil dari pilihan form (Area→Branch→STO) jika ada, fallback ke branch user.
      */
     public function manualIncident(Request $request): JsonResponse
     {
@@ -216,14 +220,30 @@ class LopController extends Controller
 
         $data = $request->validate([
             'program_type' => ['required', Rule::enum(ProgramType::class)],
+            'branch' => ['nullable', 'string', 'max:100'],
+            'sto' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $branch = $request->user()->branch;
+        $branch = null;
+        // Prioritas: sto (workzone) → branch name dari form
+        if (filled($data['sto'] ?? null)) {
+            $sa = ServiceArea::where('workzone', mb_strtoupper(trim($data['sto'])))->first();
+            if ($sa) {
+                $branch = $sa->branch;
+            }
+        }
+        if (! $branch && filled($data['branch'] ?? null)) {
+            $branch = Branch::where('name', trim($data['branch']))->first();
+        }
+        // Fallback ke branch user
+        if (! $branch) {
+            $branch = $request->user()->branch;
+        }
 
         if ($branch === null) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Akun Anda belum terhubung ke branch. Hubungi admin untuk mengisi branch sebelum membuat nomor tiket manual.',
+                'message' => 'Pilih Branch terlebih dahulu (Area → Branch → STO) sebelum generate INP, atau hubungi admin untuk mengisi branch akun Anda.',
             ], 422);
         }
 
@@ -281,7 +301,9 @@ class LopController extends Controller
 
         return view('lop.edit', [
             'lop' => $qe_lop,
-            'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
+            'areas' => Area::query()->where('is_active', true)->orderBy('code')->get(),
+            'branches' => Branch::query()->with('regionRef')->where('is_active', true)->orderBy('name')->get(),
+            'serviceAreas' => ServiceArea::query()->with(['branch','region'])->where('is_active', true)->orderBy('workzone')->get(),
             ...$this->formOptions(),
         ]);
     }

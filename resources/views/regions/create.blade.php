@@ -14,6 +14,11 @@
 
             <x-input name="code" label="Kode" placeholder="mis. JATIM" />
             <x-input name="name" label="Nama Region" placeholder="mis. REGION JATIM" />
+            <x-select name="area_id" label="Area" placeholder="Pilih area">
+                @foreach ($areas as $area)
+                    <option value="{{ $area->id_area }}" @selected((int) old('area_id') === $area->id_area)>{{ $area->name }} ({{ $area->code }})</option>
+                @endforeach
+            </x-select>
             <x-active-select />
 
             <div class="flex items-center gap-3 pt-2">
