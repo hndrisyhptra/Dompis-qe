@@ -100,7 +100,7 @@
                 @endif
             @endif
             <x-select name="area" label="Area" placeholder="Pilih area" x-model="form.area" @change="onAreaChange()">
-                @foreach ($areas as $area)<option value="{{ $area->code }}">{{ $area->name }} ({{ $area->code }})</option>@endforeach
+                @foreach ($areas as $area)<option value="{{ $area->code }}">{{ $area->name }}</option>@endforeach
             </x-select>
 
             <div>
