@@ -42,6 +42,7 @@ class QeLop extends Model
         'datek',
         'ihld_id',
         'package_id',
+        'boq_snapshot',
         'status_lop',
         'created_by',
     ];
@@ -82,6 +83,7 @@ class QeLop extends Model
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
             'datek' => 'array',
+            'boq_snapshot' => 'array',
         ];
     }
 

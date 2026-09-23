@@ -12,6 +12,7 @@ use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\LopAssignmentController;
 use App\Http\Controllers\LopController;
+use App\Http\Controllers\LopImportController;
 use App\Http\Controllers\LopNameFormatController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\PackageController;
@@ -70,6 +71,9 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/ticket-lookup', [LopController::class, 'ticketLookup'])->name('ticket-lookup');
     Route::get('/manual-incident', [LopController::class, 'manualIncident'])->name('manual-incident');
     Route::get('/parse-datek', [LopController::class, 'parseDatek'])->name('parse-datek');
+    Route::get('/import', [LopImportController::class, 'importForm'])->name('import.form');
+    Route::post('/import/preview', [LopImportController::class, 'preview'])->name('import.preview');
+    Route::post('/import/store', [LopImportController::class, 'store'])->name('import.store');
     Route::post('/', [LopController::class, 'store'])->name('store');
     Route::get('/{qe_lop}', [LopController::class, 'show'])->name('show');
     Route::get('/{qe_lop}/evidence-archive', [LopController::class, 'downloadEvidenceArchive'])->name('evidence-archive');

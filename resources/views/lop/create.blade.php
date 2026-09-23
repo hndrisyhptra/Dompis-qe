@@ -30,12 +30,18 @@
             <h1 class="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Input LOP Baru</h1>
             <p class="mt-1.5 max-w-2xl text-sm text-ink-500 dark:text-ink-400">Lengkapi informasi pekerjaan. Nama LOP akan tersusun otomatis dan tetap bisa Anda sesuaikan sebelum disimpan.</p>
         </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('lop.import.form') }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                Import Excel
+            </a>
         @can('manage-master-data')
             <a href="{{ route('lop-name-format.edit') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 12h9.75m-9.75 6h9.75M3.75 6h.008v.008H3.75V6zm0 6h.008v.008H3.75V12zm0 6h.008v.008H3.75V18z" /></svg>
                 Atur Format Nama
             </a>
         @endcan
+        </div>
     </div>
     @include('lop._form')
 </div>
