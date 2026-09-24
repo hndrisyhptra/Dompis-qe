@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class QeEvidence extends Model
 {
@@ -54,7 +53,7 @@ class QeEvidence extends Model
      */
     public function url(): string
     {
-        return Storage::disk(config('evidence.disk'))->url($this->file_path);
+        return route('evidence-files.show', $this);
     }
 
     /**
@@ -63,7 +62,7 @@ class QeEvidence extends Model
     public function thumbUrl(): string
     {
         return $this->thumb_path
-            ? Storage::disk(config('evidence.disk'))->url($this->thumb_path)
+            ? route('evidence-files.thumbnail', $this)
             : $this->url();
     }
 

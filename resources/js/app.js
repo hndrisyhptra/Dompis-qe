@@ -3,23 +3,36 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import imageCompression from 'browser-image-compression';
 
-const COMPRESS_OPTS = { maxWidthOrHeight: 1920, maxSizeMB: 1, initialQuality: 0.72, fileType: 'image/webp', useWebWorker: true };
+const COMPRESS_OPTS = { maxWidthOrHeight: 1920, maxSizeMB: 1, initialQuality: 0.72, useWebWorker: true };
 const THUMB_OPTS = { maxWidthOrHeight: 360, maxSizeMB: 0.06, initialQuality: 0.6, fileType: 'image/webp', useWebWorker: true };
+const MAX_BROWSER_UPLOAD_BYTES = Math.floor(1.75 * 1024 * 1024);
 
 const isImageFile = (file) => file.type.startsWith('image/');
 
 /**
- * Kompres 1 gambar -> File webp. Non-gambar (PDF) dikembalikan apa adanya.
+ * Kompres gambar tanpa mengubah nama, MIME type, atau ekstensi file aslinya.
+ * Non-gambar (PDF) dikembalikan apa adanya.
  * Bila kompresi gagal (browser tua / gambar rusak), pakai file asli.
  */
 async function compressImage(file, opts) {
     if (!isImageFile(file)) return file;
     try {
-        const blob = await imageCompression(file, opts);
-        const name = file.name.replace(/\.[^.]+$/, '') + '.webp';
-        return new File([blob], name, { type: 'image/webp', lastModified: Date.now() });
-    } catch (e) {
-        return file;
+        const blob = await imageCompression(file, { ...opts, fileType: file.type });
+        return new File([blob], file.name, {
+            type: file.type,
+            lastModified: file.lastModified || Date.now(),
+        });
+    } catch (_) {
+        try {
+            // Sejumlah browser mobile tidak dapat memakai Web Worker. Ulangi di main thread.
+            const blob = await imageCompression(file, { ...opts, useWebWorker: false, fileType: file.type });
+            return new File([blob], file.name, {
+                type: file.type,
+                lastModified: file.lastModified || Date.now(),
+            });
+        } catch (_) {
+            return file;
+        }
     }
 }
 
@@ -52,6 +65,8 @@ window.evidenceUploader = (options = {}) => ({
     get queueActive() { return this.queue.length > 0; },
     get queueBusy() { return this.queue.some((q) => q.status === 'compressing' || q.status === 'uploading' || q.status === 'queued'); },
     get queueFailed() { return this.queue.some((q) => q.status === 'error'); },
+    get queueSelectedCount() { return this.queue.filter((q) => q.status === 'selected').length; },
+    get formReady() { return this.files.length > 0 && this.files.every((item) => !item.compressing && !item.error); },
 
     // ---- mode antrean (endpoint) --------------------------------------
 
@@ -66,13 +81,19 @@ window.evidenceUploader = (options = {}) => ({
                 size: file.size,
                 isImage: isImageFile(file),
                 previewUrl: isImageFile(file) ? URL.createObjectURL(file) : null,
-                status: 'queued',
+                status: 'selected',
                 progress: 0,
                 error: '',
                 raw: file,
             };
             this.queue.push(item);
         }
+    },
+
+    startUploads() {
+        this.queue.forEach((item) => {
+            if (item.status === 'selected') item.status = 'queued';
+        });
         this.pump();
     },
 
@@ -93,6 +114,9 @@ window.evidenceUploader = (options = {}) => ({
         try {
             item.status = 'compressing';
             const file = await compressImage(item.raw, COMPRESS_OPTS);
+            if (isImageFile(file) && file.size > MAX_BROWSER_UPLOAD_BYTES) {
+                throw new Error('File masih lebih dari 1,75 MB setelah kompresi. Pilih foto yang lebih kecil.');
+            }
             const thumb = await makeThumb(file);
             item.size = file.size;
 
@@ -116,6 +140,7 @@ window.evidenceUploader = (options = {}) => ({
     },
 
     removeQueued(item) {
+        if (!['selected', 'queued', 'error'].includes(item.status)) return;
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
         this.queue = this.queue.filter((q) => q !== item);
         this.maybeFinish();
@@ -142,6 +167,7 @@ window.evidenceUploader = (options = {}) => ({
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', this.endpoint);
+            xhr.timeout = 120000;
             xhr.setRequestHeader('X-CSRF-TOKEN', window.CSRF_TOKEN || '');
             xhr.setRequestHeader('Accept', 'application/json');
             xhr.upload.onprogress = (e) => {
@@ -154,8 +180,12 @@ window.evidenceUploader = (options = {}) => ({
                     let msg = 'File ditolak server';
                     try { const j = JSON.parse(xhr.responseText); msg = j.message || Object.values(j.errors || {})[0]?.[0] || msg; } catch (_) {}
                     reject(new Error(msg));
+                } else if (xhr.status === 413) {
+                    reject(new Error('Ukuran foto melebihi batas upload server.'));
+                } else if (xhr.status === 419) {
+                    reject(new Error('Sesi berakhir. Muat ulang halaman lalu coba kembali.'));
                 } else {
-                    reject(new Error(`Gagal (${xhr.status})`));
+                    reject(new Error(`Upload gagal (${xhr.status}). Silakan coba kembali.`));
                 }
             };
             xhr.onerror = () => reject(new Error('Jaringan bermasalah'));
@@ -177,6 +207,7 @@ window.evidenceUploader = (options = {}) => ({
             isImage: isImageFile(file),
             url: isImageFile(file) ? URL.createObjectURL(file) : null,
             compressing: isImageFile(file),
+            error: '',
         }));
         // Kompres di belakang layar lalu sinkronkan ke <input> untuk submit native.
         await Promise.all(this.files.map(async (item) => {
@@ -184,8 +215,11 @@ window.evidenceUploader = (options = {}) => ({
             item.file = await compressImage(item.file, COMPRESS_OPTS);
             item.size = item.file.size;
             item.compressing = false;
+            if (item.isImage && item.file.size > MAX_BROWSER_UPLOAD_BYTES) {
+                item.error = 'File masih lebih dari 1,75 MB setelah kompresi.';
+            }
         }));
-        this.syncInput();
+        if (this.formReady) this.syncInput();
     },
 
     removeFile(index) {
@@ -193,13 +227,23 @@ window.evidenceUploader = (options = {}) => ({
         if (removed?.url) URL.revokeObjectURL(removed.url);
         if (this.preview === removed) this.preview = null;
         this.files.splice(index, 1);
-        this.syncInput();
+        if (!this.files.length) {
+            this.$refs.input.value = '';
+        } else {
+            this.syncInput();
+        }
     },
 
     syncInput() {
-        const transfer = new DataTransfer();
-        this.files.forEach((item) => transfer.items.add(item.file));
-        this.$refs.input.files = transfer.files;
+        try {
+            const transfer = new DataTransfer();
+            this.files.forEach((item) => transfer.items.add(item.file));
+            this.$refs.input.files = transfer.files;
+            return true;
+        } catch (_) {
+            // Safari lama mempertahankan file asli pada input; jangan kosongkan pilihan pengguna.
+            return false;
+        }
     },
 
     // ---- preview modal (dipakai kedua mode) ------------------------
@@ -838,6 +882,279 @@ window.detailLaporanTab = (lopId) => ({
         const n = Number(v);
         if (Number.isNaN(n)) return String(v);
         return 'Rp ' + n.toLocaleString('id-ID');
+    },
+});
+
+window.boqEditor = (encodedItems, encodedOptions) => {
+    const initialItems = JSON.parse(atob(encodedItems));
+    const withSearch = (items) => items.map((item) => ({ ...item, search: '', open: false }));
+
+    return {
+        detail: false,
+        edit: false,
+        remove: false,
+        saveConfirm: false,
+        dropConfirm: false,
+        pendingDropIndex: null,
+        originalItems: initialItems,
+        items: withSearch(JSON.parse(JSON.stringify(initialItems))),
+        options: JSON.parse(atob(encodedOptions)),
+
+        openEdit() {
+            this.items = withSearch(JSON.parse(JSON.stringify(this.originalItems)));
+            this.edit = true;
+        },
+
+        closeEdit() {
+            this.edit = false;
+            this.saveConfirm = false;
+            this.dropConfirm = false;
+            this.pendingDropIndex = null;
+        },
+
+        add() {
+            this.items.forEach((item) => { item.open = false; });
+            this.items.push({ designator_id: '', qty: 1, unit_price: 0, search: '', open: true });
+        },
+
+        filteredOptions(search, selectedId) {
+            const term = String(search || '').trim().toLocaleLowerCase('id-ID');
+            const selected = this.options.find((option) => String(option.id) === String(selectedId));
+            let matches = [];
+
+            if (term) {
+                matches = this.options.filter((option) => [option.code, option.name, option.unit, option.type]
+                    .filter(Boolean)
+                    .some((value) => String(value).toLocaleLowerCase('id-ID').includes(term)));
+            } else {
+                matches = this.options.slice(0, 30);
+            }
+
+            if (selected) {
+                matches = [selected, ...matches.filter((option) => String(option.id) !== String(selected.id))];
+            }
+
+            return matches.slice(0, 60);
+        },
+
+        selectedCode(selectedId) {
+            const selected = this.options.find((option) => String(option.id) === String(selectedId));
+
+            return selected ? `${selected.code} · ${selected.name}` : 'Belum memilih designator';
+        },
+
+        selectedOptionLabel(selectedId) {
+            const selected = this.options.find((option) => String(option.id) === String(selectedId));
+
+            return selected ? `${selected.code} · ${selected.name}` : 'Pilih designator';
+        },
+
+        toggleOptions(targetItem) {
+            const willOpen = !targetItem.open;
+            this.items.forEach((item) => {
+                item.open = false;
+                item.search = '';
+            });
+            targetItem.open = willOpen;
+        },
+
+        selectOption(item, option) {
+            item.designator_id = String(option.id);
+            item.search = '';
+            item.open = false;
+        },
+
+        optionUsedByOther(optionId, currentIndex) {
+            return this.items.some((item, index) => index !== currentIndex && String(item.designator_id) === String(optionId));
+        },
+
+        searchHint(search, selectedId) {
+            const term = String(search || '').trim();
+            const resultCount = this.filteredOptions(term, selectedId).length;
+
+            if (term) {
+                return resultCount
+                    ? `${resultCount} hasil ditemukan.`
+                    : 'Tidak ada hasil. Coba kata kunci lain.';
+            }
+
+            return 'Menampilkan 30 designator awal. Ketik kata kunci untuk hasil yang lebih spesifik.';
+        },
+
+        requestDrop(index) {
+            if (this.items.length <= 1) return;
+            this.pendingDropIndex = index;
+            this.dropConfirm = true;
+        },
+
+        confirmDrop() {
+            if (this.pendingDropIndex !== null && this.items.length > 1) {
+                this.items.splice(this.pendingDropIndex, 1);
+            }
+            this.pendingDropIndex = null;
+            this.dropConfirm = false;
+        },
+    };
+};
+
+window.importUploadForm = (action) => ({
+    action,
+    fileName: '',
+    uploading: false,
+    uploadPercent: 0,
+    phase: 'Pilih file untuk memulai',
+    error: '',
+
+    selectFile(event) {
+        this.fileName = event.target.files?.[0]?.name || '';
+        this.error = '';
+        this.uploadPercent = 0;
+        this.phase = this.fileName ? 'File siap diunggah' : 'Pilih file untuk memulai';
+    },
+
+    submit(event) {
+        if (this.uploading) return;
+
+        const form = event.currentTarget;
+        if (!form.reportValidity()) return;
+
+        this.uploading = true;
+        this.uploadPercent = 0;
+        this.error = '';
+        this.phase = 'Mengunggah file';
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', this.action);
+        xhr.timeout = 180000;
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.upload.onprogress = (progress) => {
+            if (progress.lengthComputable) {
+                this.uploadPercent = Math.round((progress.loaded / progress.total) * 100);
+            }
+        };
+        xhr.onload = () => {
+            let payload = {};
+            try { payload = JSON.parse(xhr.responseText); } catch (_) {}
+
+            if (xhr.status >= 200 && xhr.status < 300 && payload.result_url) {
+                this.uploadPercent = 100;
+                this.phase = 'Upload selesai · membuka progres antrean';
+                window.location.assign(payload.result_url);
+                return;
+            }
+
+            const firstError = Object.values(payload.errors || {})[0]?.[0];
+            this.error = firstError || payload.message || `Upload gagal (${xhr.status}).`;
+            this.uploading = false;
+            this.phase = 'Upload belum berhasil';
+        };
+        xhr.onerror = () => {
+            this.error = 'Koneksi terputus saat mengunggah file. Silakan coba kembali.';
+            this.uploading = false;
+            this.phase = 'Upload belum berhasil';
+        };
+        xhr.ontimeout = () => {
+            this.error = 'Upload melewati batas waktu. Periksa koneksi lalu coba kembali.';
+            this.uploading = false;
+            this.phase = 'Upload belum berhasil';
+        };
+        xhr.send(new FormData(form));
+    },
+});
+
+window.importBatchProgress = (options = {}) => ({
+    statusUrl: options.statusUrl,
+    status: options.status || 'queued',
+    total: Number(options.total || 0),
+    success: Number(options.success || 0),
+    failed: Number(options.failed || 0),
+    processed: Number(options.processed || 0),
+    percentage: Number(options.percentage || 0),
+    finished: Boolean(options.finished),
+    reloadOnFinish: Boolean(options.reloadOnFinish),
+    pollTimer: null,
+    pollError: false,
+
+    get statusLabel() {
+        return ({ queued: 'Menunggu antrean', processing: 'Sedang diproses', completed: 'Selesai', partial: 'Selesai sebagian', failed: 'Gagal' })[this.status] || this.status;
+    },
+
+    start() {
+        if (!this.finished) this.schedule(250);
+    },
+
+    schedule(delay = 1800) {
+        clearTimeout(this.pollTimer);
+        this.pollTimer = setTimeout(() => this.refresh(), delay);
+    },
+
+    async refresh() {
+        try {
+            const response = await fetch(this.statusUrl, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error(`Status ${response.status}`);
+            const data = await response.json();
+            const wasFinished = this.finished;
+            this.status = data.status;
+            this.total = Number(data.total_rows || 0);
+            this.success = Number(data.success_rows || 0);
+            this.failed = Number(data.failed_rows || 0);
+            this.processed = Number(data.processed_rows || 0);
+            this.percentage = Number(data.percentage || 0);
+            this.finished = Boolean(data.finished);
+            this.pollError = false;
+
+            if (this.finished && !wasFinished && this.reloadOnFinish) {
+                window.location.reload();
+                return;
+            }
+        } catch (_) {
+            this.pollError = true;
+        }
+
+        if (!this.finished) this.schedule(this.pollError ? 4000 : 1800);
+    },
+});
+
+window.dashboardMatrixModal = (endpoint) => ({
+    endpoint,
+    title: 'Daftar LOP',
+    subtitle: '',
+    loading: false,
+    error: '',
+    rows: [],
+    total: 0,
+
+    async open(title, filters = {}) {
+        this.title = title;
+        this.subtitle = 'Memuat data sesuai angka pada matrix';
+        this.loading = true;
+        this.error = '';
+        this.rows = [];
+        this.total = 0;
+        this.$refs.matrixModal.showModal();
+
+        const url = new URL(this.endpoint, window.location.origin);
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== '' && value != null) url.searchParams.set(key, value);
+        });
+
+        try {
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error(`Gagal memuat data (${response.status})`);
+            const data = await response.json();
+            this.rows = data.data || [];
+            this.total = Number(data.total || 0);
+            this.subtitle = `${this.total.toLocaleString('id-ID')} LOP ditemukan`;
+        } catch (error) {
+            this.error = error?.message || 'Daftar LOP tidak dapat dimuat.';
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    close() {
+        this.$refs.matrixModal.close();
     },
 });
 

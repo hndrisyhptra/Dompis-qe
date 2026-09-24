@@ -68,7 +68,7 @@ class TechnicianWorkflowService
             $reservation->items()->delete();
             $reservation->items()->createMany(collect($items)->map(fn (array $item) => [
                 'designator_id' => $item['designator_id'],
-                'qty' => $item['qty'],
+                'qty' => (int) $item['qty'],
             ])->all());
 
             return $reservation->load('items.designator');

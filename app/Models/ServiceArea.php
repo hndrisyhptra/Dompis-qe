@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ServiceArea extends Model
@@ -50,5 +52,15 @@ class ServiceArea extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function lops(): HasMany
+    {
+        return $this->hasMany(QeLop::class, 'service_area_id', 'id_service_area');
+    }
+
+    public function scopedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_service_areas', 'service_area_id', 'user_id');
     }
 }

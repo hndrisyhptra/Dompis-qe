@@ -15,17 +15,30 @@
         </div>
     @endif
 
-    <section class="rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900 overflow-visible isolate">
-        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6 overflow-hidden rounded-t-2xl">
+    <div class="grid gap-2 rounded-2xl border border-ink-100 bg-white p-3 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:grid-cols-3">
+        @foreach ([
+            ['01', 'Identitas & lokasi', 'Incident, STO, Branch, Area'],
+            ['02', 'Lingkup pekerjaan', 'Segmen, WBS, dan deskripsi'],
+            ['03', 'Tinjau nama LOP', 'Periksa hasil generate otomatis'],
+        ] as [$number, $title, $description])
+            <div class="flex items-center gap-3 rounded-xl px-3 py-2.5 {{ $number === '01' ? 'bg-brand-50 dark:bg-brand-950/30' : 'bg-ink-50 dark:bg-ink-800/60' }}">
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg {{ $number === '01' ? 'bg-brand-600 text-white' : 'bg-white text-ink-500 dark:bg-ink-900 dark:text-ink-300' }} text-xs font-extrabold">{{ $number }}</span>
+                <div class="min-w-0"><p class="truncate text-xs font-extrabold text-ink-800 dark:text-white">{{ $title }}</p><p class="mt-0.5 truncate text-[10px] text-ink-400">{{ $description }}</p></div>
+            </div>
+        @endforeach
+    </div>
+
+    <section class="isolate overflow-visible rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
+        <div class="overflow-hidden rounded-t-2xl border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white">01</span>
-                <div><h2 class="font-semibold text-ink-900 dark:text-white">Data pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Informasi utama untuk mengenali lokasi dan lingkup LOP.</p></div>
+                <div><h2 class="font-bold text-ink-900 dark:text-white">Identitas dan lokasi</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Cari tiket terlebih dahulu atau lengkapi lokasi pekerjaan secara manual.</p></div>
             </div>
         </div>
         <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6 overflow-visible">
             @if (($formMethod ?? 'POST') === 'POST')
                 {{-- Input LOP Baru: incident memicu lookup ke DB tiket untuk auto-fill STO/Branch/Segmen. --}}
-                <div>
+                <div class="order-1">
                     <label for="incident" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Incident</label>
                     <div class="flex gap-2">
                         <input id="incident" name="incident" type="text" placeholder="Contoh: INC123456" autocomplete="off"
@@ -86,12 +99,12 @@
             @else
                 {{-- Edit LOP: nomor tiket manual (INP…) boleh diubah; nomor tiket asli (INC…) dikunci. --}}
                 @if (isset($lop) && $lop->usesManualIncident())
-                    <div>
+                    <div class="order-1">
                         <x-input name="incident" label="Incident" placeholder="Contoh: INP3102092601" x-model="form.incident" autocomplete="off" />
                         <p class="mt-1.5 text-xs text-ink-400">Nomor tiket manual — boleh diubah, tetap memakai format <span class="font-mono">INP…</span>.</p>
                     </div>
                 @else
-                    <div>
+                    <div class="order-1">
                         <label for="incident" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Incident</label>
                         <input id="incident" type="text" x-model="form.incident" readonly tabindex="-1"
                                class="w-full cursor-not-allowed rounded-lg border border-ink-100 bg-ink-50 px-3.5 py-2.5 text-sm text-ink-500 shadow-sm dark:border-ink-700 dark:bg-ink-800/60 dark:text-ink-400">
@@ -99,11 +112,13 @@
                     </div>
                 @endif
             @endif
-            <x-select name="area" label="Area" placeholder="Pilih area" x-model="form.area" @change="onAreaChange()">
-                @foreach ($areas as $area)<option value="{{ $area->code }}">{{ $area->name }}</option>@endforeach
-            </x-select>
+            <div class="order-4">
+                <x-select name="area" label="Area" placeholder="Pilih area" x-model="form.area" @change="onAreaChange()">
+                    @foreach ($areas as $area)<option value="{{ $area->code }}">{{ $area->name }}</option>@endforeach
+                </x-select>
+            </div>
 
-            <div>
+            <div class="order-3">
                 <label for="branch" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Branch</label>
                 <select id="branch" name="branch" x-model="form.branch" @change="onBranchChange()"
                     :disabled="!form.area"
@@ -116,7 +131,7 @@
                 <p x-show="form.area && filteredBranches.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada branch untuk area ini.</p>
             </div>
 
-            <div>
+            <div class="order-2">
                 <label for="sto" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">STO / Service Area</label>
                 <select id="sto" name="sto" x-model="form.sto"
                     :disabled="!form.branch"
@@ -130,13 +145,13 @@
             </div>
 
             {{-- Segmen: single untuk recovery/preventive, combobox multi (max 3) khusus relok_utilitas --}}
-            <div x-show="form.program_type !== 'relok_utilitas'">
+            <div x-show="form.program_type !== 'relok_utilitas'" class="order-5">
                 <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment" x-bind:disabled="form.program_type === 'relok_utilitas'">
                     @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
                 </x-select>
             </div>
 
-            <div x-show="form.program_type === 'relok_utilitas'" x-cloak>
+            <div x-show="form.program_type === 'relok_utilitas'" x-cloak class="order-5">
                 <label class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen <span class="font-normal text-ink-400">(maks 3, nama LOP akan menyesuaikan)</span></label>
                 <div class="relative" x-ref="segmentTrigger" @click.outside="segmentOpen = false">
                     {{-- Hidden inputs untuk submit array segment[] — disabled saat bukan relok agar tidak ikut ter-submit --}}
@@ -204,14 +219,14 @@
                 <p class="mt-1.5 text-xs text-ink-400">Urutan dipilih akan jadi urutan di Nama LOP dengan join <span class="font-mono">_</span> (contoh: ODP_TIANG).</p>
             </div>
 
-            <div>
-                <x-select name="program_type" label="Program" placeholder="Pilih jenis Program" x-model="form.program_type">
+            <div class="order-6">
+                <x-select name="program_type" label="WBS / Program" placeholder="Pilih WBS pekerjaan" x-model="form.program_type">
                     @foreach ($programTypes as $type)<option value="{{ $type->value }}">{{ $type->label() }}</option>@endforeach
                 </x-select>
                 <p class="mt-1.5 text-xs text-ink-400">Kode Program akan ikut digunakan pada nama LOP.</p>
             </div>
 
-            <div x-show="form.program_type === 'relok_utilitas'" x-transition class="sm:col-span-2">
+            <div x-show="form.program_type === 'relok_utilitas'" x-transition class="order-7 sm:col-span-2">
                 <label class="mb-2 block text-sm font-medium text-ink-700 dark:text-ink-300">Jenis Anggaran</label>
                 <div class="grid grid-cols-2 gap-3">
                     @foreach ($budgetTypes as $budgetType)
@@ -231,7 +246,7 @@
         <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-900 text-sm font-bold text-white dark:bg-ink-700">02</span>
-                <div><h2 class="font-semibold text-ink-900 dark:text-white">Detail pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Jelaskan pekerjaan dan lengkapi ID IHLD jika sudah tersedia.</p></div>
+                <div><h2 class="font-bold text-ink-900 dark:text-white">Detail pekerjaan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Jelaskan pekerjaan dan lengkapi ID IHLD jika sudah tersedia.</p></div>
             </div>
         </div>
         <div class="grid gap-5 p-5 sm:p-6">
@@ -243,37 +258,45 @@
                     <span class="text-xs text-ink-400" x-text="`${form.job_description.length}/2000`"></span>
                 </div>
             </div>
-            <div>
-                <label for="ticket_summary" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Ringkasan Tiket</label>
-                <textarea id="ticket_summary" name="ticket_summary" rows="5" maxlength="5000" x-model="form.ticket_summary"
-                          placeholder="Terisi otomatis dari data tiket eksternal saat menekan Cari Tiket. Boleh dikosongkan atau diubah."
-                          class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-3 font-mono text-xs leading-relaxed text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
-                <div class="mt-1.5 flex items-center justify-between gap-3">
-                    @error('ticket_summary')<p class="text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@else<p class="text-xs text-ink-400">Snapshot data tiket dari database operasional. Tersimpan bersama LOP.</p>@enderror
-                    <span class="text-xs text-ink-400" x-text="`${form.ticket_summary.length}/5000`"></span>
-                </div>
-            </div>
             <div><x-input name="ihld_id" label="ID IHLD (opsional)" placeholder="Dapat dilengkapi melalui Edit LOP nanti" x-model="form.ihld_id" autocomplete="off" /><p class="mt-1.5 text-xs text-ink-400">Kosongkan jika ID IHLD belum diterbitkan.</p></div>
+            <details class="group rounded-xl border border-ink-200 bg-ink-50/60 dark:border-ink-700 dark:bg-ink-800/40" @if($errors->has('ticket_summary')) open @endif>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-ink-700 marker:content-none dark:text-ink-200">
+                    <span><span class="block">Ringkasan tiket <span class="font-normal text-ink-400">(opsional)</span></span><span class="mt-0.5 block text-xs font-normal text-ink-400">Terisi otomatis ketika tiket ditemukan.</span></span>
+                    <svg class="h-4 w-4 shrink-0 text-ink-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+                </summary>
+                <div class="border-t border-ink-200 p-4 dark:border-ink-700">
+                    <textarea id="ticket_summary" name="ticket_summary" rows="5" maxlength="5000" x-model="form.ticket_summary"
+                              placeholder="Terisi otomatis dari data tiket eksternal saat menekan Cari Tiket. Boleh dikosongkan atau diubah."
+                              class="w-full resize-y rounded-xl border border-ink-200 bg-white px-3.5 py-3 font-mono text-xs leading-relaxed text-ink-800 shadow-sm transition placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-100"></textarea>
+                    <div class="mt-1.5 flex items-center justify-between gap-3">
+                        @error('ticket_summary')<p class="text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@else<p class="text-xs text-ink-400">Snapshot data tiket tersimpan bersama LOP.</p>@enderror
+                        <span class="text-xs text-ink-400" x-text="`${form.ticket_summary.length}/5000`"></span>
+                    </div>
+                </div>
+            </details>
         </div>
     </section>
 
-    <section x-show="form.ticket_summary || !datekKosong()" x-cloak
-             class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div class="flex items-start gap-3">
-                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-900 text-sm font-bold text-white dark:bg-ink-700">02a</span>
-                    <div><h2 class="font-semibold text-ink-900 dark:text-white">Data jaringan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Terisi otomatis dari ringkasan tiket. Kosongkan bila tidak terdampak.</p></div>
-                </div>
+    <details x-show="form.ticket_summary || !datekKosong()" x-cloak
+             class="group overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900" @if($errors->has('datek')) open @endif>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none sm:px-6">
+            <div class="flex min-w-0 items-start gap-3">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-900 text-[11px] font-bold text-white dark:bg-ink-700">02A</span>
+                <div class="min-w-0"><h2 class="font-bold text-ink-900 dark:text-white">Data jaringan</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Data teknis hasil pembacaan ringkasan tiket.</p></div>
+            </div>
+            <svg class="h-5 w-5 shrink-0 text-ink-400 transition group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="grid gap-5 border-t border-ink-100 p-5 dark:border-ink-800 sm:p-6">
+            <input type="hidden" name="datek" :value="JSON.stringify(datekForSubmit())">
+
+            <div class="flex flex-col gap-3 rounded-xl bg-ink-50 p-3 dark:bg-ink-800/50 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs leading-5 text-ink-500 dark:text-ink-400">Periksa data teknis sebelum menyimpan. Kosongkan kolom yang tidak terdampak.</p>
                 <button type="button" @click="parseDatekUlang()" :disabled="datekParsing || !form.ticket_summary"
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200">
+                        class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-semibold text-ink-700 transition hover:bg-ink-50 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200">
                     <svg class="h-3.5 w-3.5" :class="datekParsing && 'animate-spin'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-1.498 5.493A9 9 0 1 0 21 12.75" /></svg>
-                    <span x-text="datekParsing ? 'Memproses...' : 'Isi otomatis'"></span>
+                    <span x-text="datekParsing ? 'Memproses...' : 'Isi otomatis dari tiket'"></span>
                 </button>
             </div>
-        </div>
-        <div class="grid gap-5 p-5 sm:p-6">
-            <input type="hidden" name="datek" :value="JSON.stringify(datekForSubmit())">
 
             <div class="grid gap-5 sm:grid-cols-2">
                 <div>
@@ -329,13 +352,13 @@
 
             @error('datek')<p class="text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
         </div>
-    </section>
+    </details>
 
     <section class="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm dark:border-brand-900/60 dark:bg-ink-900">
-        <div class="border-b border-gray-100 bg-white px-5 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
+        <div class="border-b border-ink-100 bg-white px-5 py-4 dark:border-ink-800 dark:bg-ink-900 sm:px-6">
             <div class="flex items-start gap-3">
                 <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-sm font-bold text-white">03</span>
-                <div><h2 class="font-semibold text-ink-900 dark:text-white">Nama LOP</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Dibuat otomatis dari data di atas, tetapi masih dapat disesuaikan.</p></div>
+                <div><h2 class="font-bold text-ink-900 dark:text-white">Nama LOP</h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Dibuat otomatis dari data di atas, tetapi masih dapat disesuaikan.</p></div>
             </div>
         </div>
         <div class="p-5 sm:p-6">
@@ -355,9 +378,9 @@
         </div>
     </section>
 
-    <div class="sticky bottom-3 z-10 flex flex-col-reverse gap-3 rounded-2xl border border-ink-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-ink-700 dark:bg-ink-900/95 sm:static sm:flex-row sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-        <a href="{{ $cancelUrl }}" class="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-ink-600 transition hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">Batal</a>
-        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+    <div class="sticky bottom-3 z-10 flex items-center justify-end gap-2 rounded-2xl border border-ink-200 bg-white/95 p-2.5 shadow-xl backdrop-blur dark:border-ink-700 dark:bg-ink-900/95 sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+        <a href="{{ $cancelUrl }}" class="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800 sm:px-5 sm:py-3">Batal</a>
+        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 sm:px-6 sm:py-3">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> {{ $submitLabel }}
         </button>
     </div>

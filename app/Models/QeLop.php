@@ -6,6 +6,7 @@ use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
+use App\Enums\ProjectStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,8 +33,11 @@ class QeLop extends Model
         'incident',
         'nama_lop',
         'program_type',
+        'status_project',
         'sto',
         'branch',
+        'branch_id',
+        'service_area_id',
         'area',
         'segment',
         'budget_type',
@@ -50,6 +54,15 @@ class QeLop extends Model
     protected static function booted(): void
     {
         static::saving(function (self $lop) {
+            $program = $lop->program_type instanceof ProgramType
+                ? $lop->program_type
+                : ProgramType::tryFrom((string) $lop->program_type);
+            if ($program === ProgramType::RECOVERY) {
+                $lop->status_project = null;
+            } elseif ($program?->usesProjectStatus() && blank($lop->status_project)) {
+                $lop->status_project = ProjectStatus::USULAN;
+            }
+
             $raw = $lop->attributes['segment'] ?? null;
 
             // Normalisasi string tunggal "odp" -> '["odp"]' agar konsisten dengan cast array + JSON kolom.
@@ -79,6 +92,7 @@ class QeLop extends Model
     {
         return [
             'program_type' => ProgramType::class,
+            'status_project' => ProjectStatus::class,
             'segment' => 'array',
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
@@ -164,6 +178,26 @@ class QeLop extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function branchRef(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'branch_id', 'id_branch');
+    }
+
+    public function serviceArea(): BelongsTo
+    {
+        return $this->belongsTo(ServiceArea::class, 'service_area_id', 'id_service_area');
+    }
+
+    public function locationBranchName(): string
+    {
+        return $this->branchRef?->name ?? $this->branch ?? '—';
+    }
+
+    public function locationServiceAreaName(): string
+    {
+        return $this->serviceArea?->workzone ?? $this->sto ?? '—';
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(QeLopAssignment::class, 'qe_lop_id', 'id_qe_lops');
@@ -190,6 +224,11 @@ class QeLop extends Model
     public function materialReservation(): HasOne
     {
         return $this->hasOne(QeMaterialReservation::class, 'qe_lop_id', 'id_qe_lops');
+    }
+
+    public function boq(): HasOne
+    {
+        return $this->hasOne(QeBoq::class, 'qe_lop_id', 'id_qe_lops');
     }
 
     public function survey(): HasOne

@@ -126,7 +126,7 @@ class ProgramBucketTest extends TestCase
             ->assertViewHas('total', 0)
             ->assertViewHas('scopeWarning', true)
             ->assertDontSee('SOMEWHERE')
-            ->assertSee('belum terhubung ke branch');
+            ->assertSee('Scope lokasi akun Anda belum diatur');
 
         $this->actingAs($orphan)->get(route('program.index'))
             ->assertOk()

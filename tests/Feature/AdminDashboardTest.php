@@ -161,6 +161,28 @@ class AdminDashboardTest extends TestCase
             ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, false));
     }
 
+    public function test_matrix_drill_down_returns_matching_lops_without_leaking_other_admin_scope(): void
+    {
+        $sidoarjo = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $sidoarjo->id_branch]);
+
+        $this->makeLop($admin, 'DRILL-SDA', 'SIDOARJO', 'recovery', 'waiting_approval');
+        $this->makeLop($admin, 'DRILL-SBY', 'SURABAYA', 'recovery', 'waiting_approval');
+        $this->makeLop($admin, 'DRILL-OTHER', 'SIDOARJO', 'preventive', 'draft');
+
+        $this->actingAs($admin)
+            ->getJson(route('dashboard.matrix-lops', [
+                'branch' => 'SIDOARJO',
+                'program' => 'recovery',
+                'status' => 'waiting_approval',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.incident', 'DRILL-SDA')
+            ->assertJsonMissing(['incident' => 'DRILL-SBY']);
+    }
+
     private function makeLop(
         User $creator,
         string $incident,

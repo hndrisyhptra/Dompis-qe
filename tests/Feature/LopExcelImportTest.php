@@ -111,7 +111,10 @@ class LopExcelImportTest extends TestCase
     {
         [$area, $region, $branch] = $this->seedAreaBranchServiceArea();
         Package::create(['code' => '5', 'name' => 'Paket 5']);
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create([
+            'branch_id' => $branch->id_branch,
+            'admin_scope_type' => 'branch',
+        ]);
 
         // Preview dulu (isi session)
         $this->actingAs($admin)->post(route('lop.import.preview'), [

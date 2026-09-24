@@ -48,7 +48,7 @@ class EvidenceArchiveTest extends TestCase
     public function test_service_builds_zip_named_after_lop_with_matching_folder_and_only_images(): void
     {
         Storage::fake('public');
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
         $lop = $this->completedLop($admin);
 
         $this->evidence($lop, 'after', 'a.jpg');
@@ -84,7 +84,7 @@ class EvidenceArchiveTest extends TestCase
     public function test_service_throws_when_lop_has_no_image_evidence(): void
     {
         Storage::fake('public');
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
         $lop = $this->completedLop($admin);
 
         $this->expectException(RuntimeException::class);
@@ -96,7 +96,7 @@ class EvidenceArchiveTest extends TestCase
     public function test_download_route_returns_zip_for_completed_lop(): void
     {
         Storage::fake('public');
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
         $lop = $this->completedLop($admin);
         $this->evidence($lop, 'after', 'a.jpg');
 
@@ -110,7 +110,7 @@ class EvidenceArchiveTest extends TestCase
     public function test_download_route_404_when_lop_not_completed(): void
     {
         Storage::fake('public');
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
         $lop = $this->completedLop($admin);
         $lop->update(['status_lop' => 'waiting_approval']);
         $this->evidence($lop, 'after', 'a.jpg');

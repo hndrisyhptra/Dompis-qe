@@ -1,0 +1,2 @@
+@props(['value', 'title', 'filters' => [], 'suffix' => ''])
+<button type="button" @click="open(@js($title), @js($filters))" title="Buka daftar LOP — {{ $title }}" {{ $attributes->class('font-extrabold tabular-nums transition hover:text-brand-600 hover:underline focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:text-brand-400') }}>{{ $value }}{{ $suffix }}</button>

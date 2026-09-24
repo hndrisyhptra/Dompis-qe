@@ -28,11 +28,20 @@ class LopPermissionTest extends TestCase
         ServiceArea::updateOrCreate(['workzone' => 'SBY'], ['name' => 'SURABAYA', 'branch_id' => $branchSby->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
     }
 
+    private function scopedAdmin(string $code = 'SDA', string $name = 'SIDOARJO'): User
+    {
+        $this->seedAreaBranchServiceArea($code, $name);
+        $branch = Branch::query()->where('code', $code)->firstOrFail();
+
+        return User::factory()->role(UserRole::ADMIN->value)->create([
+            'admin_scope_type' => 'branch',
+            'branch_id' => $branch->id_branch,
+        ]);
+    }
+
     public function test_admin_can_create_lop(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
-        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
-        $this->seedAreaBranchServiceArea();
+        $admin = $this->scopedAdmin();
 
         $response = $this->actingAs($admin)->post(route('lop.store'), [
             'incident' => 'LOP-100',
@@ -71,13 +80,14 @@ class LopPermissionTest extends TestCase
      */
     public function test_admin_can_assign_technician_via_http(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = $this->scopedAdmin();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $lop = QeLop::create([
             'incident' => 'LOP-104',
             'nama_lop' => 'Recovery Jl. Braga',
             'program_type' => 'recovery',
+            'branch' => 'SIDOARJO',
             'status_lop' => 'draft',
             'created_by' => $admin->id_user,
         ]);
@@ -137,24 +147,26 @@ class LopPermissionTest extends TestCase
         $response->assertForbidden();
     }
 
-    public function test_admin_inbox_only_contains_lops_created_by_logged_in_admin_even_before_assignment(): void
+    public function test_admin_inbox_only_contains_lops_inside_admin_location_scope(): void
     {
-        $adminA = User::factory()->role(UserRole::ADMIN->value)->create();
-        $adminB = User::factory()->role(UserRole::ADMIN->value)->create();
+        $adminA = $this->scopedAdmin('SDA', 'SIDOARJO');
+        $adminB = $this->scopedAdmin('SBY', 'SURABAYA');
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $sdaBranch = Branch::query()->where('code', 'SDA')->firstOrFail();
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create([
             'name' => 'Teknisi Modal Test',
+            'branch_id' => $sdaBranch->id_branch,
         ]);
 
         QeLop::create([
             'incident' => 'LOP-ADMIN-A', 'nama_lop' => 'Project Admin A',
-            'program_type' => 'recovery', 'status_lop' => 'draft',
+            'program_type' => 'recovery', 'status_lop' => 'draft', 'branch' => 'SIDOARJO',
             'created_by' => $adminA->id_user,
         ]);
 
         $lopAdminB = QeLop::create([
             'incident' => 'LOP-ADMIN-B', 'nama_lop' => 'Project Admin B',
-            'program_type' => 'recovery', 'status_lop' => 'assigned',
+            'program_type' => 'recovery', 'status_lop' => 'assigned', 'branch' => 'SURABAYA',
             'created_by' => $adminB->id_user,
         ]);
         $lopAdminB->assignments()->create([
@@ -180,11 +192,11 @@ class LopPermissionTest extends TestCase
 
     public function test_assign_from_inbox_redirects_back_to_inbox(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = $this->scopedAdmin();
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-ASSIGN-INBOX', 'nama_lop' => 'Assign dari Inbox',
-            'program_type' => 'recovery', 'status_lop' => 'draft',
+            'program_type' => 'recovery', 'status_lop' => 'draft', 'branch' => 'SIDOARJO',
             'created_by' => $admin->id_user,
         ]);
 
@@ -210,10 +222,9 @@ class LopPermissionTest extends TestCase
 
     public function test_super_admin_can_assign_any_lop_and_admin_can_assign_within_branch(): void
     {
-        $creator = User::factory()->role(UserRole::ADMIN->value)->create();
+        $creator = $this->scopedAdmin('SDA', 'SIDOARJO');
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
-        $branch = Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
-        $branchAdmin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $branchAdmin = $this->scopedAdmin('SBY', 'SURABAYA');
         $outsideAdmin = User::factory()->role(UserRole::ADMIN->value)->create();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
@@ -225,7 +236,7 @@ class LopPermissionTest extends TestCase
 
         $this->assertTrue($superAdmin->can('assign', $lop));   // super admin: LOP apa pun
         $this->assertTrue($branchAdmin->can('assign', $lop));  // admin: LOP di branch-nya
-        $this->assertTrue($creator->can('assign', $lop));      // admin: LOP buatannya
+        $this->assertFalse($creator->can('assign', $lop));     // pembuat di luar scope tidak memperoleh akses khusus
         $this->assertFalse($outsideAdmin->can('assign', $lop)); // admin lain, beda branch
 
         $this->actingAs($superAdmin)->post(route('lop.assign', $lop), [
@@ -240,12 +251,12 @@ class LopPermissionTest extends TestCase
 
     public function test_admin_can_remove_wrong_assignment_before_pickup(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
-        $otherAdmin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = $this->scopedAdmin('SDA', 'SIDOARJO');
+        $otherAdmin = $this->scopedAdmin('SBY', 'SURABAYA');
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-UNASSIGN', 'nama_lop' => 'Salah Teknisi',
-            'program_type' => 'recovery', 'status_lop' => 'assigned',
+            'program_type' => 'recovery', 'status_lop' => 'assigned', 'branch' => 'SIDOARJO',
             'created_by' => $admin->id_user,
         ]);
         $assignment = $lop->assignments()->create([

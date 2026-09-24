@@ -15,10 +15,14 @@ class UserPermissionTest extends TestCase
     public function test_super_admin_can_view_user_list(): void
     {
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $target = User::factory()->role(UserRole::TEKNISI->value)->create();
 
         $response = $this->actingAs($superAdmin)->get(route('users.index'));
 
-        $response->assertOk();
+        $response->assertOk()
+            ->assertSee('edit-user-modal-'.$target->id_user, false)
+            ->assertSee('Simpan Perubahan')
+            ->assertSee('Logout');
     }
 
     public function test_super_admin_can_create_user(): void

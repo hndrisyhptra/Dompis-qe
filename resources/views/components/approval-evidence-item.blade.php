@@ -14,51 +14,40 @@
     };
 @endphp
 
-<article class="overflow-hidden rounded-xl border {{ $statusBorder }} bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-ink-900">
-    <button type="button" onclick="document.getElementById('evidence-preview-{{ $evidence->id_evidence }}').showModal()" class="group relative block aspect-[4/3] w-full overflow-hidden bg-ink-950 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/50">
+<article class="min-w-0 rounded-xl border {{ $statusBorder }} bg-white p-1.5 shadow-sm transition hover:shadow-md dark:bg-ink-900">
+    <button type="button" onclick="document.getElementById('evidence-preview-{{ $evidence->id_evidence }}').showModal()" class="group relative block aspect-square w-full overflow-hidden rounded-lg bg-ink-950 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/50">
         @if ($isImage)
             <img src="{{ $thumbUrl }}" alt="{{ $fileName }}" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]">
         @else
-            <span class="grid h-full place-items-center text-center"><span><span class="block text-3xl font-extrabold text-brand-400">PDF</span><span class="mt-1 block text-[10px] text-ink-300">Preview dokumen</span></span></span>
+            <span class="grid h-full place-items-center text-center"><span><span class="block text-xl font-extrabold text-brand-400">PDF</span><span class="mt-1 block text-[8px] text-ink-300">Dokumen</span></span></span>
         @endif
-        <span class="absolute left-2.5 top-2.5"><x-badge :variant="$evidence->status->badgeVariant()" class="shadow-sm">{{ $evidence->status->label() }}</x-badge></span>
-        <span class="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1.5 rounded-lg bg-ink-950/80 px-2.5 py-1.5 text-[10px] font-bold text-white">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg>
-            Preview
-        </span>
+        <span class="absolute left-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[8px] font-extrabold text-white shadow-sm {{ $evidence->status === \App\Enums\EvidenceStatus::APPROVED ? 'bg-emerald-600' : ($evidence->status === \App\Enums\EvidenceStatus::REJECTED ? 'bg-brand-600' : 'bg-amber-500') }}">{{ $evidence->status->label() }}</span>
+        <span class="absolute inset-0 grid place-items-center bg-black/0 text-transparent transition group-hover:bg-black/25 group-hover:text-white"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></span>
     </button>
 
-    <div class="p-3">
-        <p class="truncate text-xs font-extrabold text-ink-900 dark:text-white" title="{{ $fileName }}">{{ $fileName }}</p>
-        <div class="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-ink-400">
-            <span class="truncate">{{ $evidence->uploader?->name ?? 'Teknisi —' }}</span>
-            <span class="shrink-0">{{ $evidence->created_at->format('d M, H:i') }}</span>
-        </div>
-
-        @if ($evidence->status === \App\Enums\EvidenceStatus::REJECTED && $evidence->review_note)
-            <p class="mt-2 line-clamp-2 rounded-lg bg-brand-50 p-2 text-[10px] leading-4 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300">{{ $evidence->review_note }}</p>
-        @endif
-
-        <div class="mt-3 grid grid-cols-2 gap-2">
+    <div class="px-0.5 pt-1.5">
+        <p class="truncate text-[9px] font-extrabold text-ink-900 dark:text-white" title="{{ $fileName }}">{{ $fileName }}</p>
+        <p class="mt-0.5 truncate text-[8px] text-ink-400">{{ $evidence->created_at->format('d M · H:i') }}</p>
+        <div class="mt-1.5 grid gap-1 {{ $evidence->status === \App\Enums\EvidenceStatus::PENDING ? 'grid-cols-3' : 'grid-cols-2' }}">
             @if ($evidence->status === \App\Enums\EvidenceStatus::PENDING)
                 @can('approve', $evidence)
-                    <button type="button" onclick="document.getElementById('evidence-approve-{{ $evidence->id_evidence }}').showModal()" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2 text-[10px] font-extrabold text-white transition hover:bg-emerald-700">
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Approve
+                    <button type="button" title="Approve evidence" onclick="document.getElementById('evidence-approve-{{ $evidence->id_evidence }}').showModal()" class="grid min-h-7 place-items-center rounded-lg bg-emerald-600 text-white transition hover:bg-emerald-700">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg><span class="sr-only">Approve</span>
                     </button>
-                    <button type="button" onclick="document.getElementById('evidence-reject-{{ $evidence->id_evidence }}').showModal()" class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-2 text-[10px] font-extrabold text-brand-700 transition hover:bg-brand-50 dark:border-brand-800 dark:text-brand-300 dark:hover:bg-brand-900/20">
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="m7 7 10 10M17 7 7 17"/></svg> Reject
+                    <button type="button" title="Reject evidence" onclick="document.getElementById('evidence-reject-{{ $evidence->id_evidence }}').showModal()" class="grid min-h-7 place-items-center rounded-lg border border-brand-200 text-brand-700 transition hover:bg-brand-50 dark:border-brand-800 dark:text-brand-300">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="m7 7 10 10M17 7 7 17"/></svg><span class="sr-only">Reject</span>
                     </button>
                 @endcan
             @else
                 @can('resetReview', $evidence)
-                    <button type="button" onclick="document.getElementById('evidence-reset-{{ $evidence->id_evidence }}').showModal()" class="col-span-2 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 text-[10px] font-extrabold text-amber-700 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.02 9.35h5.25V4.1M20.1 8.1A9 9 0 1 0 21 12"/></svg> Reset Review
+                    <button type="button" title="Reset review" onclick="document.getElementById('evidence-reset-{{ $evidence->id_evidence }}').showModal()" class="grid min-h-7 place-items-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.02 9.35h5.25V4.1M20.1 8.1A9 9 0 1 0 21 12"/></svg><span class="sr-only">Reset Review</span>
                     </button>
                 @endcan
             @endif
 
-            <button type="button" onclick="document.getElementById('evidence-detail-{{ $evidence->id_evidence }}').showModal()" class="col-span-2 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-ink-200 text-[10px] font-bold text-ink-600 transition hover:bg-ink-50 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">
-                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25h.008v.008h-.008v-.008Zm.75 8.25a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15ZM12 10.5V15"/></svg> Detail Evidence
+            <button type="button" title="Detail evidence" onclick="document.getElementById('evidence-detail-{{ $evidence->id_evidence }}').showModal()" class="grid min-h-7 place-items-center rounded-lg border border-ink-200 text-ink-600 transition hover:bg-ink-50 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25h.008v.008h-.008v-.008Zm.75 8.25a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15ZM12 10.5V15"/></svg><span class="sr-only">Detail Evidence</span>
             </button>
         </div>
     </div>

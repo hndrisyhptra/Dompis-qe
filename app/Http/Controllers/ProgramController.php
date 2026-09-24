@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ProgramType;
+use App\Enums\ProjectStatus;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
 use App\Services\ProjectProgressService;
-use Illuminate\Contracts\Database\Eloquent\Builder;
+use App\Services\LopVisibilityService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -40,6 +42,7 @@ class ProgramController extends Controller
 
     public function __construct(
         private readonly ProjectProgressService $progressService,
+        private readonly LopVisibilityService $visibility,
     ) {}
 
     public function index(Request $request): View|RedirectResponse
@@ -102,6 +105,17 @@ class ProgramController extends Controller
             $this->applyLocationFilter($base, $regionFilter, $branchFilter);
         }
 
+        $projectStatusCounts = $type->usesProjectStatus()
+            ? (clone $base)->toBase()->selectRaw('status_project, COUNT(*) as c')->groupBy('status_project')->pluck('c', 'status_project')->map(fn ($count) => (int) $count)->all()
+            : [];
+        $projectStatusFilter = $type->usesProjectStatus()
+            ? (ProjectStatus::tryFrom($request->string('project_status')->trim()->value()) ?? ProjectStatus::USULAN)
+            : null;
+
+        if ($projectStatusFilter !== null) {
+            $base->where('status_project', $projectStatusFilter);
+        }
+
         $counts = $this->statusCounts(clone $base);
         $bucketCounts = $this->bucketCounts($counts);
         $total = array_sum($counts);
@@ -121,7 +135,7 @@ class ProgramController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences',
+                'survey', 'evidences', 'branchRef', 'serviceArea',
             ]);
 
         if ($bucketFilter !== '') {
@@ -151,14 +165,16 @@ class ProgramController extends Controller
 
         return view('program.show', [
             'programType' => $type,
-            'programTypes' => ProgramType::cases(),
             'total' => $total,
             'buckets' => $buckets,
             'bucketFilter' => $bucketFilter,
             'branchBreakdown' => $branchBreakdown,
             'lops' => $lops,
             'search' => $search,
-            'technicians' => $this->activeTechnicians(),
+            'technicians' => $this->activeTechnicians($user),
+            'projectStatuses' => ProjectStatus::cases(),
+            'projectStatusFilter' => $projectStatusFilter,
+            'projectStatusCounts' => $projectStatusCounts,
             ...$this->locationOptions($regionFilter, $branchFilter),
             ...$this->scopeContext($user, $isSuperAdmin, $regionFilter, $branchFilter),
         ]);
@@ -167,14 +183,19 @@ class ProgramController extends Controller
     /**
      * Teknisi aktif untuk modal assign (dipakai di tabel Program bila user berhak).
      */
-    private function activeTechnicians()
+    private function activeTechnicians(User $user)
     {
-        return User::query()
+        $query = User::query()
             ->with('branch')
             ->whereHas('role', fn ($query) => $query->where('code', UserRole::TEKNISI->value))
             ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $query->whereIn('branch_id', $this->visibility->accessibleBranchIds($user));
+        }
+
+        return $query->get();
     }
 
     /**
@@ -191,6 +212,16 @@ class ProgramController extends Controller
                 'canFilterLocation' => true,
                 'scopeLabel' => $branchFilter ?: ($regionFilter ?: 'Semua region & branch'),
                 'scopeWarning' => false,
+            ];
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $hasScope = $this->visibility->accessibleServiceAreaIds($user)->isNotEmpty();
+
+            return [
+                'canFilterLocation' => false,
+                'scopeLabel' => $this->visibility->label($user),
+                'scopeWarning' => ! $hasScope,
             ];
         }
 
@@ -310,6 +341,10 @@ class ProgramController extends Controller
     {
         if ($user->hasRole(UserRole::SUPER_ADMIN)) {
             return $query;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->visibility->apply($query, $user);
         }
 
         $branchName = $user->branch?->name;

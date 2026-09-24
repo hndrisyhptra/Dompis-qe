@@ -13,7 +13,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AdminDashboardService
 {
-    public function __construct(private readonly ProjectProgressService $progressService) {}
+    public function __construct(
+        private readonly ProjectProgressService $progressService,
+        private readonly LopVisibilityService $visibility,
+    ) {}
 
     public function dashboard(User $user, array $filters): array
     {
@@ -91,8 +94,8 @@ class AdminDashboardService
 
         return [
             'isSuperAdmin' => $isSuperAdmin,
-            'scopeLabel' => $isSuperAdmin ? 'Seluruh wilayah operasional' : ($user->branch?->name ?? 'Branch belum diatur'),
-            'scopeWarning' => ! $isSuperAdmin && ! $user->branch,
+            'scopeLabel' => $isSuperAdmin ? 'Seluruh wilayah operasional' : $this->visibility->label($user),
+            'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleServiceAreaIds($user)->isEmpty(),
             'stats' => $stats,
             'evidenceStats' => $evidenceStats,
             'matrixRegions' => $matrixRegions,
@@ -107,16 +110,82 @@ class AdminDashboardService
         ];
     }
 
+    /**
+     * Daftar ringkas untuk drill-down angka pada matrix Dashboard.
+     * Scope pengguna selalu diterapkan kembali di server; parameter dari UI
+     * hanya mempersempit hasil dan tidak dapat memperluas akses Admin.
+     */
+    public function matrixLops(User $user, array $filters): array
+    {
+        $query = $this->scopedLops($user);
+        $normalized = [
+            'region' => trim((string) ($filters['region'] ?? '')),
+            'branch' => trim((string) ($filters['branch'] ?? '')),
+            'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '',
+            'status' => LopStatus::tryFrom((string) ($filters['status'] ?? ''))?->value ?? '',
+            'metric' => in_array(($filters['metric'] ?? ''), ['assigned', 'in_review', 'complete'], true)
+                ? (string) $filters['metric']
+                : '',
+        ];
+
+        if ($normalized['region'] !== '') {
+            $query->whereIn('branch', Branch::query()->where('region', $normalized['region'])->select('name'));
+        }
+        if ($normalized['branch'] !== '') {
+            $query->where('branch', $normalized['branch']);
+        }
+        if ($normalized['program'] !== '') {
+            $query->where('program_type', $normalized['program']);
+        }
+        if ($normalized['status'] !== '') {
+            $query->where('status_lop', $normalized['status']);
+        }
+
+        match ($normalized['metric']) {
+            'assigned' => $query->whereHas('activeAssignment'),
+            'in_review' => $query->where('status_lop', LopStatus::WAITING_APPROVAL),
+            'complete' => $query->where('status_lop', LopStatus::COMPLETED),
+            default => null,
+        };
+
+        $total = (clone $query)->count();
+        $rows = $query
+            ->with(['activeAssignment.technician', 'branchRef', 'serviceArea'])
+            ->latest('updated_at')
+            ->limit(100)
+            ->get()
+            ->map(function (QeLop $lop): array {
+                $status = $lop->status_lop instanceof LopStatus
+                    ? $lop->status_lop
+                    : LopStatus::from((string) $lop->status_lop);
+                $program = $lop->program_type instanceof ProgramType
+                    ? $lop->program_type
+                    : ProgramType::from((string) $lop->program_type);
+
+                return [
+                    'incident' => $lop->incident,
+                    'name' => $lop->nama_lop,
+                    'branch' => $lop->locationBranchName(),
+                    'service_area' => $lop->locationServiceAreaName(),
+                    'program' => $program->label(),
+                    'status' => $status->label(),
+                    'status_key' => $status->value,
+                    'technician' => $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan',
+                    'updated_at' => $lop->updated_at?->format('d M Y · H:i'),
+                    'detail_url' => route('lop.show', $lop),
+                ];
+            })
+            ->values();
+
+        return ['total' => $total, 'data' => $rows];
+    }
+
     private function scopedLops(User $user): Builder
     {
         $query = QeLop::query();
 
         if ($user->hasRole(UserRole::ADMIN)) {
-            if ($user->branch) {
-                $query->where('branch', $user->branch->name);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $this->visibility->apply($query, $user);
         }
 
         return $query;
@@ -153,7 +222,7 @@ class AdminDashboardService
 
         $branchQuery = Branch::query()->orderBy('region')->orderBy('name');
         if ($user->hasRole(UserRole::ADMIN)) {
-            $branchQuery->whereKey($user->branch?->id_branch ?? 0);
+            $branchQuery->whereIn('id_branch', $this->visibility->accessibleBranchIds($user));
         } else {
             if ($filters['region'] !== '') {
                 $branchQuery->where('region', $filters['region']);

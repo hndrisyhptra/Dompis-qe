@@ -4,10 +4,12 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
+use App\Enums\AdminScopeType;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -33,6 +35,10 @@ class User extends Authenticatable
         'email',
         'phone',
         'branch_id',
+        'admin_scope_type',
+        'area_id',
+        'region_id',
+        'service_area_id',
         'status',
         'last_login_at',
     ];
@@ -58,6 +64,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'admin_scope_type' => AdminScopeType::class,
         ];
     }
 
@@ -77,6 +84,27 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'area_id', 'id_area');
+    }
+
+    public function region(): BelongsTo
+    {
+        return $this->belongsTo(Region::class, 'region_id', 'id_region');
+    }
+
+    public function serviceArea(): BelongsTo
+    {
+        return $this->belongsTo(ServiceArea::class, 'service_area_id', 'id_service_area');
+    }
+
+    public function serviceAreas(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceArea::class, 'user_service_areas', 'user_id', 'service_area_id')
+            ->withTimestamps();
+    }
+
     public function createdLops(): HasMany
     {
         return $this->hasMany(QeLop::class, 'created_by');
@@ -90,6 +118,11 @@ class User extends Authenticatable
     public function activeLopAssignments(): HasMany
     {
         return $this->lopAssignments()->where('status', 'active');
+    }
+
+    public function importBatches(): HasMany
+    {
+        return $this->hasMany(QeImportBatch::class, 'uploaded_by', 'id_user');
     }
 
     /**

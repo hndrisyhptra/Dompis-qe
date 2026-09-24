@@ -5,6 +5,10 @@ namespace Tests\Feature;
 use App\Enums\LopStatus;
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Models\Area;
+use App\Models\Branch;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Services\LopService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +17,16 @@ use Tests\TestCase;
 class LopWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'area_id' => $area->id_area, 'is_active' => true]);
+        $branch = Branch::updateOrCreate(['code' => 'SDA'], ['name' => 'SIDOARJO', 'region' => $region->name, 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SDA'], ['name' => 'SIDOARJO', 'branch_id' => $branch->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+    }
 
     public function test_lop_is_created_in_draft_status_and_history_recorded(): void
     {

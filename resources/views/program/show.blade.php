@@ -9,30 +9,37 @@
         'q' => $search,
         'region' => $regionFilter,
         'branch' => $branchFilter,
+        'project_status' => $projectStatusFilter?->value,
     ], fn ($v) => $v !== '' && $v !== null);
 @endphp
 <div class="mx-auto max-w-7xl space-y-6">
     @if ($scopeWarning)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-            Akun Anda belum terhubung ke branch, jadi tidak ada data Program yang bisa ditampilkan. Hubungi admin untuk mengatur branch akun Anda.
+            Scope lokasi akun Anda belum diatur, jadi data Program belum dapat ditampilkan. Hubungi Super Admin untuk mengatur Area, Region, Branch, atau Service Area akun Anda.
         </div>
     @endif
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header>
         <div>
             <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Pemetaan Program · {{ $scopeLabel }}</p>
             <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">{{ $programType->label() }}</h1>
             <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">{{ $total }} LOP · dikelompokkan per bucket status.</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            @foreach ($programTypes as $t)
-                <a href="{{ route('program.show', [$t->value, ...array_diff_key($carry, ['q' => 1])]) }}"
-                   class="inline-flex min-h-10 items-center rounded-xl border px-4 text-sm font-bold transition
-                          {{ $t === $programType
-                              ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500 dark:bg-brand-950/40 dark:text-brand-300'
-                              : 'border-ink-200 bg-white text-ink-600 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-300' }}">
-                    {{ $t->label() }}
-                </a>
-            @endforeach
+
+            @if ($programType->usesProjectStatus())
+                <nav class="mt-3 inline-flex rounded-lg border border-ink-200 bg-ink-50 p-0.5 dark:border-ink-700 dark:bg-ink-900" aria-label="Status project">
+                    @foreach ($projectStatuses as $projectStatus)
+                        <a href="{{ route('program.show', [$programType->value, ...array_merge($carry, ['project_status' => $projectStatus->value])]) }}"
+                           class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition
+                                  {{ $projectStatusFilter === $projectStatus
+                                      ? 'bg-white text-ink-900 shadow-sm ring-1 ring-ink-200 dark:bg-ink-800 dark:text-white dark:ring-ink-700'
+                                      : 'text-ink-500 hover:text-ink-900 dark:hover:text-white' }}">
+                            {{ $projectStatus->label() }}
+                            <span class="rounded px-1.5 py-0.5 text-[10px] tabular-nums {{ $projectStatusFilter === $projectStatus ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300' : 'bg-ink-200/70 dark:bg-ink-700' }}">
+                                {{ $projectStatusCounts[$projectStatus->value] ?? 0 }}
+                            </span>
+                        </a>
+                    @endforeach
+                </nav>
+            @endif
         </div>
     </header>
 
@@ -76,6 +83,9 @@
         <form method="GET" action="{{ route('program.show', $programType->value) }}"
               class="grid gap-3 {{ $canFilterLocation ? 'lg:grid-cols-[190px_190px_minmax(200px,1fr)_auto]' : 'sm:grid-cols-[minmax(200px,1fr)_auto]' }}">
             <input type="hidden" name="bucket" value="{{ $bucketFilter }}">
+            @if ($projectStatusFilter)
+                <input type="hidden" name="project_status" value="{{ $projectStatusFilter->value }}">
+            @endif
 
             @if ($canFilterLocation)
                 <select name="region" onchange="this.form.branch.value=''; this.form.submit()"
@@ -122,7 +132,10 @@
                     <td class="px-5 py-4">
                         <p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>
                         <p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p>
-                        <p class="mt-1 text-xs text-ink-400">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }}</p>
+                        <p class="mt-1 text-xs text-ink-400">{{ $lop->locationServiceAreaName() ?: 'STO —' }} · {{ $lop->locationBranchName() ?: 'Branch —' }}</p>
+                        @if ($lop->status_project)
+                            <span class="mt-2 inline-flex rounded-md bg-ink-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $lop->status_project->label() }}</span>
+                        @endif
                     </td>
                     <td class="px-5 py-4">
                         <div class="flex items-center gap-2">

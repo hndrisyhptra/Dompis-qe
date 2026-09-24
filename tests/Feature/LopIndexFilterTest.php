@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\Area;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,10 +16,23 @@ class LopIndexFilterTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function scopedAdmin(bool $allBranches = false): User
+    {
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'area_id' => $area->id_area, 'is_active' => true]);
+        $sda = Branch::updateOrCreate(['code' => 'SDA'], ['name' => 'SIDOARJO', 'region' => $region->name, 'region_id' => $region->id_region, 'is_active' => true]);
+        $sby = Branch::updateOrCreate(['code' => 'SBY'], ['name' => 'SURABAYA', 'region' => $region->name, 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SDA'], ['name' => 'SIDOARJO', 'branch_id' => $sda->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SBY'], ['name' => 'SURABAYA', 'branch_id' => $sby->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+
+        return User::factory()->role(UserRole::ADMIN->value)->create($allBranches
+            ? ['admin_scope_type' => 'area', 'area_id' => $area->id_area]
+            : ['admin_scope_type' => 'branch', 'branch_id' => $sda->id_branch]);
+    }
+
     public function test_missing_ihld_filter_shows_only_lops_without_ihld(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
-        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $admin = $this->scopedAdmin();
 
         QeLop::create([
             'incident' => 'FILT-1', 'nama_lop' => 'Tanpa IHLD',
@@ -40,9 +56,8 @@ class LopIndexFilterTest extends TestCase
 
     public function test_unassigned_filter_shows_only_draft_without_active_assignment(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $admin = $this->scopedAdmin();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
-        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
 
         $free = QeLop::create([
             'incident' => 'FREE-1', 'nama_lop' => 'Belum ditugaskan',
@@ -78,9 +93,7 @@ class LopIndexFilterTest extends TestCase
 
     public function test_branch_filter_limits_inbox_to_branch(): void
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
-        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
-        Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
+        $admin = $this->scopedAdmin(true);
 
         QeLop::create([
             'incident' => 'BR-1', 'nama_lop' => 'Sidoarjo',

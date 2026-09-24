@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AdminDashboardService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -15,6 +16,14 @@ class DashboardController extends Controller
         return view('dashboard.index', $this->dashboardService->dashboard(
             $request->user(),
             $request->only(['region', 'branch', 'program', 'status']),
+        ));
+    }
+
+    public function matrixLops(Request $request): JsonResponse
+    {
+        return response()->json($this->dashboardService->matrixLops(
+            $request->user(),
+            $request->only(['region', 'branch', 'program', 'status', 'metric']),
         ));
     }
 }

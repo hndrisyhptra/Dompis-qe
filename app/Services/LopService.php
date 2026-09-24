@@ -4,10 +4,14 @@ namespace App\Services;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\LopStatus;
+use App\Enums\ProgramType;
+use App\Enums\ProjectStatus;
+use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\QeLopAssignment;
 use App\Models\QeLopHistory;
 use App\Models\User;
+use App\Models\ServiceArea;
 use App\Notifications\TechnicianActivityNotification;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -21,7 +25,10 @@ use InvalidArgumentException;
  */
 class LopService
 {
-    public function __construct(private readonly LopNamingService $namingService) {}
+    public function __construct(
+        private readonly LopNamingService $namingService,
+        private readonly BoqService $boqService,
+    ) {}
 
     /**
      * Normalisasi segment: untuk relok_utilitas simpan array (preserve order, unique, max 3),
@@ -57,6 +64,8 @@ class LopService
     {
         return DB::transaction(function () use ($data, $creator) {
             $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
+            [$branch, $serviceArea] = $this->resolveLocation($data);
+            $program = ProgramType::from((string) $data['program_type']);
 
             // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)
             $namingData = array_merge($data, ['segment' => $normalizedSegment]);
@@ -67,8 +76,11 @@ class LopService
                     ? $data['nama_lop']
                     : $this->namingService->generate($namingData),
                 'program_type' => $data['program_type'],
-                'sto' => $data['sto'],
-                'branch' => $data['branch'],
+                'status_project' => $program->usesProjectStatus() ? ProjectStatus::USULAN : null,
+                'sto' => $serviceArea->workzone,
+                'branch' => $branch->name,
+                'branch_id' => $branch->id_branch,
+                'service_area_id' => $serviceArea->id_service_area,
                 'area' => $data['area'],
                 'segment' => $normalizedSegment,
                 'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
@@ -91,6 +103,8 @@ class LopService
     {
         $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
         $namingData = array_merge($data, ['segment' => $normalizedSegment]);
+        [$branch, $serviceArea] = $this->resolveLocation($data);
+        $program = ProgramType::from((string) $data['program_type']);
 
         $lop->update([
             'incident' => $data['incident'],
@@ -98,8 +112,13 @@ class LopService
                 ? $data['nama_lop']
                 : $this->namingService->generate($namingData),
             'program_type' => $data['program_type'],
-            'sto' => $data['sto'],
-            'branch' => $data['branch'],
+            'status_project' => $program->usesProjectStatus()
+                ? ($lop->activeAssignment()->exists() ? ProjectStatus::ON_GOING : ($lop->status_project ?? ProjectStatus::USULAN))
+                : null,
+            'sto' => $serviceArea->workzone,
+            'branch' => $branch->name,
+            'branch_id' => $branch->id_branch,
+            'service_area_id' => $serviceArea->id_service_area,
             'area' => $data['area'],
             'segment' => $normalizedSegment,
             'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
@@ -132,6 +151,14 @@ class LopService
                 'assigned_at' => now(),
                 'status' => AssignmentStatus::ACTIVE,
             ]);
+
+            if ($lop->program_type->usesProjectStatus()) {
+                $lop->update(['status_project' => ProjectStatus::ON_GOING]);
+            }
+
+            // BOQ adalah sumber awal reservasi. Sinkronisasi hanya mengisi
+            // reservasi kosong agar penyesuaian teknisi tidak hilang saat reassign.
+            $this->boqService->syncReservation($lop, $technician);
 
             $technician->notify(new TechnicianActivityNotification(
                 'Project baru ditugaskan',
@@ -178,6 +205,10 @@ class LopService
                     $actor,
                     "Assignment {$technician->name} dibatalkan"
                 );
+
+                if ($lop->program_type->usesProjectStatus()) {
+                    $lop->update(['status_project' => ProjectStatus::USULAN]);
+                }
             }
 
             $technician->notify(new TechnicianActivityNotification(
@@ -187,6 +218,43 @@ class LopService
                 'assignment_cancelled'
             ));
         });
+    }
+
+    public function delete(QeLop $lop, User $actor): void
+    {
+        DB::transaction(function () use ($lop, $actor) {
+            $this->recordHistory(
+                $lop,
+                $lop->status_lop,
+                $lop->status_lop,
+                $actor,
+                'deleted',
+                'LOP dihapus dari Master Data'
+            );
+            $lop->delete();
+        });
+    }
+
+    /** @return array{0: Branch, 1: ServiceArea} */
+    private function resolveLocation(array $data): array
+    {
+        $serviceArea = isset($data['service_area_id'])
+            ? ServiceArea::query()->with('branch')->find((int) $data['service_area_id'])
+            : ServiceArea::query()->with('branch')->where('workzone', mb_strtoupper(trim((string) ($data['sto'] ?? ''))))->first();
+
+        if ($serviceArea === null || $serviceArea->branch === null) {
+            throw new InvalidArgumentException('Service Area tidak ditemukan atau belum terhubung ke Branch.');
+        }
+
+        $branch = isset($data['branch_id'])
+            ? Branch::query()->find((int) $data['branch_id'])
+            : $serviceArea->branch;
+
+        if ($branch === null || (int) $branch->id_branch !== (int) $serviceArea->branch_id) {
+            throw new InvalidArgumentException('Branch tidak sesuai dengan Service Area yang dipilih.');
+        }
+
+        return [$branch, $serviceArea];
     }
 
     /**

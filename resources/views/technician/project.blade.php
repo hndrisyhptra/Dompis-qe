@@ -79,8 +79,8 @@
 
     @if ($step === 1)
         @php
-            $materialRows = $state['items']->map(fn ($item) => ['designator_id' => (string) $item->designator_id, 'qty' => (string) $item->qty])->values();
-            if ($materialRows->isEmpty()) $materialRows = collect([['designator_id' => '', 'qty' => 1]]);
+            $materialRows = $state['items']->values()->map(fn ($item, $index) => ['designator_id' => (string) $item->designator_id, 'qty' => (int) round((float) $item->qty), 'open' => $index === 0]);
+            if ($materialRows->isEmpty()) $materialRows = collect([['designator_id' => '', 'qty' => 1, 'open' => true]]);
             $materialOptions = $designators->map(fn ($d) => [
                 'id' => (string) $d->id_designator,
                 'label' => $d->code.' — '.$d->item_name.' ('.$d->unit.')',
@@ -88,44 +88,65 @@
             ])->values();
         @endphp
         <section class="mt-5" x-data="{ items: {{ Illuminate\Support\Js::from($materialRows) }}, materials: {{ Illuminate\Support\Js::from($materialOptions) }} }">
-            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih item yang akan digunakan dan masukkan jumlah kebutuhannya.</p></div>
+            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Buka kartu untuk memilih material. Kartu lain tetap ringkas agar daftar mudah ditinjau.</p></div>
             <form method="POST" action="{{ route('technician.projects.materials', $lop) }}" class="space-y-3">@csrf @method('PUT')
                 <template x-for="(item, index) in items" :key="index">
-                    <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
-                        <div class="flex items-center justify-between"><p class="text-xs font-bold">Material <span x-text="index + 1"></span></p><button type="button" @click="items.splice(index, 1)" x-show="items.length > 1" class="text-xs font-bold text-brand-600">Hapus</button></div>
-                        <div class="relative mt-3"
-                             x-data="{ open: false, q: '', limit: 8, all: materials, get matches() { const t = this.q.trim().toLowerCase(); return t ? this.all.filter(x => x.s.includes(t)) : this.all; } }"
-                             @click.outside="open = false" @keydown.escape="open = false">
-                            <input type="hidden" :name="`items[${index}][designator_id]`" :value="item.designator_id">
-                            <button type="button" @click="open = ! open"
-                                    class="min-h-12 w-full rounded-xl border border-ink-100 bg-white px-3 py-2 text-left text-xs dark:border-ink-700 dark:bg-ink-800"
-                                    :class="item.designator_id ? 'text-ink-900 dark:text-ink-50' : 'text-ink-400'">
-                                <span class="line-clamp-2" x-text="(all.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item designator'"></span>
+                    <div class="rounded-2xl border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
+                        <div class="flex items-stretch gap-1 p-2">
+                            <button type="button" @click="const next = !item.open; items.forEach(row => row.open = false); item.open = next"
+                                    class="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left active:bg-ink-50 dark:active:bg-ink-800">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-xs font-extrabold text-brand-700 dark:bg-brand-900/20 dark:text-brand-300" x-text="index + 1"></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-xs font-bold text-ink-800 dark:text-ink-100"
+                                          x-text="(materials.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item material'"></span>
+                                    <span class="mt-1 block text-[10px] text-ink-400" x-text="item.designator_id ? 'Tap untuk ubah material' : 'Belum memilih designator'"></span>
+                                </span>
+                                <span class="shrink-0 rounded-lg bg-ink-100 px-2 py-1 text-[10px] font-extrabold text-ink-600 dark:bg-ink-800 dark:text-ink-300"><span x-text="item.qty || 0"></span> qty</span>
+                                <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform" :class="item.open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25L12 15.75 4.5 8.25"/></svg>
                             </button>
-                            <div x-show="open" x-cloak x-transition.opacity
-                                 class="absolute left-0 right-0 z-20 mt-2 rounded-xl border border-ink-100 bg-white p-2 shadow-xl dark:border-ink-700 dark:bg-ink-800">
-                                <input type="text" x-model="q" placeholder="Cari kode atau nama material…"
-                                       x-ref="mq" x-effect="if (open) $nextTick(() => $refs.mq.focus())"
-                                       class="min-h-10 w-full rounded-lg border border-ink-100 bg-ink-50 px-3 text-xs dark:border-ink-700 dark:bg-ink-900">
-                                <ul class="mt-2 max-h-44 space-y-0.5 overflow-y-auto">
-                                    <template x-for="m in matches.slice(0, limit)" :key="m.id">
-                                        <li>
-                                            <button type="button" @click="item.designator_id = String(m.id); open = false; q = ''"
-                                                    class="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-brand-50 dark:hover:bg-ink-700"
-                                                    :class="String(m.id) === String(item.designator_id) ? 'bg-brand-50 font-bold text-brand-700 dark:bg-ink-700 dark:text-brand-300' : 'text-ink-700 dark:text-ink-200'"
-                                                    x-text="m.label"></button>
-                                        </li>
-                                    </template>
-                                    <li x-show="matches.length === 0" class="px-3 py-4 text-center text-xs text-ink-400">Tidak ada material yang cocok.</li>
-                                    <li x-show="matches.length > limit" class="px-3 pt-2 text-center text-[11px] text-ink-400"
-                                        x-text="`+${matches.length - limit} lainnya — ketik untuk mempersempit`"></li>
-                                </ul>
+                            <button type="button" @click="items.splice(index, 1)" x-show="items.length > 1"
+                                    class="grid w-10 shrink-0 place-items-center rounded-xl text-ink-400 hover:bg-brand-50 hover:text-brand-600" aria-label="Hapus material">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div x-show="item.open" x-cloak x-transition.opacity class="border-t border-ink-100 p-3 dark:border-ink-800">
+                            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px]">
+                                <div class="relative"
+                                     x-data="{ pickerOpen: false, q: '', limit: 8, all: materials, get matches() { const t = this.q.trim().toLowerCase(); return t ? this.all.filter(x => x.s.includes(t)) : this.all; } }"
+                                     @click.outside="pickerOpen = false" @keydown.escape="pickerOpen = false">
+                                    <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Item designator</label>
+                                    <input type="hidden" :name="`items[${index}][designator_id]`" :value="item.designator_id">
+                                    <button type="button" @click="pickerOpen = !pickerOpen"
+                                            class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-3 py-2 text-left text-xs dark:border-ink-700 dark:bg-ink-800"
+                                            :class="item.designator_id ? 'text-ink-900 dark:text-ink-50' : 'text-ink-400'">
+                                        <span class="line-clamp-2" x-text="(all.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item designator'"></span>
+                                    </button>
+                                    <div x-show="pickerOpen" x-cloak x-transition.opacity
+                                         class="absolute left-0 right-0 z-20 mt-2 rounded-xl border border-ink-100 bg-white p-2 shadow-xl dark:border-ink-700 dark:bg-ink-800">
+                                        <input type="text" x-model="q" placeholder="Cari kode atau nama…"
+                                               x-ref="mq" x-effect="if (pickerOpen) $nextTick(() => $refs.mq.focus())"
+                                               class="min-h-10 w-full rounded-lg border border-ink-100 bg-ink-50 px-3 text-xs dark:border-ink-700 dark:bg-ink-900">
+                                        <ul class="mt-2 max-h-44 space-y-0.5 overflow-y-auto">
+                                            <template x-for="m in matches.slice(0, limit)" :key="m.id">
+                                                <li><button type="button" @click="item.designator_id = String(m.id); pickerOpen = false; q = ''"
+                                                            class="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-brand-50 dark:hover:bg-ink-700"
+                                                            :class="String(m.id) === String(item.designator_id) ? 'bg-brand-50 font-bold text-brand-700 dark:bg-ink-700 dark:text-brand-300' : 'text-ink-700 dark:text-ink-200'" x-text="m.label"></button></li>
+                                            </template>
+                                            <li x-show="matches.length === 0" class="px-3 py-4 text-center text-xs text-ink-400">Tidak ada material yang cocok.</li>
+                                            <li x-show="matches.length > limit" class="px-3 pt-2 text-center text-[11px] text-ink-400" x-text="`+${matches.length - limit} lainnya`"></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Quantity</label>
+                                    <input type="number" min="1" step="1" inputmode="numeric" x-model.number="item.qty" :name="`items[${index}][qty]`" required
+                                           class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-3 text-sm font-bold dark:border-ink-700 dark:bg-ink-800">
+                                </div>
                             </div>
                         </div>
-                        <div class="mt-3"><label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Quantity</label><input type="number" min="0.001" step="0.001" x-model="item.qty" :name="`items[${index}][qty]`" required class="mt-1 min-h-12 w-full rounded-xl border border-ink-100 bg-white px-3 text-sm font-bold dark:border-ink-700 dark:bg-ink-800"></div>
                     </div>
                 </template>
-                <button type="button" @click="items.push({ designator_id: '', qty: 1 })" class="min-h-11 w-full rounded-2xl border-2 border-dashed border-ink-200 text-xs font-bold text-ink-600 dark:border-ink-700 dark:text-ink-300">+ Tambah material</button>
+                <button type="button" @click="items.forEach(row => row.open = false); items.push({ designator_id: '', qty: 1, open: true })" class="min-h-11 w-full rounded-2xl border-2 border-dashed border-ink-200 text-xs font-bold text-ink-600 dark:border-ink-700 dark:text-ink-300">+ Tambah material</button>
                 <button type="submit" :disabled="items.some(i => ! i.designator_id)" :class="items.some(i => ! i.designator_id) ? 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' : 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'" class="min-h-12 w-full rounded-2xl text-sm font-extrabold transition">Simpan &amp; lanjut Material Tiba</button>
             </form>
         </section>
@@ -161,7 +182,7 @@
             <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 4</p><h2 class="mt-1 text-lg font-extrabold">Evidence Progress</h2><p class="mt-1 text-xs leading-5 text-ink-500">Dokumentasi proses instalasi untuk setiap material yang direservasi.</p></div>
             @foreach ($state['items'] as $item)
                 <x-technician-evidence-uploader :lop="$lop" category="progress" :designator-id="$item->designator_id"
-                    :title="'Progress · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(float)$item->qty.' '.$item->designator->unit"
+                    :title="'Progress · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(int) round((float) $item->qty).' '.$item->designator->unit"
                     :existing="$evidenceFor('progress', $item->designator_id)" />
             @endforeach
             <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
@@ -174,7 +195,7 @@
             <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 5</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir untuk setiap material yang digunakan, foto slot port, dan rekap material.</p></div>
             @foreach ($state['items'] as $item)
                 <x-technician-evidence-uploader :lop="$lop" category="after" :designator-id="$item->designator_id"
-                    :title="'After · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(float)$item->qty.' '.$item->designator->unit"
+                    :title="'After · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(int) round((float) $item->qty).' '.$item->designator->unit"
                     :existing="$evidenceFor('after', $item->designator_id)" />
             @endforeach
 
@@ -187,7 +208,7 @@
                     'code' => $item->designator->code,
                     'name' => $item->designator->item_name,
                     'unit' => $item->designator->unit,
-                    'reserved' => (float) $item->qty,
+                    'reserved' => (int) round((float) $item->qty),
                     'actual' => $item->qty_actual !== null ? (float) $item->qty_actual : '',
                 ])->values();
             @endphp

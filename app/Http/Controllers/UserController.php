@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AdminScopeType;
+use App\Enums\UserRole;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\Area;
 use App\Models\Branch;
+use App\Models\Region;
 use App\Models\Role;
+use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\LopVisibilityService;
 use App\Services\UserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,13 +20,16 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
-    public function __construct(private readonly UserService $userService) {}
+    public function __construct(
+        private readonly UserService $userService,
+        private readonly LopVisibilityService $visibility,
+    ) {}
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', User::class);
 
-        $query = User::query()->with(['role', 'branch']);
+        $query = User::query()->with(['role', 'area', 'region', 'branch', 'serviceAreas']);
 
         if ($search = $request->string('q')->trim()->value()) {
             $query->where(function ($q) use ($search) {
@@ -34,11 +43,18 @@ class UserController extends Controller
             $query->where('role_id', $roleId);
         }
 
+        $users = $query->latest()->paginate(20)->withQueryString();
+        $users->getCollection()->each(function (User $user) {
+            $user->setAttribute('scope_label', $user->hasRole(UserRole::ADMIN)
+                ? $this->visibility->label($user)
+                : ($user->branch?->name ?? 'Tanpa scope LOP'));
+        });
+
         return view('users.index', [
-            'users' => $query->latest()->paginate(20)->withQueryString(),
-            'roles' => Role::orderBy('name')->get(),
+            'users' => $users,
             'q' => $search,
             'roleFilter' => $roleId,
+            ...$this->formOptions(),
         ]);
     }
 
@@ -46,10 +62,7 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        return view('users.create', [
-            'roles' => Role::orderBy('name')->get(),
-            'branches' => Branch::orderBy('name')->get(),
-        ]);
+        return view('users.create', $this->formOptions());
     }
 
     public function store(StoreUserRequest $request): RedirectResponse
@@ -65,20 +78,21 @@ class UserController extends Controller
     {
         $this->authorize('view', $user);
 
-        $user->load(['role', 'branch', 'historyEntries.actor']);
+        $user->load(['role', 'area', 'region', 'branch', 'serviceArea', 'serviceAreas.branch', 'historyEntries.actor']);
 
-        return view('users.show', ['user' => $user]);
+        return view('users.show', [
+            'user' => $user,
+            'scopeLabel' => $user->hasRole(UserRole::ADMIN) ? $this->visibility->label($user) : null,
+        ]);
     }
 
     public function edit(User $user): View
     {
         $this->authorize('update', $user);
 
-        return view('users.edit', [
-            'user' => $user,
-            'roles' => Role::orderBy('name')->get(),
-            'branches' => Branch::orderBy('name')->get(),
-        ]);
+        $user->load('serviceAreas');
+
+        return view('users.edit', array_merge($this->formOptions(), ['user' => $user]));
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
@@ -134,5 +148,18 @@ class UserController extends Controller
         return redirect()
             ->route('users.show', $user)
             ->with('status', 'User berhasil dipulihkan.');
+    }
+
+    private function formOptions(): array
+    {
+        return [
+            'roles' => Role::orderBy('name')->get(),
+            'adminRoleId' => Role::query()->where('code', UserRole::ADMIN->value)->value('id'),
+            'scopeTypes' => AdminScopeType::cases(),
+            'areas' => Area::query()->where('is_active', true)->orderBy('name')->get(),
+            'regions' => Region::query()->with('area')->where('is_active', true)->orderBy('name')->get(),
+            'branches' => Branch::query()->with('regionRef.area')->where('is_active', true)->orderBy('name')->get(),
+            'serviceAreas' => ServiceArea::query()->with('branch.regionRef')->where('is_active', true)->orderBy('workzone')->get(),
+        ];
     }
 }

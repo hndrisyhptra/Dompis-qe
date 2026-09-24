@@ -9,6 +9,8 @@ use App\Models\DesignatorCategory;
 use App\Models\DesignatorPackagePrice;
 use App\Models\DesignatorType;
 use App\Models\Package;
+use App\Models\QeBoq;
+use App\Models\QeLop;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\TicketSegmentMap;
@@ -25,6 +27,8 @@ class MasterDataController extends Controller
         $this->authorize('manage-master-data');
 
         $entities = [
+            ['label' => 'Data LOP', 'route' => 'data-lops.index', 'count' => QeLop::count(), 'desc' => 'LOP hasil input manual maupun Bulk Import.'],
+            ['label' => 'Data BOQ', 'route' => 'data-boqs.index', 'count' => QeBoq::count(), 'desc' => 'BOQ per LOP beserta item material dan jasa.'],
             ['label' => 'Area', 'route' => 'areas.index', 'count' => Area::count(), 'desc' => 'Area operasional — induk region (saat ini Area 3).'],
             ['label' => 'Region', 'route' => 'regions.index', 'count' => Region::count(), 'desc' => 'Wilayah operasional (JATIM, JATENG DIY, BALNUS).'],
             ['label' => 'Branch', 'route' => 'branches.index', 'count' => Branch::count(), 'desc' => 'Cabang / witel di bawah tiap region.'],

@@ -34,4 +34,9 @@ enum ProgramType: string
             self::RELOK_UTILITAS => 3,
         };
     }
+
+    public function usesProjectStatus(): bool
+    {
+        return $this !== self::RECOVERY;
+    }
 }

@@ -81,23 +81,50 @@ class TechnicianMobileWorkflowTest extends TestCase
 
         $this->actingAs($technician)
             ->put(route('technician.projects.materials', $lop), [
-                'items' => [['designator_id' => $designator->id_designator, 'qty' => 12.5]],
+                'items' => [['designator_id' => $designator->id_designator, 'qty' => 12]],
             ])->assertRedirect();
 
         $this->assertSame('survey', $lop->fresh()->status_lop->value);
         $this->assertDatabaseHas('qe_material_reservation_items', [
             'designator_id' => $designator->id_designator,
-            'qty' => 12.5,
+            'qty' => 12,
         ]);
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 2]))
             ->assertOk()
-            ->assertSee('Evidence Material Tiba');
+            ->assertSee('Evidence Material Tiba')
+            ->assertSee('Pilih, review, hapus jika perlu, lalu upload.')
+            ->assertSee('Ambil foto')
+            ->assertSee('Galeri / file')
+            ->assertSee('@click="startUploads()"', false);
 
         // Step 3 masih terkunci selama step 2 (Material Tiba) belum lengkap.
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 3]))
             ->assertRedirect(route('technician.projects.show', [$lop, 'step' => 2]));
+    }
+
+    public function test_material_reservation_quantity_must_be_a_whole_number(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $designator = Designator::create([
+            'code' => 'M-WHOLE-NUMBER',
+            'item_name' => 'Kabel Fiber Optik',
+            'unit' => 'meter',
+            'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
+        ]);
+
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+
+        $this->actingAs($technician)
+            ->put(route('technician.projects.materials', $lop), [
+                'items' => [['designator_id' => $designator->id_designator, 'qty' => 12.5]],
+            ])
+            ->assertSessionHasErrors('items.0.qty');
+
+        $this->assertDatabaseMissing('qe_material_reservation_items', [
+            'designator_id' => $designator->id_designator,
+        ]);
     }
 
     public function test_steps_ahead_of_the_first_incomplete_step_are_locked(): void

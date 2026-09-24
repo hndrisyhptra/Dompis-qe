@@ -66,8 +66,8 @@
                 <dd class="text-ink-900 dark:text-ink-50 mt-0.5">{{ $user->phone ?? '—' }}</dd>
             </div>
             <div>
-                <dt class="text-ink-500 dark:text-ink-400">Branch</dt>
-                <dd class="text-ink-900 dark:text-ink-50 mt-0.5">{{ $user->branch?->name ?? '—' }}</dd>
+                <dt class="text-ink-500 dark:text-ink-400">Scope Akses</dt>
+                <dd class="text-ink-900 dark:text-ink-50 mt-0.5">{{ $scopeLabel ?? $user->branch?->name ?? '—' }}</dd>
             </div>
             <div>
                 <dt class="text-ink-500 dark:text-ink-400">Login Terakhir</dt>

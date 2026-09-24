@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -50,38 +51,48 @@ class EvidenceService
         // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.
         $uuid = (string) Str::uuid();
 
-        $path = $file->storeAs($dir, $uuid.'.'.$file->getClientOriginalExtension(), $this->disk());
+        $path = $this->storeUploadedFile($file, $dir, $uuid);
         if (is_array($writtenPaths)) {
             $writtenPaths[] = $path;
         }
 
         $thumbPath = null;
         if ($thumb) {
-            $thumbPath = $thumb->storeAs($dir, $uuid.'_thumb.'.$thumb->getClientOriginalExtension(), $this->disk());
-            if (is_array($writtenPaths)) {
-                $writtenPaths[] = $thumbPath;
+            try {
+                $thumbPath = $this->storeUploadedFile($thumb, $dir, $uuid.'_thumb');
+                if (is_array($writtenPaths)) {
+                    $writtenPaths[] = $thumbPath;
+                }
+            } catch (Throwable $exception) {
+                Storage::disk($this->disk())->delete($path);
+                throw $exception;
             }
         }
 
-        return QeEvidence::create([
-            'qe_lop_id' => $lop->id_qe_lops,
-            'designator_id' => $data['designator_id'] ?? null,
-            'uploaded_by' => $actor->id_user,
-            'step' => $data['step'],
-            'type' => $data['type'],
-            'category' => $data['category'] ?? null,
-            'file_path' => $path,
-            'thumb_path' => $thumbPath,
-            'metadata' => [
-                'original_name' => $file->getClientOriginalName(),
-                'mime' => $file->getClientMimeType(),
-                'size' => $file->getSize(),
-                'latitude' => $data['latitude'] ?? null,
-                'longitude' => $data['longitude'] ?? null,
-            ],
-            'note' => $data['note'] ?? null,
-            'status' => EvidenceStatus::PENDING,
-        ]);
+        try {
+            return QeEvidence::create([
+                'qe_lop_id' => $lop->id_qe_lops,
+                'designator_id' => $data['designator_id'] ?? null,
+                'uploaded_by' => $actor->id_user,
+                'step' => $data['step'],
+                'type' => $data['type'],
+                'category' => $data['category'] ?? null,
+                'file_path' => $path,
+                'thumb_path' => $thumbPath,
+                'metadata' => [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime' => $file->getClientMimeType(),
+                    'size' => $file->getSize(),
+                    'latitude' => $data['latitude'] ?? null,
+                    'longitude' => $data['longitude'] ?? null,
+                ],
+                'note' => $data['note'] ?? null,
+                'status' => EvidenceStatus::PENDING,
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk($this->disk())->delete(array_filter([$path, $thumbPath]));
+            throw $exception;
+        }
     }
 
     public function upload(QeLop $lop, array $data, UploadedFile $file, User $actor, ?UploadedFile $thumb = null): QeEvidence
@@ -142,10 +153,16 @@ class EvidenceService
         $dir = "evidences/{$evidence->qe_lop_id}/{$evidence->step->value}";
         $uuid = (string) Str::uuid();
 
-        $newPath = $file->storeAs($dir, $uuid.'.'.$file->getClientOriginalExtension(), $this->disk());
-        $newThumbPath = $thumb
-            ? $thumb->storeAs($dir, $uuid.'_thumb.'.$thumb->getClientOriginalExtension(), $this->disk())
-            : null;
+        $newPath = $this->storeUploadedFile($file, $dir, $uuid);
+
+        try {
+            $newThumbPath = $thumb
+                ? $this->storeUploadedFile($thumb, $dir, $uuid.'_thumb')
+                : null;
+        } catch (Throwable $exception) {
+            Storage::disk($this->disk())->delete($newPath);
+            throw $exception;
+        }
 
         $oldPaths = array_filter([$evidence->file_path, $evidence->thumb_path]);
 
@@ -271,5 +288,17 @@ class EvidenceService
             Storage::disk($this->disk())->delete(array_filter([$evidence->file_path, $evidence->thumb_path]));
             $evidence->delete();
         });
+    }
+
+    private function storeUploadedFile(UploadedFile $file, string $directory, string $baseName): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin');
+        $path = $file->storeAs($directory, $baseName.'.'.$extension, $this->disk());
+
+        if (! is_string($path) || $path === '' || ! Storage::disk($this->disk())->exists($path)) {
+            throw new RuntimeException('File evidence gagal disimpan ke storage.');
+        }
+
+        return $path;
     }
 }

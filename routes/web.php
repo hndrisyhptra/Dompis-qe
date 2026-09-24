@@ -2,14 +2,19 @@
 
 use App\Enums\UserRole;
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\BoqImportController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BulkLopImportController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataBoqController;
+use App\Http\Controllers\DataLopController;
 use App\Http\Controllers\DesignatorCategoryController;
 use App\Http\Controllers\DesignatorController;
 use App\Http\Controllers\DesignatorPriceController;
 use App\Http\Controllers\DesignatorTypeController;
 use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
+use App\Http\Controllers\ImportBatchController;
 use App\Http\Controllers\LopAssignmentController;
 use App\Http\Controllers\LopController;
 use App\Http\Controllers\LopImportController;
@@ -51,6 +56,9 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('dashboard');
+Route::get('/dashboard/matrix-lops', [DashboardController::class, 'matrixLops'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('dashboard.matrix-lops');
 
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {
@@ -63,6 +71,31 @@ Route::get('/', function () {
 
     return redirect()->route('lop.index');
 })->middleware('auth');
+
+Route::middleware('auth')->prefix('evidence-files')->name('evidence-files.')->group(function () {
+    Route::get('/{evidence}', [EvidenceController::class, 'file'])->name('show');
+    Route::get('/{evidence}/thumbnail', [EvidenceController::class, 'thumbnail'])->name('thumbnail');
+});
+
+Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
+    Route::prefix('bulk-import')->name('bulk-import.')->group(function () {
+        Route::get('/lop', [BulkLopImportController::class, 'index'])->name('lop.index');
+        Route::post('/lop', [BulkLopImportController::class, 'store'])->name('lop.store');
+        Route::get('/lop/template', [BulkLopImportController::class, 'template'])->name('lop.template');
+        Route::get('/boq', [BoqImportController::class, 'index'])->name('boq.index');
+        Route::post('/boq', [BoqImportController::class, 'store'])->name('boq.store');
+        Route::get('/boq/template', [BoqImportController::class, 'template'])->name('boq.template');
+    });
+
+    Route::get('/import-results/{batch}', [ImportBatchController::class, 'show'])->name('imports.show');
+    Route::get('/import-results/{batch}/status', [ImportBatchController::class, 'status'])->name('imports.status');
+
+    Route::get('/master-data/lops', [DataLopController::class, 'index'])->name('data-lops.index');
+    Route::delete('/master-data/lops/{qe_lop}', [DataLopController::class, 'destroy'])->name('data-lops.destroy');
+    Route::get('/master-data/boqs', [DataBoqController::class, 'index'])->name('data-boqs.index');
+    Route::put('/master-data/boqs/{boq}', [DataBoqController::class, 'update'])->name('data-boqs.update');
+    Route::delete('/master-data/boqs/{boq}', [DataBoqController::class, 'destroy'])->name('data-boqs.destroy');
+});
 
 Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/', [LopController::class, 'index'])->name('index');

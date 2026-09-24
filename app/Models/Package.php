@@ -27,6 +27,11 @@ class Package extends Model
         return $this->hasMany(DesignatorPackagePrice::class, 'package_id');
     }
 
+    public function boqs(): HasMany
+    {
+        return $this->hasMany(QeBoq::class, 'package_id', 'id_package');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

@@ -6,6 +6,7 @@ use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\ProgramType;
 use App\Support\DatekRules;
+use App\Services\LopVisibilityService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -95,6 +96,10 @@ class UpdateLopRequest extends FormRequest
             $sa = \App\Models\ServiceArea::where('workzone', $sto)->first();
             if ($sa && $sa->branch && $sa->branch->name !== $branchName) {
                 $v->errors()->add('sto', 'STO tidak termasuk dalam Branch terpilih.');
+            }
+
+            if ($branch && $sa && ! app(LopVisibilityService::class)->canUseLocation($this->user(), $branch->id_branch, $sa->id_service_area)) {
+                $v->errors()->add('sto', 'Service Area berada di luar scope admin Anda.');
             }
         });
     }

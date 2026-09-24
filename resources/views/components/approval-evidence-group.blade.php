@@ -21,7 +21,7 @@
             <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Daftar foto evidence</p>
             <p class="text-[10px] text-ink-400">Klik foto untuk preview</p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         @foreach ($items as $evidence)
             <x-approval-evidence-item :evidence="$evidence" />
         @endforeach

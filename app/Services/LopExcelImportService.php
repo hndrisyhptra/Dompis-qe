@@ -38,6 +38,8 @@ class LopExcelImportService
     public function __construct(
         private readonly LopService $lopService,
         private readonly ManualIncidentService $manualIncident,
+        private readonly BoqService $boqService,
+        private readonly LopVisibilityService $visibility,
     ) {}
 
     /**
@@ -331,6 +333,11 @@ class LopExcelImportService
             $lopData = $payload['lop'];
             $rows = $payload['rows'];
             $packageCode = $payload['package']['chosen'] ?? null;
+            $serviceArea = ServiceArea::query()->with('branch')->where('workzone', $lopData['sto'])->firstOrFail();
+            $branchModel = $serviceArea->branch;
+            if ($branchModel === null || ! $this->visibility->canUseLocation($actor, $branchModel->id_branch, $serviceArea->id_service_area)) {
+                throw new \InvalidArgumentException('Lokasi LOP berada di luar scope admin.');
+            }
 
             // 1. Auto-create designator yang belum ada (upsert by code)
             $typeIds = [
@@ -372,7 +379,6 @@ class LopExcelImportService
             // 3. Incident: generate INP bila kosong
             $incident = mb_strtoupper(trim((string) ($lopData['incident'] ?? '')));
             if ($incident === '') {
-                $branchModel = Branch::where('name', $lopData['branch'])->firstOrFail();
                 $incident = $this->manualIncident->generate($branchModel, ProgramType::from($lopData['program_type']));
             }
 
@@ -383,6 +389,8 @@ class LopExcelImportService
                 'program_type' => $lopData['program_type'],
                 'sto' => $lopData['sto'],
                 'branch' => $lopData['branch'],
+                'branch_id' => $branchModel->id_branch,
+                'service_area_id' => $serviceArea->id_service_area,
                 'area' => $lopData['area'],
                 'segment' => $lopData['segment'] ?? [],
                 'budget_type' => $lopData['budget_type'] ?? null,
@@ -444,6 +452,26 @@ class LopExcelImportService
                     'rows' => $snapshotRows,
                 ],
             ]);
+
+            // Sinkronkan format import lama ke tabel BOQ terstruktur supaya
+            // langsung tersedia di menu Data BOQ dan assignment berikutnya.
+            $boqItems = collect($rows)
+                ->where('status', 'ok')
+                ->map(fn ($row) => [
+                    'designator_id' => $designatorIds[$row['designator']],
+                    'qty' => $row['vol'],
+                    'unit_price' => $row['harga'],
+                ])
+                ->values()
+                ->all();
+
+            if ($boqItems !== []) {
+                $this->boqService->save($lop, $boqItems, $package, $actor, 'legacy_import');
+
+                $syncedSnapshot = $lop->refresh()->boq_snapshot;
+                $syncedSnapshot['package_detected'] = $payload['package']['detected'] ?? null;
+                $lop->update(['boq_snapshot' => $syncedSnapshot]);
+            }
 
             return $lop->refresh();
         });

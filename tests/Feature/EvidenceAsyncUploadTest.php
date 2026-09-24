@@ -67,18 +67,22 @@ class EvidenceAsyncUploadTest extends TestCase
 
         $service = app(EvidenceService::class);
 
-        $noThumb = $service->storeOne($lop, ['step' => 'PROGRESS', 'type' => 'PHOTO'], UploadedFile::fake()->image('a.webp'), $technician);
+        $noThumb = $service->storeOne($lop, ['step' => 'PROGRESS', 'type' => 'PHOTO'], UploadedFile::fake()->image('a.jpg'), $technician);
         $this->assertNull($noThumb->thumb_path);
+        $this->assertStringEndsWith('.jpg', $noThumb->file_path);
+        $this->assertSame('a.jpg', $noThumb->metadata['original_name']);
         Storage::disk('public')->assertExists($noThumb->file_path);
 
         $withThumb = $service->storeOne(
             $lop,
             ['step' => 'PROGRESS', 'type' => 'PHOTO'],
-            UploadedFile::fake()->image('b.webp'),
+            UploadedFile::fake()->image('b.png'),
             $technician,
             UploadedFile::fake()->image('b_thumb.webp'),
         );
         $this->assertNotNull($withThumb->thumb_path);
+        $this->assertStringEndsWith('.png', $withThumb->file_path);
+        $this->assertSame('b.png', $withThumb->metadata['original_name']);
         Storage::disk('public')->assertExists($withThumb->file_path);
         Storage::disk('public')->assertExists($withThumb->thumb_path);
         $this->assertStringContainsString('_thumb.', $withThumb->thumb_path);
@@ -108,6 +112,36 @@ class EvidenceAsyncUploadTest extends TestCase
             'step' => 'PROGRESS',
             'designator_id' => $designator->id_designator,
         ]);
+    }
+
+    public function test_uploaded_photo_is_streamed_through_authenticated_route_for_technician_and_reviewer(): void
+    {
+        Storage::fake('public');
+        [$admin, $technician, $lop] = $this->assignedProject();
+
+        $evidence = app(EvidenceService::class)->storeOne(
+            $lop,
+            ['step' => 'BEFORE', 'type' => 'PHOTO', 'category' => 'material_arrival'],
+            UploadedFile::fake()->image('mobile-photo.jpg'),
+            $technician,
+            UploadedFile::fake()->image('mobile-photo-thumb.webp'),
+        );
+
+        $this->assertStringContainsString('/evidence-files/'.$evidence->id_evidence, $evidence->url());
+        $this->assertStringNotContainsString('/storage/', $evidence->url());
+
+        $this->actingAs($technician)
+            ->get($evidence->url())
+            ->assertOk()
+            ->assertHeader('content-type', 'image/jpeg');
+
+        $this->actingAs($admin)
+            ->get($evidence->thumbUrl())
+            ->assertOk()
+            ->assertHeader('content-type', 'image/webp');
+
+        $otherTechnician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $this->actingAs($otherTechnician)->get($evidence->url())->assertForbidden();
     }
 
     public function test_evidence_file_endpoint_accepts_webp_and_rejects_bad_type(): void

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\User;
+use App\Services\LopVisibilityService;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -30,6 +31,14 @@ trait LocationScope
     ): Builder {
         if ($user->hasRole(...$unscopedRoles)) {
             return $query;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $table = str_ends_with($branchColumn, '.branch')
+                ? substr($branchColumn, 0, -strlen('.branch'))
+                : 'qe_lops';
+
+            return app(LopVisibilityService::class)->apply($query, $user, $table);
         }
 
         $branchName = $user->branch?->name;
@@ -117,6 +126,16 @@ trait LocationScope
                 'canFilterLocation' => true,
                 'scopeLabel' => $branchFilter ?: ($regionFilter ?: 'Semua region & branch'),
                 'scopeWarning' => false,
+            ];
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $visibility = app(LopVisibilityService::class);
+
+            return [
+                'canFilterLocation' => false,
+                'scopeLabel' => $visibility->label($user),
+                'scopeWarning' => $visibility->accessibleServiceAreaIds($user)->isEmpty(),
             ];
         }
 

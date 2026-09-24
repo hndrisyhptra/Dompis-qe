@@ -21,6 +21,7 @@ use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceArchiveService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
+use App\Services\LopVisibilityService;
 use App\Services\ManualIncidentService;
 use App\Services\ProjectProgressService;
 use App\Services\TicketLookupService;
@@ -42,6 +43,7 @@ class LopController extends Controller
         private readonly ManualIncidentService $manualIncident,
         private readonly DatekParserService $datekParser,
         private readonly EvidenceArchiveService $evidenceArchive,
+        private readonly LopVisibilityService $visibility,
     ) {}
 
     /**
@@ -198,9 +200,7 @@ class LopController extends Controller
         $this->authorize('create', QeLop::class);
 
         return view('lop.create', [
-            'areas' => Area::query()->where('is_active', true)->orderBy('code')->get(),
-            'branches' => Branch::query()->with('regionRef')->where('is_active', true)->orderBy('name')->get(),
-            'serviceAreas' => ServiceArea::query()->with(['branch','region'])->where('is_active', true)->orderBy('workzone')->get(),
+            ...$this->locationFormOptions(request()->user()),
             ...$this->formOptions(),
         ]);
     }
@@ -273,6 +273,19 @@ class LopController extends Controller
             ], 422);
         }
 
+        $serviceAreaId = filled($data['sto'] ?? null)
+            ? ServiceArea::where('workzone', mb_strtoupper(trim($data['sto'])))->value('id_service_area')
+            : null;
+        if ($request->user()->hasRole(UserRole::ADMIN)) {
+            $locationAllowed = $serviceAreaId !== null
+                ? $this->visibility->canUseLocation($request->user(), $branch->id_branch, $serviceAreaId)
+                : $this->visibility->accessibleBranchIds($request->user())->contains($branch->id_branch);
+
+            if (! $locationAllowed) {
+                return response()->json(['ok' => false, 'message' => 'Lokasi berada di luar scope admin Anda.'], 422);
+            }
+        }
+
         $incident = $this->manualIncident->generate($branch, ProgramType::from($data['program_type']));
 
         return response()->json([
@@ -327,9 +340,7 @@ class LopController extends Controller
 
         return view('lop.edit', [
             'lop' => $qe_lop,
-            'areas' => Area::query()->where('is_active', true)->orderBy('code')->get(),
-            'branches' => Branch::query()->with('regionRef')->where('is_active', true)->orderBy('name')->get(),
-            'serviceAreas' => ServiceArea::query()->with(['branch','region'])->where('is_active', true)->orderBy('workzone')->get(),
+            ...$this->locationFormOptions(request()->user()),
             ...$this->formOptions(),
         ]);
     }
@@ -381,7 +392,7 @@ class LopController extends Controller
         }
 
         if ($user->hasRole(UserRole::ADMIN)) {
-            $query->where('created_by', $user->id_user);
+            $this->visibility->apply($query, $user);
         }
 
         return $query;
@@ -402,11 +413,39 @@ class LopController extends Controller
 
     private function activeTechnicians()
     {
-        return User::query()
+        $query = User::query()
             ->with('branch')
             ->whereHas('role', fn ($query) => $query->where('code', UserRole::TEKNISI->value))
             ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
+
+        if (request()->user()->hasRole(UserRole::ADMIN)) {
+            $query->whereIn('branch_id', $this->visibility->accessibleBranchIds(request()->user()));
+        }
+
+        return $query->get();
+    }
+
+    private function locationFormOptions(User $user): array
+    {
+        $branchQuery = Branch::query()->with('regionRef.area')->where('is_active', true)->orderBy('name');
+        $serviceAreaQuery = ServiceArea::query()->with(['branch', 'region'])->where('is_active', true)->orderBy('workzone');
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $branchQuery->whereIn('id_branch', $this->visibility->accessibleBranchIds($user));
+            $serviceAreaQuery->whereIn('id_service_area', $this->visibility->accessibleServiceAreaIds($user));
+        }
+
+        $branches = $branchQuery->get();
+        $areaQuery = Area::query()->where('is_active', true)->orderBy('code');
+        if ($user->hasRole(UserRole::ADMIN)) {
+            $areaQuery->whereIn('id_area', $branches->pluck('regionRef.area_id')->filter()->unique());
+        }
+
+        return [
+            'areas' => $areaQuery->get(),
+            'branches' => $branches,
+            'serviceAreas' => $serviceAreaQuery->get(),
+        ];
     }
 }

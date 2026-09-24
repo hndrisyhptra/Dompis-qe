@@ -41,6 +41,11 @@ class Branch extends Model
         return $this->hasMany(ServiceArea::class, 'branch_id', 'id_branch');
     }
 
+    public function lops(): HasMany
+    {
+        return $this->hasMany(QeLop::class, 'branch_id', 'id_branch');
+    }
+
     /**
      * Relasi ke master Region. Dinamai regionRef() (bukan region()) supaya
      * tidak bentrok dengan kolom string denormalisasi `branches.region`

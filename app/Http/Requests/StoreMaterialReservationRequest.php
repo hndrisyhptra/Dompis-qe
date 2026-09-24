@@ -16,7 +16,15 @@ class StoreMaterialReservationRequest extends FormRequest
         return [
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.designator_id' => ['required', 'integer', 'distinct', 'exists:designators,id_designator'],
-            'items.*.qty' => ['required', 'numeric', 'gt:0', 'max:999999999999.999'],
+            'items.*.qty' => ['required', 'integer', 'min:1', 'max:999999999999'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'items.*.qty.integer' => 'Quantity material harus berupa angka bulat tanpa desimal.',
+            'items.*.qty.min' => 'Quantity material minimal 1.',
         ];
     }
 }

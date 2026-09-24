@@ -10,7 +10,8 @@
     </div>
 
     <x-card>
-        <form method="POST" action="{{ route('users.store') }}" class="space-y-5">
+        <form method="POST" action="{{ route('users.store') }}" class="space-y-5"
+              x-data="{ roleId: @js((string) old('role_id', '')), adminRoleId: @js((string) $adminRoleId), scopeType: @js(old('admin_scope_type', '')) }">
             @csrf
 
             <x-input name="name" label="Nama Lengkap" placeholder="Nama sesuai identitas" />
@@ -19,17 +20,13 @@
             <x-input name="email" label="Email (opsional)" type="email" />
             <x-input name="phone" label="No. Telepon (opsional)" />
 
-            <x-select name="role_id" label="Role" placeholder="Pilih role">
+            <x-select name="role_id" label="Role" placeholder="Pilih role" x-model="roleId">
                 @foreach ($roles as $role)
                     <option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>{{ $role->name }}</option>
                 @endforeach
             </x-select>
 
-            <x-select name="branch_id" label="Branch (opsional)" placeholder="Pilih branch">
-                @foreach ($branches as $branch)
-                    <option value="{{ $branch->id_branch }}" @selected(old('branch_id') == $branch->id_branch)>{{ $branch->name }}</option>
-                @endforeach
-            </x-select>
+            @include('users._access-scope')
 
             <x-select name="status" label="Status">
                 <option value="active" @selected(old('status', 'active') === 'active')>Aktif</option>

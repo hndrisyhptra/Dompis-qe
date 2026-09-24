@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\UserRole;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Services\LopVisibilityService;
 
 /**
  * Satu-satunya sumber kebenaran otorisasi untuk modul LOP. Controller TIDAK
@@ -13,6 +14,8 @@ use App\Models\User;
  */
 class QeLopPolicy
 {
+    public function __construct(private readonly LopVisibilityService $visibility) {}
+
     public function viewAny(User $user): bool
     {
         // Semua role login boleh melihat daftar (Inbox Active LOP / History),
@@ -23,8 +26,12 @@ class QeLopPolicy
 
     public function view(User $user, QeLop $lop): bool
     {
-        if ($user->hasRole(...[...UserRole::adminLevel(), ...UserRole::broadVisibility()])) {
+        if ($user->hasRole(UserRole::SUPER_ADMIN, ...UserRole::broadVisibility())) {
             return true;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->visibility->canAccess($user, $lop);
         }
 
         // Teknisi hanya boleh lihat LOP yang sedang/pernah ditugaskan padanya.
@@ -38,12 +45,19 @@ class QeLopPolicy
 
     public function update(User $user, QeLop $lop): bool
     {
-        return $user->hasRole(...UserRole::adminLevel());
+        return $user->hasRole(UserRole::SUPER_ADMIN)
+            || ($user->hasRole(UserRole::ADMIN) && $this->visibility->canAccess($user, $lop));
     }
 
     public function delete(User $user, QeLop $lop): bool
     {
-        return $user->hasRole(UserRole::SUPER_ADMIN);
+        $allowedRole = $user->hasRole(UserRole::SUPER_ADMIN)
+            || ($user->hasRole(UserRole::ADMIN) && $this->visibility->canAccess($user, $lop));
+
+        return $allowedRole
+            && $lop->status_lop->value === 'draft'
+            && ! $lop->assignments()->exists()
+            && ! $lop->evidences()->exists();
     }
 
     public function assign(User $user, QeLop $lop): bool
@@ -53,13 +67,12 @@ class QeLopPolicy
             return true;
         }
 
-        // ADMIN: LOP buatannya sendiri, atau LOP di branch-nya.
+        // ADMIN: hanya LOP di dalam scope lokasi akun.
         if (! $user->hasRole(UserRole::ADMIN)) {
             return false;
         }
 
-        return $lop->created_by === $user->id_user
-            || ($user->branch !== null && $lop->branch === $user->branch->name);
+        return $this->visibility->canAccess($user, $lop);
     }
 
     public function unassign(User $user, QeLop $lop): bool
@@ -91,8 +104,12 @@ class QeLopPolicy
      */
     public function uploadEvidence(User $user, QeLop $lop): bool
     {
-        if ($user->hasRole(...UserRole::adminLevel())) {
+        if ($user->hasRole(UserRole::SUPER_ADMIN)) {
             return true;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->visibility->canAccess($user, $lop);
         }
 
         if ($user->hasRole(UserRole::TEKNISI)) {
@@ -109,8 +126,12 @@ class QeLopPolicy
 
     public function transitionStatus(User $user, QeLop $lop): bool
     {
-        if ($user->hasRole(...UserRole::adminLevel())) {
+        if ($user->hasRole(UserRole::SUPER_ADMIN)) {
             return true;
+        }
+
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->visibility->canAccess($user, $lop);
         }
 
         // Approver hanya boleh transisi dari waiting_approval (approve/reject).
@@ -135,4 +156,5 @@ class QeLopPolicy
 
         return false;
     }
+
 }

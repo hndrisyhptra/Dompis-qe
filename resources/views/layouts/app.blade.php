@@ -87,19 +87,61 @@
             @endif
 
             @can('create', \App\Models\QeLop::class)
-                <a href="{{ route('lop.create') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop.create') ? $navLinkActive : $navLinkInactive }}">
-                    @if (request()->routeIs('lop.create'))
-                        <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                    @endif
-                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('lop.create') ? $navIconActive : $navIcon }}">
-                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
+                @php($importMenuOpen = request()->routeIs(['lop.create', 'bulk-import.*', 'imports.*']))
+                <div x-data="{ open: {{ $importMenuOpen ? 'true' : 'false' }} }">
+                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
+                        <span class="flex items-center gap-2.5">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0-4.5 4.5M12 4.5l4.5 4.5M4.5 15.75v3A2.25 2.25 0 006.75 21h10.5a2.25 2.25 0 002.25-2.25v-3" />
+                            </svg>
+                            Bulk Import Data
+                        </span>
+                        {!! $chevron !!}
+                    </button>
+                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                        @foreach ([
+                            'lop.create' => 'Input LOP Baru',
+                            'bulk-import.lop.index' => 'Bulk Import LOP',
+                            'bulk-import.boq.index' => 'Import BOQ',
+                        ] as $routeName => $label)
+                            @php($isActive = request()->routeIs($routeName) || (request()->routeIs('imports.*') && str_contains($routeName, request()->route('batch')?->type === 'boq' ? 'boq' : 'lop')))
+                            <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ $isActive ? $navSubLinkActive : $navSubLinkInactive }}">
+                                @if ($isActive)
+                                    <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                                @endif
+                                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"></span>
+                                {{ $label }}
+                            </a>
+                        @endforeach
                     </div>
-                    Input LOP Baru
-                </a>
+                </div>
             @endcan
+
+            @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
+                <div x-data="{ open: {{ request()->routeIs(['data-lops.*', 'data-boqs.*']) ? 'true' : 'false' }} }">
+                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
+                        <span class="flex items-center gap-2.5">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+                            </svg>
+                            Master LOP
+                        </span>
+                        {!! $chevron !!}
+                    </button>
+                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                        @foreach (['data-lops.index' => 'Data LOP', 'data-boqs.index' => 'Data BOQ'] as $routeName => $label)
+                            @php($group = \Illuminate\Support\Str::before($routeName, '.').'.*')
+                            <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ request()->routeIs($group) ? $navSubLinkActive : $navSubLinkInactive }}">
+                                @if (request()->routeIs($group))
+                                    <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                                @endif
+                                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"></span>
+                                {{ $label }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
             <div x-data="{ open: {{ request()->routeIs('lop.*') ? 'true' : 'false' }} }">
@@ -183,7 +225,7 @@
 
             {{-- ========== MASTER ========== --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))
-                <p class="{{ $navLabel }} mt-4">Master</p>
+                <p class="{{ $navLabel }} mt-4">Referensi</p>
                 <div x-data="{ open: {{ request()->routeIs(['designators.*', 'designator-prices.*', 'packages.*', 'ticket-segment-maps.*']) ? 'true' : 'false' }} }">
                     <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
                         <span class="flex items-center gap-2.5">
@@ -329,8 +371,9 @@
                     </div>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="text-sm font-medium text-ink-600 dark:text-ink-300 hover:text-brand-600 dark:hover:text-brand-400 transition">
-                            Keluar
+                        <button type="submit" title="Logout dari aplikasi" class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 text-xs font-bold text-ink-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:bg-brand-950/30 dark:hover:text-brand-300">
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12"/></svg>
+                            Logout
                         </button>
                     </form>
                 </div>
