@@ -50,7 +50,7 @@ class BulkLopImportController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'File Bulk LOP masuk antrean dan sedang diproses.',
-                'result_url' => route('imports.show', $batch),
+                'result_url' => route('imports.show', $batch, false),
             ], 202);
         }
 

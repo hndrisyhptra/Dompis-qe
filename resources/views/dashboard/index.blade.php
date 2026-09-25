@@ -8,7 +8,7 @@
     $matrixScopeFilters = $isSuperAdmin ? array_filter($filters, fn ($value) => $value !== '') : [];
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-6" x-data="dashboardMatrixModal(@js(route('dashboard.matrix-lops')))">
+<div class="mx-auto max-w-7xl space-y-6" x-data="dashboardMatrixModal(@js(route('dashboard.matrix-lops', [], false)))">
     <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
             <div class="flex flex-wrap items-center gap-2">

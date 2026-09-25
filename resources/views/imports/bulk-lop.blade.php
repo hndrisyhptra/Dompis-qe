@@ -13,7 +13,7 @@
     @if (! $hasImportScope)<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">Branch akun Admin belum dikonfigurasi. Bulk Import LOP dinonaktifkan sampai Super Admin menghubungkan akun ke branch.</div>@endif
 
     <div class="grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
-        <form method="POST" action="{{ route('bulk-import.lop.store') }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.lop.store')))" @submit.prevent="submit($event)" class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm dark:border-ink-800 dark:bg-ink-900">
+        <form method="POST" action="{{ route('bulk-import.lop.store', [], false) }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.lop.store', [], false)))" @submit.prevent="submit($event)" class="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm dark:border-ink-800 dark:bg-ink-900">
             @csrf
             <h2 class="font-bold text-ink-900 dark:text-white">Upload file LOP</h2>
             <p class="mt-1 text-xs leading-5 text-ink-500">Format XLSX, XLS, atau CSV · maksimal 10 MB.</p>

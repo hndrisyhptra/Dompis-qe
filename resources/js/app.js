@@ -1024,7 +1024,8 @@ window.importUploadForm = (action) => ({
         this.phase = 'Mengunggah file';
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', this.action);
+        const uploadUrl = new URL(this.action, window.location.origin);
+        xhr.open('POST', uploadUrl.pathname + uploadUrl.search);
         xhr.timeout = 180000;
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -1050,7 +1051,7 @@ window.importUploadForm = (action) => ({
             this.phase = 'Upload belum berhasil';
         };
         xhr.onerror = () => {
-            this.error = 'Koneksi terputus saat mengunggah file. Silakan coba kembali.';
+            this.error = 'Upload tidak mencapai server. Periksa koneksi, konfigurasi HTTPS/domain, serta batas upload web server.';
             this.uploading = false;
             this.phase = 'Upload belum berhasil';
         };

@@ -29,7 +29,7 @@
 
     <div class="grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
       <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:p-6">
-        <form method="POST" action="{{ route('bulk-import.boq.store') }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.boq.store')))" @submit.prevent="submit($event)" class="space-y-5">
+        <form method="POST" action="{{ route('bulk-import.boq.store', [], false) }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.boq.store', [], false)))" @submit.prevent="submit($event)" class="space-y-5">
             @csrf
             <div>
                 <label for="file" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">File Excel BOQ</label>
