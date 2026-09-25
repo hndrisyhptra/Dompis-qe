@@ -62,7 +62,15 @@ class BoqService
 
             $boq->save();
             $boq->items()->delete();
-            $boq->items()->createMany($normalized);
+            $now = now();
+            foreach (array_chunk($normalized, 250) as $chunk) {
+                DB::table('qe_boq_items')->insert(array_map(fn (array $item): array => [
+                    ...$item,
+                    'qe_boq_id' => $boq->id_boq,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], $chunk));
+            }
             $boq->load(['items.designator', 'package']);
 
             $this->syncLegacySnapshot($lop, $boq, $actor);
@@ -155,7 +163,17 @@ class BoqService
         $hasAdjustedItems = $reservation->items()->exists();
         if ($force || ! $hasAdjustedItems) {
             $reservation->items()->delete();
-            $reservation->items()->createMany($materialItems->all());
+            $now = now();
+            foreach ($materialItems->chunk(250) as $chunk) {
+                DB::table('qe_material_reservation_items')->insert(
+                    $chunk->map(fn (array $item): array => [
+                        ...$item,
+                        'reservation_id' => $reservation->id_reservation,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->all()
+                );
+            }
         }
 
         return $reservation->refresh()->load('items.designator');

@@ -16,6 +16,7 @@ use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\BoqImportService;
+use App\Services\BoqService;
 use App\Services\BulkLopImportService;
 use App\Services\ImportBatchService;
 use App\Services\LopService;
@@ -168,7 +169,7 @@ class BulkImportAndBoqTest extends TestCase
             'job_description' => 'Pekerjaan aktif', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
         ]);
 
-        $boq = app(\App\Services\BoqService::class)->save($lop, [[
+        $boq = app(BoqService::class)->save($lop, [[
             'designator_id' => $designatorA->id_designator,
             'qty' => 2,
             'unit_price' => 100000,
@@ -234,7 +235,7 @@ class BulkImportAndBoqTest extends TestCase
             'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => ['odp'],
             'job_description' => 'Pekerjaan aktif', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
         ]);
-        $boq = app(\App\Services\BoqService::class)->save($lop, [[
+        $boq = app(BoqService::class)->save($lop, [[
             'designator_id' => $designatorA->id_designator,
             'qty' => 2,
             'unit_price' => 100000,
@@ -362,7 +363,11 @@ class BulkImportAndBoqTest extends TestCase
             ->assertSee('3DMO_QEREC_INP3124092601_FEEDER')
             ->assertSee('TIF-10')
             ->assertSee('Grand Total')
-            ->assertSee('VOL');
+            ->assertSee('VOL')
+            ->assertSee('M-ACTUAL')
+            ->assertSee('J-ACTUAL')
+            ->assertDontSee('M-BLANK')
+            ->assertDontSee('J-ZERO');
     }
 
     public function test_admin_master_data_is_limited_to_own_branch_while_super_admin_sees_all(): void

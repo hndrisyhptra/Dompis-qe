@@ -13,7 +13,7 @@
     ])->values();
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-5">
+<div class="mx-auto max-w-7xl space-y-5" data-boq-options="{{ base64_encode($designatorOptions->toJson()) }}">
     @if ($errors->any())
         <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{{ $errors->first() }}</div>
     @endif
@@ -59,7 +59,7 @@
                             $materialTotal = $boq->items->where('type', 'MATERIAL')->sum('total_price');
                         @endphp
 
-                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}', '{{ base64_encode($designatorOptions->toJson()) }}')" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}')" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                             <td class="px-5 py-4">
                                 <p class="font-bold">{{ $boq->lop->incident }}</p>
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>

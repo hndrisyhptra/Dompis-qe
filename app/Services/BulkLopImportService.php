@@ -5,14 +5,13 @@ namespace App\Services;
 use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\ProgramType;
-use App\Models\Branch;
+use App\Enums\UserRole;
 use App\Models\Package;
 use App\Models\QeImportBatch;
-use App\Models\QeImportRow;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -26,6 +25,7 @@ class BulkLopImportService
         private readonly LopService $lopService,
         private readonly ManualIncidentService $manualIncident,
         private readonly LopVisibilityService $visibility,
+        private readonly ImportRowWriter $rowWriter,
     ) {}
 
     public function process(QeImportBatch $batch, User $actor): void
@@ -43,12 +43,55 @@ class BulkLopImportService
             throw new \RuntimeException('File tidak memiliki baris data LOP untuk diproses.');
         }
 
-        foreach ($table['rows'] as $row) {
-            $payload = $this->normalizeRow($row['data']);
+        $rows = array_map(fn (array $row): array => [
+            'row_number' => $row['row_number'],
+            'payload' => $this->normalizeRow($row['data']),
+        ], $table['rows']);
+
+        $serviceAreas = ServiceArea::query()
+            ->with('branch.regionRef.area')
+            ->where('is_active', true)
+            ->whereIn('workzone', collect($rows)->pluck('payload.sto')->filter()->unique())
+            ->get()
+            ->keyBy(fn (ServiceArea $serviceArea): string => mb_strtoupper($serviceArea->workzone));
+        $packages = Package::query()
+            ->whereIn('code', collect($rows)->pluck('payload.package_code')->filter()->unique())
+            ->get()
+            ->keyBy(fn (Package $package): string => mb_strtoupper($package->code));
+        $usedIncidents = QeLop::withTrashed()
+            ->whereIn('incident', collect($rows)->pluck('payload.incident')->filter()->unique())
+            ->pluck('incident')
+            ->mapWithKeys(fn (string $incident): array => [mb_strtoupper($incident) => true])
+            ->all();
+
+        // Scope lokasi dihitung satu kali. Sebelumnya pengecekan ini menjalankan
+        // beberapa query lagi untuk setiap baris file.
+        $allowedBranchIds = $actor->hasRole(UserRole::ADMIN)
+            ? $this->visibility->accessibleBranchIds($actor)
+            : collect();
+        $allowedServiceAreaIds = $actor->hasRole(UserRole::ADMIN)
+            ? $this->visibility->accessibleServiceAreaIds($actor)
+            : collect();
+        $successRows = 0;
+        $failedRows = 0;
+        $resultRows = [];
+        $totalRows = count($rows);
+
+        foreach ($rows as $index => $row) {
+            $payload = $row['payload'];
 
             try {
-                $lop = DB::transaction(fn () => $this->createLop($payload, $actor));
-                QeImportRow::create([
+                $lop = $this->createLop(
+                    $payload,
+                    $actor,
+                    $serviceAreas,
+                    $packages,
+                    $allowedBranchIds,
+                    $allowedServiceAreaIds,
+                    $usedIncidents,
+                );
+                $usedIncidents[mb_strtoupper($lop->incident)] = true;
+                $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
                     'status' => 'success',
@@ -56,51 +99,73 @@ class BulkLopImportService
                     'message' => 'LOP berhasil dibuat.',
                     'payload' => $this->safePayload($payload),
                     'result' => ['lop_id' => $lop->id_qe_lops, 'nama_lop' => $lop->nama_lop],
-                ]);
-                $batch->increment('success_rows');
+                ];
+                $successRows++;
             } catch (Throwable $e) {
-                QeImportRow::create([
+                $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
                     'status' => 'failed',
                     'reference' => $payload['incident'] ?: null,
                     'message' => $this->message($e),
                     'payload' => $this->safePayload($payload),
+                ];
+                $failedRows++;
+            }
+
+            $processedRows = $index + 1;
+            if (count($resultRows) >= 25 || $processedRows === $totalRows) {
+                $this->rowWriter->insert($batch, $resultRows);
+                $resultRows = [];
+                $batch->update([
+                    'success_rows' => $successRows,
+                    'failed_rows' => $failedRows,
+                    'metadata' => [
+                        ...($batch->metadata ?? []),
+                        'processed_rows' => $processedRows,
+                    ],
                 ]);
-                $batch->increment('failed_rows');
             }
         }
 
-        $batch->refresh();
         $batch->update([
-            'status' => $batch->failed_rows === 0
+            'status' => $failedRows === 0
                 ? 'completed'
-                : ($batch->success_rows > 0 ? 'partial' : 'failed'),
+                : ($successRows > 0 ? 'partial' : 'failed'),
             'completed_at' => now(),
         ]);
     }
 
-    private function createLop(array $data, User $actor): QeLop
-    {
-        $serviceArea = ServiceArea::query()
-            ->with('branch.regionRef.area')
-            ->where('workzone', $data['sto'])
-            ->where('is_active', true)
-            ->first();
+    /**
+     * @param  Collection<string, ServiceArea>  $serviceAreas
+     * @param  Collection<string, Package>  $packages
+     * @param  Collection<int, int|string>  $allowedBranchIds
+     * @param  Collection<int, int|string>  $allowedServiceAreaIds
+     * @param  array<string, bool>  $usedIncidents
+     */
+    private function createLop(
+        array $data,
+        User $actor,
+        Collection $serviceAreas,
+        Collection $packages,
+        Collection $allowedBranchIds,
+        Collection $allowedServiceAreaIds,
+        array $usedIncidents,
+    ): QeLop {
+        $serviceArea = $serviceAreas->get($data['sto']);
 
         if ($serviceArea === null) {
             throw new \InvalidArgumentException("STO {$data['sto']} belum terdaftar di Master Service Area.");
         }
 
-        $branch = $data['branch'] !== ''
-            ? Branch::query()->where('name', $data['branch'])->where('is_active', true)->first()
-            : $serviceArea->branch;
+        $branch = $serviceArea->branch;
 
-        if ($branch === null || $branch->id_branch !== $serviceArea->branch_id) {
+        if ($branch === null || ($data['branch'] !== '' && mb_strtoupper($branch->name) !== $data['branch'])) {
             throw new \InvalidArgumentException('Branch tidak sesuai dengan STO.');
         }
 
-        if (! $this->visibility->canUseLocation($actor, $branch->id_branch, $serviceArea->id_service_area)) {
+        if ($actor->hasRole(UserRole::ADMIN)
+            && (! $allowedBranchIds->contains($branch->id_branch) || ! $allowedServiceAreaIds->contains($serviceArea->id_service_area))) {
             throw new \InvalidArgumentException('Lokasi LOP berada di luar scope admin.');
         }
 
@@ -115,7 +180,7 @@ class BulkLopImportService
             'branch' => $branch->name,
             'segment' => $segments,
         ], [
-            'incident' => ['nullable', 'string', 'max:100', 'regex:/^(INC|INP)[A-Z0-9-]+$/', Rule::unique('qe_lops', 'incident')],
+            'incident' => ['nullable', 'string', 'max:100', 'regex:/^(INC|INP)[A-Z0-9-]+$/'],
             'sto' => ['required', 'string', 'max:20'],
             'branch' => ['required', 'string', 'max:100'],
             'area' => ['required', 'string', 'max:10'],
@@ -126,7 +191,7 @@ class BulkLopImportService
             'job_description' => ['required', 'string', 'max:2000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
-            'package_code' => ['nullable', 'string', 'exists:packages,code'],
+            'package_code' => ['nullable', 'string'],
         ]);
         $validator->validate();
 
@@ -135,11 +200,14 @@ class BulkLopImportService
             $incident = $this->manualIncident->generate($branch, ProgramType::from($data['program_type']));
         }
 
-        if (QeLop::withTrashed()->where('incident', $incident)->exists()) {
+        if (isset($usedIncidents[mb_strtoupper($incident)])) {
             throw new \InvalidArgumentException("Incident {$incident} sudah digunakan.");
         }
 
-        $package = $data['package_code'] !== '' ? Package::where('code', $data['package_code'])->first() : null;
+        $package = $data['package_code'] !== '' ? $packages->get($data['package_code']) : null;
+        if ($data['package_code'] !== '' && $package === null) {
+            throw new \InvalidArgumentException("Paket {$data['package_code']} belum terdaftar.");
+        }
 
         return $this->lopService->create([
             'incident' => $incident,
@@ -155,7 +223,7 @@ class BulkLopImportService
             'job_description' => $data['job_description'],
             'ihld_id' => $data['ihld_id'] ?: null,
             'package_id' => $package?->id_package,
-        ], $actor);
+        ], $actor, $branch, $serviceArea);
     }
 
     private function normalizeRow(array $row): array

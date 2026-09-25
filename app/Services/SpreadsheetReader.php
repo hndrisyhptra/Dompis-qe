@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use RuntimeException;
+use SplFileObject;
 use Throwable;
 
 class SpreadsheetReader
@@ -13,15 +16,19 @@ class SpreadsheetReader
      */
     public function table(string $path, array $requiredHeaders, int $scanRows = 20): array
     {
-        try {
-            $spreadsheet = IOFactory::load($path);
-        } catch (Throwable $e) {
-            throw new RuntimeException('File tidak dapat dibaca sebagai XLSX, XLS, atau CSV.', previous: $e);
+        if (mb_strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'csv') {
+            return $this->csvTable($path, $requiredHeaders, $scanRows);
         }
 
+        $spreadsheet = $this->load($path);
+
         $sheet = $spreadsheet->getActiveSheet();
-        $highestColumn = $sheet->getHighestColumn();
-        $highestRow = $sheet->getHighestRow();
+        // HighestData* mengabaikan baris/kolom yang hanya memiliki formatting.
+        // Template Excel sering memformat ribuan baris kosong dan sebelumnya
+        // seluruh baris tersebut tetap dipindai.
+        $highestColumnIndex = min(100, Coordinate::columnIndexFromString($sheet->getHighestDataColumn()));
+        $highestColumn = $this->columnLetter($highestColumnIndex);
+        $highestRow = $sheet->getHighestDataRow();
         $headerRow = null;
         $headers = [];
 
@@ -63,6 +70,95 @@ class SpreadsheetReader
         $spreadsheet->disconnectWorksheets();
 
         return ['header_row' => $headerRow, 'headers' => $headers, 'rows' => $rows];
+    }
+
+    /**
+     * Jalur streaming khusus CSV. Tidak memuat seluruh file ke memori dan
+     * otomatis mengenali delimiter comma, semicolon, atau tab.
+     *
+     * @return array{header_row:int, headers:array<string,string>, rows:array<int,array{row_number:int,data:array<string,mixed>}>}
+     */
+    private function csvTable(string $path, array $requiredHeaders, int $scanRows): array
+    {
+        $headerRow = null;
+        $headerIndexes = [];
+        $delimiter = ',';
+
+        foreach ([',', ';', "\t"] as $candidateDelimiter) {
+            $file = new SplFileObject($path, 'r');
+            $file->setCsvControl($candidateDelimiter);
+            $file->setFlags(SplFileObject::READ_CSV | SplFileObject::DROP_NEW_LINE);
+
+            foreach ($file as $index => $values) {
+                if ($index >= $scanRows) {
+                    break;
+                }
+                if (! is_array($values)) {
+                    continue;
+                }
+
+                $candidate = [];
+                foreach ($values as $columnIndex => $value) {
+                    $value = $columnIndex === 0
+                        ? preg_replace('/^\xEF\xBB\xBF/', '', (string) $value)
+                        : (string) $value;
+                    $key = $this->normalizeHeader($value);
+                    if ($key !== '') {
+                        $candidate[$key] = $columnIndex;
+                    }
+                }
+
+                if (collect($requiredHeaders)->every(fn ($required) => array_key_exists($required, $candidate))) {
+                    $headerRow = $index + 1;
+                    $headerIndexes = $candidate;
+                    $delimiter = $candidateDelimiter;
+                    break 2;
+                }
+            }
+        }
+
+        if ($headerRow === null) {
+            throw new RuntimeException('Header wajib tidak ditemukan: '.implode(', ', $requiredHeaders).'.');
+        }
+
+        $headers = collect($headerIndexes)
+            ->map(fn (int $index): string => $this->columnLetter($index + 1))
+            ->all();
+        $rows = [];
+        $file = new SplFileObject($path, 'r');
+        $file->setCsvControl($delimiter);
+        $file->setFlags(SplFileObject::READ_CSV | SplFileObject::DROP_NEW_LINE);
+
+        foreach ($file as $index => $values) {
+            $rowNumber = $index + 1;
+            if ($rowNumber <= $headerRow || ! is_array($values)) {
+                continue;
+            }
+
+            $data = [];
+            foreach ($headerIndexes as $key => $columnIndex) {
+                $data[$key] = $values[$columnIndex] ?? null;
+            }
+            if (collect($data)->every(fn ($value) => trim((string) $value) === '')) {
+                continue;
+            }
+
+            $rows[] = ['row_number' => $rowNumber, 'data' => $data];
+        }
+
+        return ['header_row' => $headerRow, 'headers' => $headers, 'rows' => $rows];
+    }
+
+    public function load(string $path): Spreadsheet
+    {
+        try {
+            $reader = IOFactory::createReaderForFile($path);
+            $reader->setReadDataOnly(true);
+
+            return $reader->load($path);
+        } catch (Throwable $e) {
+            throw new RuntimeException('File tidak dapat dibaca sebagai XLSX, XLS, atau CSV.', previous: $e);
+        }
     }
 
     public function normalizeHeader(string $header): string

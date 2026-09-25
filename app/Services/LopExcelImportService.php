@@ -14,7 +14,6 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use Throwable;
 
 /**
@@ -40,6 +39,7 @@ class LopExcelImportService
         private readonly ManualIncidentService $manualIncident,
         private readonly BoqService $boqService,
         private readonly LopVisibilityService $visibility,
+        private readonly SpreadsheetReader $reader,
     ) {}
 
     /**
@@ -50,13 +50,13 @@ class LopExcelImportService
     public function parse(UploadedFile $file): array
     {
         try {
-            $spreadsheet = IOFactory::load($file->getRealPath());
+            $spreadsheet = $this->reader->load($file->getRealPath());
         } catch (Throwable) {
             return ['meta' => ['project' => '', 'sto' => '', 'package_detected' => null], 'rows' => [], 'parseErrors' => ['File tidak bisa dibaca sebagai Excel.']];
         }
 
         $sheet = $spreadsheet->getActiveSheet();
-        $highestRow = $sheet->getHighestRow();
+        $highestRow = $sheet->getHighestDataRow();
 
         // --- Meta R1-R10: cari "PROJECT : ..." dan "STO : ..." ---
         $project = '';
@@ -93,6 +93,8 @@ class LopExcelImportService
         }
 
         if ($headerRow === null) {
+            $spreadsheet->disconnectWorksheets();
+
             return ['meta' => ['project' => $project, 'sto' => $sto, 'package_detected' => $packageDetected], 'rows' => [], 'parseErrors' => ['Header DESIGNATOR tidak ditemukan.']];
         }
 
@@ -371,7 +373,14 @@ class LopExcelImportService
                 );
             }
 
-            $designatorIds = Designator::query()->pluck('id_designator', 'code')->all();
+            $usedDesignatorCodes = collect($rows)
+                ->where('status', 'ok')
+                ->pluck('designator')
+                ->unique();
+            $designatorIds = Designator::query()
+                ->whereIn('code', $usedDesignatorCodes)
+                ->pluck('id_designator', 'code')
+                ->all();
 
             // 2. Paket
             $package = $packageCode ? Package::where('code', $packageCode)->first() : null;
@@ -399,7 +408,7 @@ class LopExcelImportService
                 'datek' => null,
                 'ihld_id' => null,
                 'package_id' => $package?->id_package,
-            ], $actor);
+            ], $actor, $branchModel, $serviceArea);
 
             // 5. Reservasi draft — MATERIAL saja (guard seperti teknisi)
             $materialItems = [];

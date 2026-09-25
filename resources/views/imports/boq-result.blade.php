@@ -54,7 +54,7 @@
 
     <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
         <h2 class="text-sm font-bold text-ink-900 dark:text-white">Baris Designator</h2>
-        <p class="mb-4 mt-1 text-xs text-ink-400">Abu-abu = VOL kosong/0. Kuning = designator baru yang dibuat otomatis dari file.</p>
+        <p class="mb-4 mt-1 text-xs text-ink-400">Hanya designator dengan VOL terisi yang ditampilkan. Kuning = designator baru yang dibuat otomatis dari file.</p>
         <div class="overflow-x-auto rounded-xl border border-ink-100 dark:border-ink-800">
             <table class="w-full min-w-[820px] text-left text-xs">
                 <thead class="bg-ink-50 dark:bg-ink-800">
@@ -63,12 +63,12 @@
                 <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                     @forelse($rows as $row)
                         @php($item = $row->payload ?? [])
-                        <tr class="{{ $row->status === 'skipped' ? 'bg-ink-50/60 text-ink-400 dark:bg-ink-800/30' : '' }} {{ $row->status === 'failed' ? 'bg-brand-50/50 dark:bg-brand-950/20' : '' }}">
+                        <tr class="{{ $row->status === 'failed' ? 'bg-brand-50/50 dark:bg-brand-950/20' : '' }}">
                             <td class="px-3 py-2 font-mono">{{ $row->row_number }}</td>
                             <td class="px-3 py-2 font-mono font-bold">
                                 {{ $row->reference ?: '—' }}
                                 @if(data_get($item, 'type'))<span class="ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold {{ data_get($item, 'type') === 'MATERIAL' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' }}">{{ data_get($item, 'type') === 'MATERIAL' ? 'M' : 'J' }}</span>@endif
-                                @if(data_get($item, 'exists') === false && $row->status !== 'skipped')<span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">baru</span>@endif
+                                @if(data_get($item, 'exists') === false)<span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">baru</span>@endif
                             </td>
                             <td class="max-w-xs truncate px-3 py-2" title="{{ data_get($item, 'item_name') }}">{{ data_get($item, 'item_name', '—') }}</td>
                             <td class="px-3 py-2 text-right tabular-nums">{{ number_format((float) data_get($item, 'unit_price', 0), 0, ',', '.') }}</td>
@@ -76,7 +76,6 @@
                             <td class="px-3 py-2 text-right font-bold tabular-nums">{{ number_format((float) data_get($item, 'total_price', 0), 0, ',', '.') }}</td>
                             <td class="px-3 py-2">
                                 @if($row->status === 'success')<span class="font-bold text-emerald-600 dark:text-emerald-400">OK</span>
-                                @elseif($row->status === 'skipped')<span class="text-ink-400">skip</span>
                                 @else<span class="font-bold text-brand-600 dark:text-brand-400" title="{{ $row->message }}">gagal</span>@endif
                             </td>
                         </tr>

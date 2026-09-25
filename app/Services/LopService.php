@@ -10,8 +10,8 @@ use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\QeLopAssignment;
 use App\Models\QeLopHistory;
-use App\Models\User;
 use App\Models\ServiceArea;
+use App\Models\User;
 use App\Notifications\TechnicianActivityNotification;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -60,11 +60,20 @@ class LopService
     /**
      * Membuat LOP baru dengan status awal draft.
      */
-    public function create(array $data, User $creator): QeLop
-    {
-        return DB::transaction(function () use ($data, $creator) {
+    public function create(
+        array $data,
+        User $creator,
+        ?Branch $resolvedBranch = null,
+        ?ServiceArea $resolvedServiceArea = null,
+    ): QeLop {
+        return DB::transaction(function () use ($data, $creator, $resolvedBranch, $resolvedServiceArea) {
             $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
-            [$branch, $serviceArea] = $this->resolveLocation($data);
+            if ($resolvedBranch !== null && $resolvedServiceArea !== null) {
+                $branch = $resolvedBranch;
+                $serviceArea = $resolvedServiceArea;
+            } else {
+                [$branch, $serviceArea] = $this->resolveLocation($data);
+            }
             $program = ProgramType::from((string) $data['program_type']);
 
             // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)

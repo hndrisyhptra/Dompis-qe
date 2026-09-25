@@ -30,25 +30,30 @@ class AdminDashboardService
             $this->applyFilters($query, $filterState);
         }
 
-        $total = (clone $query)->count();
-        $missingIhld = (clone $query)
-            ->where(fn (Builder $builder) => $builder
-                ->whereNull('ihld_id')
-                ->orWhere('ihld_id', ''))
-            ->count();
+        $aggregate = (clone $query)
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN status_lop <> ? THEN 1 ELSE 0 END) as active', [LopStatus::COMPLETED->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) as waiting_review', [LopStatus::WAITING_APPROVAL->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) as completed', [LopStatus::COMPLETED->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) as rejected', [LopStatus::REJECTED->value])
+            ->selectRaw("SUM(CASE WHEN ihld_id IS NULL OR ihld_id = '' THEN 1 ELSE 0 END) as missing_ihld")
+            ->first();
+        $total = (int) ($aggregate?->total ?? 0);
+        $missingIhld = (int) ($aggregate?->missing_ihld ?? 0);
+        $assigned = (clone $query)->whereHas('activeAssignment')->count();
 
         $stats = [
             'total' => $total,
-            'active' => (clone $query)->where('status_lop', '!=', LopStatus::COMPLETED)->count(),
-            'waiting_review' => (clone $query)->where('status_lop', LopStatus::WAITING_APPROVAL)->count(),
-            'completed' => (clone $query)->where('status_lop', LopStatus::COMPLETED)->count(),
-            'rejected' => (clone $query)->where('status_lop', LopStatus::REJECTED)->count(),
+            'active' => (int) ($aggregate?->active ?? 0),
+            'waiting_review' => (int) ($aggregate?->waiting_review ?? 0),
+            'completed' => (int) ($aggregate?->completed ?? 0),
+            'rejected' => (int) ($aggregate?->rejected ?? 0),
             'missing_ihld' => $missingIhld,
             'ihld_completion_percentage' => $total > 0
                 ? (int) round((($total - $missingIhld) / $total) * 100)
                 : 0,
-            'assigned' => (clone $query)->whereHas('activeAssignment')->count(),
-            'unassigned' => (clone $query)->whereDoesntHave('activeAssignment')->count(),
+            'assigned' => $assigned,
+            'unassigned' => max(0, $total - $assigned),
         ];
         $stats['assignment_percentage'] = $total > 0
             ? (int) round(($stats['assigned'] / $total) * 100)

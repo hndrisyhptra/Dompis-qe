@@ -22,13 +22,17 @@ use Illuminate\Support\Carbon;
  */
 class ManualIncidentService
 {
+    /** @var array<string, int> */
+    private array $lastSequenceCache = [];
+
     public function generate(Branch $branch, ProgramType $program, ?CarbonInterface $date = null): string
     {
         $date ??= Carbon::now();
 
         $prefix = sprintf('INP%d%d%s', $branch->id_branch, $program->order(), $date->format('dmy'));
 
-        $next = $this->lastSequence($prefix) + 1;
+        $next = ($this->lastSequenceCache[$prefix] ??= $this->lastSequence($prefix)) + 1;
+        $this->lastSequenceCache[$prefix] = $next;
 
         return $prefix.str_pad((string) $next, 2, '0', STR_PAD_LEFT);
     }

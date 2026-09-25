@@ -7,13 +7,11 @@ use App\Models\Designator;
 use App\Models\DesignatorType;
 use App\Models\Package;
 use App\Models\QeImportBatch;
-use App\Models\QeImportRow;
 use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use RuntimeException;
 use Throwable;
 
@@ -23,6 +21,7 @@ class BoqImportService
         private readonly SpreadsheetReader $reader,
         private readonly BoqService $boqService,
         private readonly LopVisibilityService $visibility,
+        private readonly ImportRowWriter $rowWriter,
     ) {}
 
     public function process(QeImportBatch $batch, User $actor): void
@@ -78,6 +77,7 @@ class BoqImportService
             'skipped_count' => 0,
         ];
 
+        $rowCount = count($rows);
         foreach ($rows as $index => $row) {
             $messages = [];
             $code = $row['designator'];
@@ -135,7 +135,7 @@ class BoqImportService
             ];
 
             $processedRows = $index + 1;
-            if ($processedRows % 10 === 0 || $processedRows === count($rows)) {
+            if ($processedRows % 25 === 0 || $processedRows === $rowCount) {
                 $batch->update([
                     'metadata' => [
                         ...($batch->metadata ?? []),
@@ -158,9 +158,10 @@ class BoqImportService
         }
 
         if ($errors !== []) {
+            $resultRows = [];
             foreach ($normalizedRows as $row) {
                 $isSkipped = $row['status'] === 'skipped';
-                QeImportRow::create([
+                $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
                     'status' => $isSkipped ? 'skipped' : 'failed',
@@ -169,8 +170,9 @@ class BoqImportService
                         ? 'VOL kosong atau 0 — item tidak dipakai.'
                         : ($errors[$row['row_number']] ?? 'Import dibatalkan karena terdapat kesalahan pada baris lain.'),
                     'payload' => $row,
-                ]);
+                ];
             }
+            $this->rowWriter->insert($batch, $resultRows);
 
             $batch->update([
                 'failed_rows' => collect($normalizedRows)->whereIn('status', ['ready', 'error'])->count(),
@@ -209,9 +211,10 @@ class BoqImportService
 
             $boq = $this->boqService->save($lop, $valid, $package, $actor, 'import');
 
+            $resultRows = [];
             foreach ($normalizedRows as $row) {
                 $isSkipped = $row['status'] === 'skipped';
-                QeImportRow::create([
+                $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
                     'status' => $isSkipped ? 'skipped' : 'success',
@@ -219,8 +222,9 @@ class BoqImportService
                     'message' => $isSkipped ? 'VOL kosong atau 0 — item tidak dipakai.' : 'Item BOQ berhasil disimpan.',
                     'payload' => $row,
                     'result' => $isSkipped ? null : ['boq_id' => $boq->id_boq],
-                ]);
+                ];
             }
+            $this->rowWriter->insert($batch, $resultRows);
 
             $batch->update([
                 'success_rows' => $totals['used_count'],
@@ -239,14 +243,14 @@ class BoqImportService
     public function parse(string $path): array
     {
         try {
-            $spreadsheet = IOFactory::load($path);
+            $spreadsheet = $this->reader->load($path);
         } catch (Throwable $e) {
             throw new RuntimeException('File BOQ tidak dapat dibaca.', previous: $e);
         }
 
         $sheet = $spreadsheet->getActiveSheet();
-        $highestRow = $sheet->getHighestRow();
-        $highestColumnIndex = min(30, Coordinate::columnIndexFromString($sheet->getHighestColumn()));
+        $highestRow = $sheet->getHighestDataRow();
+        $highestColumnIndex = min(30, Coordinate::columnIndexFromString($sheet->getHighestDataColumn()));
         $headerRow = null;
         $columns = [];
         $project = '';

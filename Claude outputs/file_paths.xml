@@ -1,0 +1,11 @@
+<!--
+    Simpan sebagai: app/src/main/res/xml/file_paths.xml
+    (buat folder res/xml/ kalau belum ada)
+
+    Dirujuk oleh <provider> di AndroidManifest.xml. cache-path di sini
+    HARUS cocok dengan File.createTempFile("dompisqe_", ".jpg", cacheDir)
+    di MainActivity.kt (cacheDir Android = root cache-path di sini).
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="dompisqe_camera" path="." />
+</paths>

@@ -53,7 +53,10 @@ class QeEvidence extends Model
      */
     public function url(): string
     {
-        return route('evidence-files.show', $this);
+        return route('evidence-files.show', [
+            'evidence' => $this,
+            'v' => substr(sha1((string) $this->file_path), 0, 12),
+        ]);
     }
 
     /**
@@ -62,7 +65,10 @@ class QeEvidence extends Model
     public function thumbUrl(): string
     {
         return $this->thumb_path
-            ? route('evidence-files.thumbnail', $this)
+            ? route('evidence-files.thumbnail', [
+                'evidence' => $this,
+                'v' => substr(sha1((string) $this->thumb_path), 0, 12),
+            ])
             : $this->url();
     }
 

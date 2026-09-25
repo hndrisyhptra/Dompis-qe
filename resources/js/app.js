@@ -887,6 +887,9 @@ window.detailLaporanTab = (lopId) => ({
 
 window.boqEditor = (encodedItems, encodedOptions) => {
     const initialItems = JSON.parse(atob(encodedItems));
+    const sharedOptions = encodedOptions
+        || document.querySelector('[data-boq-options]')?.dataset.boqOptions
+        || btoa('[]');
     const withSearch = (items) => items.map((item) => ({ ...item, search: '', open: false }));
 
     return {
@@ -898,7 +901,9 @@ window.boqEditor = (encodedItems, encodedOptions) => {
         pendingDropIndex: null,
         originalItems: initialItems,
         items: withSearch(JSON.parse(JSON.stringify(initialItems))),
-        options: JSON.parse(atob(encodedOptions)),
+        // Daftar master designator disisipkan sekali per halaman, bukan sekali
+        // untuk setiap baris BOQ. Ini menjaga HTML tetap kecil saat pagination penuh.
+        options: JSON.parse(atob(sharedOptions)),
 
         openEdit() {
             this.items = withSearch(JSON.parse(JSON.stringify(this.originalItems)));

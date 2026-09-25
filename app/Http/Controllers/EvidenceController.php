@@ -75,7 +75,10 @@ class EvidenceController extends Controller
 
         return $disk->response($path, $fileName, array_filter([
             'Content-Type' => $mime,
-            'Cache-Control' => 'private, max-age=3600',
+            // URL memiliki versi berbasis file_path, sehingga browser aman
+            // menyimpan thumbnail/foto lama dan otomatis mengambil versi baru
+            // ketika evidence diganti.
+            'Cache-Control' => 'private, max-age=2592000, immutable',
             'X-Content-Type-Options' => 'nosniff',
         ]), 'inline');
     }

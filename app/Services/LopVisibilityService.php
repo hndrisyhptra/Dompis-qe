@@ -17,6 +17,12 @@ use Illuminate\Support\Collection;
  */
 class LopVisibilityService
 {
+    /** @var array<string, Collection> */
+    private array $branchIdsCache = [];
+
+    /** @var array<string, Collection> */
+    private array $serviceAreaIdsCache = [];
+
     public function apply(Builder $query, User $user, string $table = 'qe_lops'): Builder
     {
         if (! $user->hasRole(UserRole::ADMIN)) {
@@ -72,9 +78,14 @@ class LopVisibilityService
             return Branch::query()->pluck('id_branch');
         }
 
+        $cacheKey = $this->cacheKey($user);
+        if (isset($this->branchIdsCache[$cacheKey])) {
+            return $this->branchIdsCache[$cacheKey];
+        }
+
         $user->loadMissing('serviceAreas');
 
-        return match ($user->admin_scope_type ?? ($user->branch_id ? AdminScopeType::BRANCH : null)) {
+        return $this->branchIdsCache[$cacheKey] = match ($user->admin_scope_type ?? ($user->branch_id ? AdminScopeType::BRANCH : null)) {
             AdminScopeType::AREA => Branch::query()
                 ->whereHas('regionRef', fn (Builder $region) => $region->where('area_id', $user->area_id))
                 ->pluck('id_branch'),
@@ -93,12 +104,17 @@ class LopVisibilityService
             return ServiceArea::query()->pluck('id_service_area');
         }
 
-        $scope = $user->admin_scope_type ?? ($user->branch_id ? AdminScopeType::BRANCH : null);
-        if ($scope === AdminScopeType::SERVICE_AREA) {
-            return $this->serviceAreaIds($user);
+        $cacheKey = $this->cacheKey($user);
+        if (isset($this->serviceAreaIdsCache[$cacheKey])) {
+            return $this->serviceAreaIdsCache[$cacheKey];
         }
 
-        return ServiceArea::query()
+        $scope = $user->admin_scope_type ?? ($user->branch_id ? AdminScopeType::BRANCH : null);
+        if ($scope === AdminScopeType::SERVICE_AREA) {
+            return $this->serviceAreaIdsCache[$cacheKey] = $this->serviceAreaIds($user);
+        }
+
+        return $this->serviceAreaIdsCache[$cacheKey] = ServiceArea::query()
             ->whereIn('branch_id', $this->accessibleBranchIds($user))
             ->pluck('id_service_area');
     }
@@ -169,5 +185,10 @@ class LopVisibilityService
     private function deny(Builder $query): Builder
     {
         return $query->whereRaw('1 = 0');
+    }
+
+    private function cacheKey(User $user): string
+    {
+        return (string) $user->getKey();
     }
 }

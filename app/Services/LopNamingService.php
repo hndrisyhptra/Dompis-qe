@@ -11,9 +11,11 @@ class LopNamingService
 {
     public const DEFAULT_TEMPLATE = '{area}{sto}_{program_code}_{incident}_{segment}';
 
+    private ?string $activeTemplateCache = null;
+
     public function activeTemplate(): string
     {
-        return LopNameFormat::query()
+        return $this->activeTemplateCache ??= LopNameFormat::query()
             ->where('is_active', true)
             ->latest('id_lop_name_format')
             ->value('template') ?? self::DEFAULT_TEMPLATE;
@@ -64,7 +66,7 @@ class LopNamingService
 
     public function updateTemplate(string $template, User $user): LopNameFormat
     {
-        return DB::transaction(function () use ($template, $user) {
+        $format = DB::transaction(function () use ($template, $user) {
             LopNameFormat::query()->where('is_active', true)->update([
                 'is_active' => false,
                 'updated_by' => $user->id_user,
@@ -77,6 +79,10 @@ class LopNamingService
                 'updated_by' => $user->id_user,
             ]);
         });
+
+        $this->activeTemplateCache = $format->template;
+
+        return $format;
     }
 
     public function availableTokens(): array

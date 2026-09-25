@@ -1,0 +1,42 @@
+<!--
+    Tambahkan/merge bagian di bawah ini ke AndroidManifest.xml Anda yang
+    sudah ada - JANGAN ditimpa langsung, karena saya tidak melihat isi
+    manifest asli Anda. Tanpa permission + provider ini, MainActivity.kt
+    yang sudah diperbaiki TIDAK akan berfungsi (kamera & lokasi akan
+    selalu ditolak sistem, dan FileProvider akan crash saat dipanggil).
+-->
+
+<!-- 1) Taruh di dalam <manifest>, SEJAJAR dengan <application>, bukan di dalamnya -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.CAMERA" />
+
+<!--
+    Hanya perlu untuk Android 9 (API 28) ke bawah - Android 10+ pakai
+    scoped storage dan tidak butuh ini untuk file yang kita simpan sendiri
+    di cacheDir/FileProvider.
+-->
+<uses-permission
+    android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="28" />
+
+<!--
+    required="false" supaya app tetap bisa di-install di perangkat tanpa
+    kamera fisik (upload masih bisa lewat galeri).
+-->
+<uses-feature
+    android:name="android.hardware.camera"
+    android:required="false" />
+
+<!-- 2) Taruh di dalam <application> ... </application>, sejajar dengan <activity> -->
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.provider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+</provider>

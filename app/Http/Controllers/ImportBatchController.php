@@ -14,9 +14,16 @@ class ImportBatchController extends Controller
     {
         $this->assertAccess($request, $batch);
 
+        $rows = $batch->rows();
+        if ($batch->type === 'boq') {
+            // Baris tanpa volume tetap tercatat untuk audit dan ringkasan,
+            // tetapi tidak perlu memenuhi tabel hasil yang dibaca pengguna.
+            $rows->where('status', '!=', 'skipped');
+        }
+
         return view($batch->type === 'boq' ? 'imports.boq-result' : 'imports.show', [
             'batch' => $batch->load('uploader'),
-            'rows' => $batch->rows()->paginate(50),
+            'rows' => $rows->paginate(50),
         ]);
     }
 
