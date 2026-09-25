@@ -56,7 +56,7 @@ class QeEvidence extends Model
         return route('evidence-files.show', [
             'evidence' => $this,
             'v' => substr(sha1((string) $this->file_path), 0, 12),
-        ]);
+        ], false);
     }
 
     /**
@@ -68,7 +68,7 @@ class QeEvidence extends Model
             ? route('evidence-files.thumbnail', [
                 'evidence' => $this,
                 'v' => substr(sha1((string) $this->thumb_path), 0, 12),
-            ])
+            ], false)
             : $this->url();
     }
 

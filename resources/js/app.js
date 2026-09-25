@@ -6,6 +6,7 @@ import imageCompression from 'browser-image-compression';
 const COMPRESS_OPTS = { maxWidthOrHeight: 1920, maxSizeMB: 1, initialQuality: 0.72, useWebWorker: true };
 const THUMB_OPTS = { maxWidthOrHeight: 360, maxSizeMB: 0.06, initialQuality: 0.6, fileType: 'image/webp', useWebWorker: true };
 const MAX_BROWSER_UPLOAD_BYTES = Math.floor(1.75 * 1024 * 1024);
+const MAX_CONCURRENT_EVIDENCE_UPLOADS = 2;
 
 const isImageFile = (file) => file.type.startsWith('image/');
 
@@ -98,7 +99,7 @@ window.evidenceUploader = (options = {}) => ({
     },
 
     pump() {
-        while (this.running < 3) {
+        while (this.running < MAX_CONCURRENT_EVIDENCE_UPLOADS) {
             const next = this.queue.find((q) => q.status === 'queued');
             if (!next) break;
             this.running++;
@@ -166,7 +167,11 @@ window.evidenceUploader = (options = {}) => ({
             if (this.meta.longitude != null) form.append('longitude', this.meta.longitude);
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', this.endpoint);
+            // Selalu upload ke origin yang sedang dibuka. URL absolut dari
+            // APP_URL/proxy yang salah skema (http vs https) akan diblokir
+            // browser mobile sebagai network error sebelum mencapai Laravel.
+            const uploadUrl = new URL(this.endpoint, window.location.origin);
+            xhr.open('POST', uploadUrl.pathname + uploadUrl.search);
             xhr.timeout = 120000;
             xhr.setRequestHeader('X-CSRF-TOKEN', window.CSRF_TOKEN || '');
             xhr.setRequestHeader('Accept', 'application/json');
@@ -188,8 +193,13 @@ window.evidenceUploader = (options = {}) => ({
                     reject(new Error(`Upload gagal (${xhr.status}). Silakan coba kembali.`));
                 }
             };
-            xhr.onerror = () => reject(new Error('Jaringan bermasalah'));
-            xhr.ontimeout = () => reject(new Error('Timeout'));
+            xhr.onerror = () => reject(new Error(
+                navigator.onLine
+                    ? 'Koneksi upload diputus server. Coba ulangi; jika tetap gagal, periksa batas upload Nginx/PHP.'
+                    : 'Perangkat sedang offline. Periksa koneksi lalu coba lagi.'
+            ));
+            xhr.onabort = () => reject(new Error('Upload dibatalkan sebelum selesai.'));
+            xhr.ontimeout = () => reject(new Error('Upload melewati batas waktu 2 menit.'));
             xhr.send(form);
         });
     },

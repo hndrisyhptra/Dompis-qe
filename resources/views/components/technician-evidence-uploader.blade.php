@@ -9,7 +9,7 @@
 
 <div x-data="evidenceUploader({
         expanded: @js($startsExpanded),
-        endpoint: @js($allowUpload ? route('technician.projects.evidence.file', $lop) : null),
+        endpoint: @js($allowUpload ? route('technician.projects.evidence.file', $lop, false) : null),
         category: @js($category),
         type: 'PHOTO',
         designatorId: @js($designatorId),
