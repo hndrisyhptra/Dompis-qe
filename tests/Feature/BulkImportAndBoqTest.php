@@ -291,6 +291,33 @@ class BulkImportAndBoqTest extends TestCase
         }
     }
 
+    public function test_boq_parser_inherits_volume_from_parent_designator_row(): void
+    {
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'PROJECT : LOP PARENT VOLUME');
+        $sheet->fromArray([
+            ['NO', 'DESIGNATOR', 'URAIAN PEKERJAAN', 'SATUAN', 'HARGA SATUAN (PAKET-10)', '', 'VOL'],
+            ['', '', '', '', 'MATERIAL', 'JASA', ''],
+            [1, 'SC-OF-SM-24', 'Closure FO', 'unit', 704700, 35100, 11],
+            [2, 'M-SC-OF-SM-24', 'Closure FO Material', 'unit', 704700, 0, 0],
+            [3, 'J-SC-OF-SM-24', 'Closure FO Jasa', 'unit', 0, 35100, 0],
+        ], null, 'A3');
+
+        $path = tempnam(sys_get_temp_dir(), 'boq-parent-volume').'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        try {
+            $parsed = app(BoqImportService::class)->parse($path);
+
+            $this->assertCount(2, $parsed['rows']);
+            $this->assertSame(['M-SC-OF-SM-24', 'J-SC-OF-SM-24'], array_column($parsed['rows'], 'designator'));
+            $this->assertSame([11, 11], array_column($parsed['rows'], 'qty'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_boq_import_reads_actual_tif_template_and_only_uses_filled_volumes(): void
     {
         Storage::fake('local');

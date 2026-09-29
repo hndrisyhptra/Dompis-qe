@@ -335,12 +335,35 @@ class BoqImportService
         $rows = [];
         $itemNameColumn = $columns['job_description'] ?? 'C';
         $unitColumn = $columns['satuan'] ?? $columns['unit'] ?? 'D';
+
+        // Template BOQ operasional menaruh VOL pada baris designator induk
+        // (contoh SC-OF-SM-24), sementara harga material/jasa berada pada
+        // baris M-SC-OF-SM-24 dan J-SC-OF-SM-24 dengan VOL 0. Simpan volume
+        // induk agar dapat diwariskan ke kedua baris detail tersebut.
+        $parentQuantities = [];
+        for ($row = $dataStart; $row <= $highestRow; $row++) {
+            $code = trim((string) $sheet->getCell($columns['designator'].$row)->getCalculatedValue());
+            if ($code === '' || preg_match('/^[MJ]-/i', $code)) {
+                continue;
+            }
+
+            $qty = $sheet->getCell($columns['qty'].$row)->getCalculatedValue();
+            if (($this->normalizeNumber($qty) ?? 0) > 0) {
+                $parentQuantities[mb_strtoupper($code)] = $qty;
+            }
+        }
+
         for ($row = $dataStart; $row <= $highestRow; $row++) {
             $code = trim((string) $sheet->getCell($columns['designator'].$row)->getCalculatedValue());
             $qty = $sheet->getCell($columns['qty'].$row)->getCalculatedValue();
 
             if ($code === '' || ! preg_match('/^[MJ]-/i', $code)) {
                 continue;
+            }
+
+            $parentCode = mb_strtoupper(substr($code, 2));
+            if (($this->normalizeNumber($qty) ?? 0) <= 0 && isset($parentQuantities[$parentCode])) {
+                $qty = $parentQuantities[$parentCode];
             }
 
             $price = $flatPriceColumn !== null
