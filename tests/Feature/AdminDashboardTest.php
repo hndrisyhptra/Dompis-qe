@@ -124,7 +124,13 @@ class AdminDashboardTest extends TestCase
             'status' => 'active',
         ]);
         $this->makeLop($admin, 'MATRIX-REVIEW', 'SIDOARJO', 'recovery', 'waiting_approval');
-        $this->makeLop($admin, 'MATRIX-COMPLETE', 'SIDOARJO', 'preventive', 'completed');
+        $completed = $this->makeLop($admin, 'MATRIX-COMPLETE', 'SIDOARJO', 'preventive', 'completed');
+        $completed->assignments()->create([
+            'technician_id' => $technician->id_user,
+            'assigned_by' => $admin->id_user,
+            'assigned_at' => now(),
+            'status' => 'active',
+        ]);
         $this->makeLop($admin, 'MATRIX-DRAFT', 'SIDOARJO', 'relok_utilitas', 'draft');
         $this->makeLop($admin, 'MATRIX-SBY', 'SURABAYA', 'preventive', 'completed');
 

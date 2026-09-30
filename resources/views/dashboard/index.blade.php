@@ -165,14 +165,14 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Program</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total, assignment aktif, review, dan penyelesaian setiap Program.</p>
+                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total dan posisi LOP berdasarkan status workflow setiap Program.</p>
                 </div>
-                <div class="flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = teknisi aktif</span><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
+                <div class="flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = status Assigned</span><span class="rounded-lg bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
             </div>
 
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
-                    @php($groupLabel = $isSuperAdmin ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
+                    @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
                     <div class="overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex min-w-0 items-center gap-3">
@@ -186,9 +186,9 @@
                                     ['Total', $region['summary']['total'], '', 'text-ink-900 dark:text-white'],
                                     ['Assign', $region['summary']['assigned'], 'assigned', 'text-blue-700 dark:text-blue-300'],
                                     ['In Review', $region['summary']['in_review'], 'in_review', 'text-amber-700 dark:text-amber-300'],
-                                    ['Complete', $region['summary']['percentage'], 'complete', 'text-emerald-700 dark:text-emerald-300'],
+                                    ['Completion', $region['summary']['percentage'], 'complete', 'text-emerald-700 dark:text-emerald-300'],
                                 ] as [$label, $value, $metric, $tone])
-                                    <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800"><x-matrix-number :$value :suffix="$label === 'Complete' ? '%' : ''" :title="$label.' — '.$groupLabel" :filters="array_merge($matrixScopeFilters, $region['name'] !== 'REGION BELUM TERDATA' ? ['region' => $region['name']] : [], $metric ? ['metric' => $metric] : [])" class="text-sm {{ $tone }}"/><p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p></div>
+                                    <div class="rounded-xl bg-ink-50 px-2 py-2 text-center dark:bg-ink-800"><x-matrix-number :$value :suffix="$label === 'Completion' ? '%' : ''" :title="$label.' — '.$groupLabel" :filters="array_merge($matrixScopeFilters, $region['name'] !== 'REGION BELUM TERDATA' ? ['region' => $region['name']] : [], $metric ? ['metric' => $metric] : [])" class="text-sm {{ $tone }}"/><p class="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p></div>
                                 @endforeach
                             </div>
                         </div>
@@ -251,7 +251,7 @@
             <p class="mt-3 text-[10px] text-ink-400 sm:hidden">Geser tabel ke samping untuk melihat seluruh tahapan.</p>
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
-                    @php($groupLabel = $isSuperAdmin ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
+                    @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
                     <div class="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex min-w-0 items-center gap-3">

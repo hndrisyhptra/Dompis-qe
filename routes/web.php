@@ -24,6 +24,7 @@ use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\ServiceAreaController;
 use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
@@ -59,6 +60,9 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::get('/dashboard/matrix-lops', [DashboardController::class, 'matrixLops'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('dashboard.matrix-lops');
+Route::get('/revenue', [RevenueController::class, 'index'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('revenue.index');
 
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {

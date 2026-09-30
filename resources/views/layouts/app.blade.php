@@ -86,6 +86,23 @@
             </div>
             @endif
 
+            @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
+            <a href="{{ route('revenue.index') }}"
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('revenue.*') ? $navLinkActive : $navLinkInactive }}">
+                @if (request()->routeIs('revenue.*'))
+                    <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                @endif
+                <span class="flex items-center gap-2.5">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('revenue.*') ? $navIconActive : $navIcon }}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 18.75h18M5.25 16.5V9.75m4.5 6.75V5.25m4.5 11.25v-4.5m4.5 4.5V7.5" />
+                        </svg>
+                    </span>
+                    Financial Overview
+                </span>
+            </a>
+            @endif
+
             @can('create', \App\Models\QeLop::class)
                 @php($importMenuOpen = request()->routeIs(['lop.create', 'bulk-import.*', 'imports.*']))
                 <div x-data="{ open: {{ $importMenuOpen ? 'true' : 'false' }} }">

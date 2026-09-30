@@ -147,7 +147,7 @@ class AdminDashboardService
         }
 
         match ($normalized['metric']) {
-            'assigned' => $query->whereHas('activeAssignment'),
+            'assigned' => $query->where('status_lop', LopStatus::ASSIGNED),
             'in_review' => $query->where('status_lop', LopStatus::WAITING_APPROVAL),
             'complete' => $query->where('status_lop', LopStatus::COMPLETED),
             default => null,
@@ -199,13 +199,8 @@ class AdminDashboardService
     private function matrixRegions(Builder $query, User $user, array $filters): array
     {
         $aggregates = (clone $query)
-            ->leftJoin('qe_lop_assignments as dashboard_assignments', function ($join): void {
-                $join->on('dashboard_assignments.qe_lop_id', '=', 'qe_lops.id_qe_lops')
-                    ->where('dashboard_assignments.status', 'active');
-            })
             ->select(['qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop'])
-            ->selectRaw('COUNT(DISTINCT qe_lops.id_qe_lops) as total_count')
-            ->selectRaw('COUNT(DISTINCT dashboard_assignments.qe_lop_id) as assigned_count')
+            ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_count')
             ->groupBy('qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop')
             ->get();
 
@@ -221,7 +216,6 @@ class AdminDashboardService
 
             $counts[$branch][$program][$status] = [
                 'total' => (int) $aggregate->total_count,
-                'assigned' => (int) $aggregate->assigned_count,
             ];
         }
 
@@ -263,14 +257,13 @@ class AdminDashboardService
                         })->all();
 
                         $total = array_sum($pipeline);
-                        $assigned = collect(LopStatus::cases())->sum(fn (LopStatus $status) => (int) ($counts[$branch['name']][$program->value][$status->value]['assigned'] ?? 0));
                         $complete = $pipeline[LopStatus::COMPLETED->value];
 
                         return [
                             'value' => $program->value,
                             'label' => $program->label(),
                             'total' => $total,
-                            'assigned' => $assigned,
+                            'assigned' => $pipeline[LopStatus::ASSIGNED->value],
                             'in_review' => $pipeline[LopStatus::WAITING_APPROVAL->value],
                             'complete' => $complete,
                             'percentage' => $total > 0 ? (int) round(($complete / $total) * 100) : 0,
