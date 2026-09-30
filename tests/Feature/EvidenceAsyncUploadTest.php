@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AdminScopeType;
 use App\Enums\UserRole;
+use App\Models\Branch;
 use App\Models\Designator;
 use App\Models\DesignatorType;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\EvidenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,12 +25,34 @@ class EvidenceAsyncUploadTest extends TestCase
     /** @return array{0: User, 1: User, 2: QeLop} */
     private function assignedProject(string $status = 'survey'): array
     {
-        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $region = Region::query()->where('code', 'JATIM')->firstOrFail();
+        $branch = Branch::create([
+            'code' => 'ASYNC-SDA',
+            'name' => 'SIDOARJO ASYNC',
+            'region' => $region->name,
+            'region_id' => $region->id_region,
+            'is_active' => true,
+        ]);
+        $serviceArea = ServiceArea::create([
+            'workzone' => 'ASYNC-SDA',
+            'name' => 'Sidoarjo Async',
+            'branch_id' => $branch->id_branch,
+            'region_id' => $region->id_region,
+            'is_active' => true,
+        ]);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create([
+            'admin_scope_type' => AdminScopeType::BRANCH->value,
+            'branch_id' => $branch->id_branch,
+        ]);
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-ASYNC-01',
             'nama_lop' => 'Async Upload',
             'program_type' => 'recovery',
+            'sto' => $serviceArea->workzone,
+            'branch' => $branch->name,
+            'branch_id' => $branch->id_branch,
+            'service_area_id' => $serviceArea->id_service_area,
             'status_lop' => $status,
             'created_by' => $admin->id_user,
         ]);

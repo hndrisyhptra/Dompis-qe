@@ -89,9 +89,7 @@ class QeLopPolicy
         }
 
         if ($user->hasRole(UserRole::ADMIN)) {
-            return $lop->activeAssignment()
-                ->where('assigned_by', $user->id_user)
-                ->exists();
+            return $this->visibility->canAccess($user, $lop);
         }
 
         return $user->hasRole(UserRole::SUPER_ADMIN, UserRole::APPROVER);
@@ -156,5 +154,4 @@ class QeLopPolicy
 
         return false;
     }
-
 }

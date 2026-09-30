@@ -17,7 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class EvidenceApprovalService
 {
-    public function __construct(private readonly LopService $lopService) {}
+    public function __construct(
+        private readonly LopService $lopService,
+        private readonly LopVisibilityService $visibility,
+    ) {}
 
     /**
      * Menyelesaikan review sebuah LOP: transisi waiting_approval -> completed.
@@ -190,8 +193,7 @@ class EvidenceApprovalService
         $query = QeLop::query();
 
         if ($user->hasRole(UserRole::ADMIN)) {
-            $query->whereHas('activeAssignment', fn (Builder $assignment) => $assignment
-                ->where('assigned_by', $user->id_user));
+            $this->visibility->apply($query, $user);
         }
 
         return $query;

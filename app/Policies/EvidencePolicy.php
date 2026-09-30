@@ -6,6 +6,7 @@ use App\Enums\EvidenceStatus;
 use App\Enums\UserRole;
 use App\Models\QeEvidence;
 use App\Models\User;
+use App\Services\LopVisibilityService;
 
 /**
  * Otorisasi review/upload evidence. Upload sendiri (create) diotorisasi
@@ -14,6 +15,8 @@ use App\Models\User;
  */
 class EvidencePolicy
 {
+    public function __construct(private readonly LopVisibilityService $visibility) {}
+
     /**
      * Beda dari QeLopPolicy::viewAny() (selalu true, scoping lewat query) -
      * viewAny di sini MEMANG gerbang akses halaman Approval Evidence, jadi
@@ -31,7 +34,7 @@ class EvidencePolicy
     public function view(User $user, QeEvidence $evidence): bool
     {
         if ($user->hasRole(UserRole::ADMIN)) {
-            return $this->isAssignedBy($user, $evidence);
+            return $this->visibility->canAccess($user, $evidence->lop);
         }
 
         if ($user->hasRole(UserRole::SUPER_ADMIN, ...UserRole::broadVisibility())) {
@@ -93,16 +96,9 @@ class EvidencePolicy
         }
 
         if ($user->hasRole(UserRole::ADMIN)) {
-            return $this->isAssignedBy($user, $evidence);
+            return $this->visibility->canAccess($user, $evidence->lop);
         }
 
         return $user->hasRole(UserRole::SUPER_ADMIN, UserRole::APPROVER);
-    }
-
-    private function isAssignedBy(User $user, QeEvidence $evidence): bool
-    {
-        return $evidence->lop->activeAssignment()
-            ->where('assigned_by', $user->id_user)
-            ->exists();
     }
 }
