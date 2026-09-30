@@ -827,7 +827,7 @@ window.lopReportModal = () => ({
     },
 });
 
-// Detail LOP — tab Material & Laporan tanpa scroll horizontal, view only (dipakai di lop-detail-modal)
+// Detail LOP — tab BOQ Plan (read-only) + tab Material & Laporan (dipakai di lop-detail-modal)
 window.detailLaporanTab = (lopId) => ({
     tab: 'overview',
     type: 'boq',
@@ -838,6 +838,47 @@ window.detailLaporanTab = (lopId) => ({
     lines: [],
     grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
     _fetched: { boq: false, sisa: false },
+
+    // BOQ Plan
+    planLoading: false,
+    planError: '',
+    planLines: [],
+    planGrand: { materialCount: 0, serviceCount: 0, totalPrice: 0 },
+    _planFetched: false,
+
+    async fetchPlanIfNeeded() {
+        if (this._planFetched) return;
+        await this.fetchPlan();
+    },
+
+    async fetchPlan() {
+        this.planLoading = true;
+        this.planError = '';
+        try {
+            const res = await fetch(`/reports/lop/${lopId}/boq-plan?json=1`, { headers: { Accept: 'application/json' } });
+            if (!res.ok) {
+                const txt = await res.text();
+                let msg = `Gagal (${res.status})`;
+                try { const j = JSON.parse(txt); msg = j.message || msg; } catch (_) {}
+                throw new Error(msg);
+            }
+            const json = await res.json();
+            this.planLines = Array.isArray(json.lines) ? json.lines : [];
+            this.planGrand = {
+                materialCount: this.planLines.filter((l) => l.type === 'MATERIAL').length,
+                serviceCount: this.planLines.filter((l) => l.type === 'JASA').length,
+                totalPrice: this.planLines.reduce((s, l) => s + Number(l.total_price || 0), 0),
+            };
+            this._planFetched = true;
+        } catch (e) {
+            this.planError = e?.message || 'Gagal memuat BOQ Plan';
+            this.planLines = [];
+        } finally {
+            this.planLoading = false;
+        }
+    },
+
+    retryPlan() { this._planFetched = false; this.fetchPlan(); },
 
     async fetchIfNeeded(t) {
         const key = t || this.type;
@@ -1019,10 +1060,16 @@ window.importUploadForm = (action) => ({
     uploadPercent: 0,
     phase: 'Pilih file untuk memulai',
     error: '',
+    duplicateWarning: '',
+    existingBoqWarning: '',
+    replaceExisting: false,
 
     selectFile(event) {
         this.fileName = event.target.files?.[0]?.name || '';
         this.error = '';
+        this.duplicateWarning = '';
+        this.existingBoqWarning = '';
+        this.replaceExisting = false;
         this.uploadPercent = 0;
         this.phase = this.fileName ? 'File siap diunggah' : 'Pilih file untuk memulai';
     },
@@ -1032,6 +1079,12 @@ window.importUploadForm = (action) => ({
 
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
+
+        // If there's a duplicate/existing warning and user hasn't confirmed replace, show warning
+        if ((this.duplicateWarning || this.existingBoqWarning) && !this.replaceExisting) {
+            // Warning already shown by UI, just return
+            return;
+        }
 
         this.uploading = true;
         this.uploadPercent = 0;
@@ -1053,10 +1106,26 @@ window.importUploadForm = (action) => ({
             let payload = {};
             try { payload = JSON.parse(xhr.responseText); } catch (_) {}
 
+            // Handle duplicate file warning from server
+            if (payload.duplicate) {
+                this.duplicateWarning = payload.message;
+                this.uploading = false;
+                this.phase = 'File duplikat terdeteksi';
+                return;
+            }
+
             if (xhr.status >= 200 && xhr.status < 300 && payload.result_url) {
                 this.uploadPercent = 100;
                 this.phase = 'Upload selesai · membuka progres antrean';
                 window.location.assign(payload.result_url);
+                return;
+            }
+
+            // Check for existing BOQ error from server
+            if (xhr.status === 422 && payload.errors?.replace_existing) {
+                this.existingBoqWarning = payload.errors.replace_existing[0];
+                this.uploading = false;
+                this.phase = 'LOP sudah memiliki BOQ';
                 return;
             }
 

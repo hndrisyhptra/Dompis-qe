@@ -29,7 +29,41 @@ class BoqImportController extends Controller
 
     public function store(StoreBoqImportRequest $request): RedirectResponse|JsonResponse
     {
-        $batch = $this->batchService->create('boq', $request->file('file'), $request->user());
+        $target = $request->input('target', 'actual');
+        $replaceExisting = $request->boolean('replace_existing');
+
+        $result = $this->batchService->create('boq', $request->file('file'), $request->user(), [
+            'target' => $target,
+            'replace_existing' => $replaceExisting,
+        ]);
+
+        $batch = $result['batch'];
+        $isNew = $result['isNew'];
+
+        // If file is duplicate, return warning to frontend
+        if (!$isNew) {
+            if ($replaceExisting) {
+                // If replace is allowed, reset batch and re-dispatch
+                $batch->update(['status' => 'queued', 'error_message' => null]);
+                ProcessBoqImport::dispatch($batch->id_import_batch);
+                return redirect()->route('imports.show', $batch)
+                    ->with('status', 'File BOQ sudah di-import sebelumnya, batch telah di-reset dan diproses ulang.');
+            }
+
+            $warning = 'File ini sudah pernah diunggah sebelumnya (duplikat). Batch ID: ' . $batch->id_import_batch . ' - Status: ' . $batch->status;
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $warning,
+                    'duplicate' => true,
+                    'result_url' => route('imports.show', $batch, false),
+                ], 200);
+            }
+
+            return redirect()->route('imports.show', $batch)
+                ->with('warning', $warning);
+        }
+
         ProcessBoqImport::dispatch($batch->id_import_batch);
 
         if ($request->expectsJson()) {

@@ -23,7 +23,8 @@ class ProcessBoqImport implements ShouldQueue
     {
         $batch = QeImportBatch::findOrFail($this->batchId);
         $actor = User::findOrFail($batch->uploaded_by);
-        $service->process($batch, $actor);
+        $target = $batch->metadata['target'] ?? 'actual';
+        $service->process($batch, $actor, $target);
     }
 
     public function failed(?Throwable $exception): void

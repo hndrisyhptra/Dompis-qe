@@ -102,7 +102,8 @@ class BulkImportAndBoqTest extends TestCase
             'boq.csv',
             "PROJECT : LOP BOQ,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-ODP-01,Box ODP,unit,125000,0,4\n"
         );
-        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
+        $result = app(ImportBatchService::class)->create('boq', $file, $admin);
+        $batch = $result['batch'];
 
         app(BoqImportService::class)->process($batch, $admin);
 
@@ -421,7 +422,8 @@ class BulkImportAndBoqTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'boq-tif').'.xlsx';
         (new Xlsx($spreadsheet))->save($path);
         $file = new UploadedFile($path, 'boq-tif-10.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
-        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
+        $result = app(ImportBatchService::class)->create('boq', $file, $admin);
+        $batch = $result['batch'];
 
         app(BoqImportService::class)->process($batch, $admin);
 

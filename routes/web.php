@@ -138,6 +138,7 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::get('/lop/{qe_lop}/boq-actual/export', [ReportController::class, 'lopBoqActualExport'])->name('lop.boq-actual.export');
     Route::get('/lop/{qe_lop}/sisa-material', [ReportController::class, 'lopSisaMaterial'])->name('lop.sisa-material');
     Route::get('/lop/{qe_lop}/sisa-material/export', [ReportController::class, 'lopSisaMaterialExport'])->name('lop.sisa-material.export');
+    Route::get('/lop/{qe_lop}/boq-plan', [BoqPlanController::class, 'show'])->name('lop.boq-plan');
 });
 
 Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {

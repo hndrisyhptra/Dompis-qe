@@ -20,11 +20,12 @@ class BoqImportService
     public function __construct(
         private readonly SpreadsheetReader $reader,
         private readonly BoqService $boqService,
+        private readonly BoqPlanService $boqPlanService,
         private readonly LopVisibilityService $visibility,
         private readonly ImportRowWriter $rowWriter,
     ) {}
 
-    public function process(QeImportBatch $batch, User $actor): void
+    public function process(QeImportBatch $batch, User $actor, string $target = 'actual'): void
     {
         $batch->update(['status' => 'processing', 'started_at' => now(), 'error_message' => null]);
 
@@ -54,6 +55,20 @@ class BoqImportService
                 'lop_name' => $lop->nama_lop,
                 'package_id' => $package->id_package,
                 'package_code' => $package->code,
+            ],
+        ]);
+
+        // Check if LOP already has BOQ Plan or Actual
+        $target = $batch->metadata['target'] ?? 'actual';
+        $hasExistingPlan = $lop->boqPlan()->exists();
+        $hasExistingActual = $lop->boq()->exists();
+
+        $batch->update([
+            'metadata' => [
+                ...($batch->metadata ?? []),
+                'lop_has_existing_boq' => $hasExistingPlan || $hasExistingActual,
+                'existing_boq_type' => $hasExistingPlan ? 'plan' : ($hasExistingActual ? 'actual' : null),
+                'target_type' => $target,
             ],
         ]);
 
@@ -184,7 +199,22 @@ class BoqImportService
             return;
         }
 
-        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals) {
+        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals, $target) {
+            $replaceExisting = (bool) ($batch->metadata['replace_existing'] ?? false);
+
+            // Check if LOP already has BOQ and replacement not allowed
+            $hasExistingPlan = (bool) ($batch->metadata['lop_has_existing_boq'] ?? false);
+            $existingType = $batch->metadata['existing_boq_type'] ?? null;
+
+            if ($hasExistingPlan && ! $replaceExisting) {
+                $targetType = $target === 'plan' ? 'BOQ Plan' : 'BOQ Actual';
+                $existingTypeLabel = $existingType === 'plan' ? 'BOQ Plan' : 'BOQ Actual';
+                throw new RuntimeException(
+                    "LOP {$lop->incident} sudah memiliki {$existingTypeLabel}. " .
+                    "Centang 'Replace existing' untuk menimpa, atau batalkan import."
+                );
+            }
+
             $this->createMissingDesignators($normalizedRows, $actor);
             $designators = Designator::query()
                 ->whereIn('code', collect($normalizedRows)->where('status', 'ready')->pluck('designator'))
@@ -209,7 +239,14 @@ class BoqImportService
                 ];
             }
 
-            $boq = $this->boqService->save($lop, $valid, $package, $actor, 'import');
+            $reference = [];
+            if ($target === 'plan') {
+                $plan = $this->boqPlanService->save($lop, $valid, $actor);
+                $reference = ['plan_id' => $plan->id_plan];
+            } else {
+                $boq = $this->boqService->save($lop, $valid, $package, $actor, 'import');
+                $reference = ['boq_id' => $boq->id_boq];
+            }
 
             $resultRows = [];
             foreach ($normalizedRows as $row) {
@@ -219,9 +256,11 @@ class BoqImportService
                     'row_number' => $row['row_number'],
                     'status' => $isSkipped ? 'skipped' : 'success',
                     'reference' => $row['designator'],
-                    'message' => $isSkipped ? 'VOL kosong atau 0 — item tidak dipakai.' : 'Item BOQ berhasil disimpan.',
+                    'message' => $isSkipped
+                        ? 'VOL kosong atau 0 — item tidak dipakai.'
+                        : ($target === 'plan' ? 'Item BOQ Plan berhasil disimpan.' : 'Item BOQ Actual berhasil disimpan.'),
                     'payload' => $row,
-                    'result' => $isSkipped ? null : ['boq_id' => $boq->id_boq],
+                    'result' => $isSkipped ? null : $reference,
                 ];
             }
             $this->rowWriter->insert($batch, $resultRows);

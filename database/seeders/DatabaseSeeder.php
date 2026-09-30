@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($accounts as $roleCode => $username) {
-            $roleId = Role::where('code', $roleCode)->value('id');
+            $roleId = Role::where('code', $roleCode)->value('id_role');
 
             User::updateOrCreate(
                 ['username' => $username],

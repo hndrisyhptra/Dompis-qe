@@ -47,6 +47,7 @@ class QeLop extends Model
         'ihld_id',
         'package_id',
         'boq_snapshot',
+        'boq_plan_id',
         'status_lop',
         'created_by',
     ];
@@ -231,9 +232,15 @@ class QeLop extends Model
         return $this->hasOne(QeBoq::class, 'qe_lop_id', 'id_qe_lops');
     }
 
+<<<<<<< HEAD
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class, 'package_id', 'id_package')->withTrashed();
+=======
+    public function boqPlan(): HasOne
+    {
+        return $this->hasOne(QeBoqPlan::class, 'qe_lop_id', 'id_qe_lops');
+>>>>>>> fad743d (Fix conflict with remote branch)
     }
 
     public function survey(): HasOne
