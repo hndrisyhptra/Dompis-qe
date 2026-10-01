@@ -7,6 +7,7 @@ use App\Enums\EvidenceStatus;
 use App\Enums\EvidenceStep;
 use App\Enums\LopStatus;
 use App\Models\Designator;
+use App\Models\Package;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
@@ -21,7 +22,24 @@ class TechnicianWorkflowService
     public function __construct(
         private readonly LopService $lopService,
         private readonly EvidenceService $evidenceService,
+        private readonly RegionalPackageResolver $regionalPackages,
     ) {}
+
+    /** @return array{package: Package|null, expected_code: string|null, source: string} */
+    public function reservationPackage(QeLop $lop): array
+    {
+        $lop->loadMissing(['boq.package', 'package']);
+        $regionalPackage = $this->regionalPackages->forLop($lop);
+        $package = $lop->boq?->package ?? $regionalPackage ?? $lop->package;
+
+        return [
+            'package' => $package,
+            'expected_code' => $this->regionalPackages->expectedCode($lop),
+            'source' => $lop->boq?->package !== null
+                ? 'BOQ Plan'
+                : ($regionalPackage !== null ? 'Otomatis sesuai region' : 'Paket belum terpetakan'),
+        ];
+    }
 
     public function pickup(QeLop $lop, User $technician): void
     {
@@ -59,7 +77,12 @@ class TechnicianWorkflowService
             throw ValidationException::withMessages(['items' => 'Reservasi hanya dapat menggunakan designator bertipe material.']);
         }
 
-        $reservation = DB::transaction(function () use ($lop, $technician, $items) {
+        $packageSelection = $this->reservationPackage($lop);
+        $reservation = DB::transaction(function () use ($lop, $technician, $items, $packageSelection) {
+            if ($lop->boq === null && $packageSelection['package'] !== null) {
+                $lop->update(['package_id' => $packageSelection['package']->id_package]);
+            }
+
             $reservation = QeMaterialReservation::updateOrCreate(
                 ['qe_lop_id' => $lop->id_qe_lops],
                 ['technician_id' => $technician->id_user, 'status' => 'draft']

@@ -91,7 +91,7 @@
                         if ($first->designator) $groupTitle .= ' · '.$first->designator->code;
                         $groupDescription = $first->designator?->item_name ?? 'Evidence global untuk step ini';
                     @endphp
-                    <x-approval-evidence-group :items="$items" :title="$groupTitle" :description="$groupDescription" />
+                    <x-approval-evidence-group :items="$items" :lop="$lop" :title="$groupTitle" :description="$groupDescription" />
                 @empty
                     <div class="rounded-2xl border border-dashed border-ink-200 bg-white px-6 py-12 text-center dark:border-ink-700 dark:bg-ink-900"><p class="text-sm font-bold">Belum ada evidence pada step ini</p><p class="mt-1 text-xs text-ink-400">Evidence akan muncul setelah teknisi menyelesaikan upload.</p></div>
                 @endforelse

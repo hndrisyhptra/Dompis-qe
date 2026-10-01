@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BulkApproveEvidenceRequest;
 use App\Http\Requests\RejectEvidenceRequest;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
@@ -59,6 +60,32 @@ class EvidenceApprovalController extends Controller
         $this->evidenceService->approve($evidence, request()->user());
 
         return back()->with('status', 'Evidence disetujui.');
+    }
+
+    public function approveGroup(BulkApproveEvidenceRequest $request, QeLop $qe_lop): RedirectResponse
+    {
+        $evidenceIds = collect($request->validated('evidence_ids'))
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+        $evidences = QeEvidence::query()
+            ->where('qe_lop_id', $qe_lop->id_qe_lops)
+            ->whereIn('id_evidence', $evidenceIds)
+            ->get();
+
+        if ($evidences->count() !== $evidenceIds->count()) {
+            return back()->withErrors([
+                'review' => 'Sebagian evidence tidak berasal dari LOP yang sedang direview.',
+            ]);
+        }
+
+        foreach ($evidences as $evidence) {
+            $this->authorize('approve', $evidence);
+        }
+
+        $approved = $this->evidenceService->approveMany($qe_lop, $evidenceIds->all(), $request->user());
+
+        return back()->with('status', "{$approved} evidence berhasil disetujui sekaligus.");
     }
 
     public function reject(RejectEvidenceRequest $request, QeEvidence $evidence): RedirectResponse

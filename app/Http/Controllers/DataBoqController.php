@@ -7,7 +7,9 @@ use App\Http\Requests\UpdateBoqRequest;
 use App\Models\Designator;
 use App\Models\Package;
 use App\Models\QeBoq;
+use App\Models\QeLop;
 use App\Services\BoqService;
+use App\Services\LopBoqValueService;
 use App\Services\LopVisibilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +20,7 @@ class DataBoqController extends Controller
     public function __construct(
         private readonly BoqService $boqService,
         private readonly LopVisibilityService $visibility,
+        private readonly LopBoqValueService $boqValues,
     ) {}
 
     public function index(Request $request): View
@@ -33,8 +36,30 @@ class DataBoqController extends Controller
                 ->orWhere('nama_lop', 'like', "%{$search}%"));
         }
 
+        $reservationQuery = QeLop::query()
+            ->with([
+                'package',
+                'materialReservation.items.designator.type',
+                'materialReservation.items.designator.prices',
+            ])
+            ->whereDoesntHave('boq')
+            ->whereHas('materialReservation.items');
+        if ($request->user()->hasRole(UserRole::ADMIN)) {
+            $this->visibility->apply($reservationQuery, $request->user());
+        }
+        if ($search ?? '') {
+            $reservationQuery->where(fn ($q) => $q->where('incident', 'like', "%{$search}%")
+                ->orWhere('nama_lop', 'like', "%{$search}%"));
+        }
+
+        $reservationBoqs = $reservationQuery->latest()->paginate(15, ['*'], 'reservation_page')->withQueryString();
+        $reservationBoqs->getCollection()->each(function (QeLop $lop): void {
+            $lop->setAttribute('effective_boq', $this->boqValues->summarize($lop));
+        });
+
         return view('data-boqs.index', [
             'boqs' => $query->latest()->paginate(15)->withQueryString(),
+            'reservationBoqs' => $reservationBoqs,
             'designators' => Designator::query()->with('type')->orderBy('code')->get(),
             'packages' => Package::query()->orderBy('code')->get(),
             'search' => $search ?? '',

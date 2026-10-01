@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -146,6 +147,61 @@ class EvidenceService
         ));
 
         return $evidence;
+    }
+
+    /**
+     * Menyetujui sekumpulan evidence pending dari satu LOP dalam satu transaksi.
+     * Satu notifikasi ringkas dikirim per teknisi agar bulk action tidak membanjiri inbox.
+     *
+     * @param  array<int, int>  $evidenceIds
+     */
+    public function approveMany(QeLop $lop, array $evidenceIds, User $actor): int
+    {
+        $ids = collect($evidenceIds)->map(fn ($id): int => (int) $id)->unique()->values();
+
+        [$approved, $uploaderIds] = DB::transaction(function () use ($lop, $ids, $actor): array {
+            $evidences = QeEvidence::query()
+                ->where('qe_lop_id', $lop->id_qe_lops)
+                ->whereIn('id_evidence', $ids)
+                ->lockForUpdate()
+                ->get();
+
+            if ($evidences->count() !== $ids->count()) {
+                throw ValidationException::withMessages([
+                    'review' => 'Sebagian evidence tidak ditemukan pada LOP ini.',
+                ]);
+            }
+
+            if ($evidences->contains(fn (QeEvidence $evidence) => $evidence->status !== EvidenceStatus::PENDING)) {
+                throw ValidationException::withMessages([
+                    'review' => 'Sebagian evidence sudah direview. Muat ulang halaman lalu coba kembali.',
+                ]);
+            }
+
+            $uploaderIds = $evidences->pluck('uploaded_by')->filter()->unique()->values();
+            $approved = QeEvidence::query()
+                ->whereIn('id_evidence', $ids)
+                ->update([
+                    'status' => EvidenceStatus::APPROVED->value,
+                    'review_note' => null,
+                    'reviewed_by' => $actor->id_user,
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            return [$approved, $uploaderIds];
+        });
+
+        User::query()->whereIn('id_user', $uploaderIds)->get()->each(
+            fn (User $uploader) => $uploader->notify(new TechnicianActivityNotification(
+                'Evidence disetujui',
+                "{$approved} evidence pada {$lop->incident} telah disetujui.",
+                $lop->id_qe_lops,
+                'success'
+            ))
+        );
+
+        return $approved;
     }
 
     public function replace(QeEvidence $evidence, UploadedFile $file, User $actor, ?UploadedFile $thumb = null): QeEvidence

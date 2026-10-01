@@ -76,6 +76,7 @@ class TechnicianController extends Controller
             'state' => $state,
             'step' => $requestedStep,
             'maxStep' => $maxStep,
+            'reservationPackage' => $this->workflowService->reservationPackage($qe_lop),
             'designators' => Designator::query()
                 ->whereRelation('type', 'code', 'MATERIAL')
                 ->orderBy('code')->get(),

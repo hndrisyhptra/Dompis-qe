@@ -392,6 +392,60 @@ class EvidencePermissionTest extends TestCase
         $this->assertSame(1, substr_count($response->getContent(), 'Evidence Before · ODP-CLOSURE-01'));
     }
 
+    public function test_reviewer_can_bulk_approve_pending_evidence_in_one_group(): void
+    {
+        $admin = $this->makeAdmin();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin, 'waiting_approval');
+        $this->assignLop($lop, $admin, $technician);
+        $pending = collect(['bulk-1.jpg', 'bulk-2.jpg', 'bulk-3.jpg'])
+            ->map(fn (string $fileName) => $this->makeEvidence($lop, $technician, $fileName));
+
+        $this->actingAs($admin)
+            ->get(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
+            ->assertOk()
+            ->assertSee('Approve 3 pending')
+            ->assertSee(route('evidence-approval.lop.approve-group', $lop), false);
+
+        $this->actingAs($admin)
+            ->post(route('evidence-approval.lop.approve-group', $lop), [
+                'evidence_ids' => $pending->pluck('id_evidence')->all(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status', '3 evidence berhasil disetujui sekaligus.');
+
+        foreach ($pending as $evidence) {
+            $this->assertDatabaseHas('qe_evidences', [
+                'id_evidence' => $evidence->id_evidence,
+                'status' => 'approved',
+                'reviewed_by' => $admin->id_user,
+            ]);
+        }
+    }
+
+    public function test_bulk_approval_rejects_evidence_from_another_lop(): void
+    {
+        $admin = $this->makeAdmin();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $lop = $this->makeLop($admin, 'waiting_approval');
+        $otherLop = $this->makeLop($admin, 'waiting_approval');
+        $this->assignLop($lop, $admin, $technician);
+        $this->assignLop($otherLop, $admin, $technician);
+        $evidence = $this->makeEvidence($lop, $technician, 'bulk-valid.jpg');
+        $outsideEvidence = $this->makeEvidence($otherLop, $technician, 'bulk-outside.jpg');
+
+        $this->actingAs($admin)
+            ->from(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
+            ->post(route('evidence-approval.lop.approve-group', $lop), [
+                'evidence_ids' => [$evidence->id_evidence, $outsideEvidence->id_evidence],
+            ])
+            ->assertRedirect(route('evidence-approval.lop.review', [$lop, 'step' => 3]))
+            ->assertSessionHasErrors('review');
+
+        $this->assertSame('pending', $evidence->fresh()->status->value);
+        $this->assertSame('pending', $outsideEvidence->fresh()->status->value);
+    }
+
     public function test_only_authorized_reviewer_can_reset_a_reviewed_evidence(): void
     {
         $admin = $this->makeAdmin();

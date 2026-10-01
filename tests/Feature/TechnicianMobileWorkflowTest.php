@@ -3,10 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Branch;
 use App\Models\Designator;
 use App\Models\DesignatorType;
+use App\Models\Package;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
+use App\Models\Region;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\EvidenceService;
 use App\Services\ProjectProgressService;
@@ -125,6 +129,75 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertDatabaseMissing('qe_material_reservation_items', [
             'designator_id' => $designator->id_designator,
         ]);
+    }
+
+    public function test_material_reservation_package_is_selected_automatically_from_lop_region(): void
+    {
+        $package5 = Package::create(['code' => 'Paket-5', 'name' => 'Paket 5']);
+        $package10 = Package::create(['code' => 'Paket-10', 'name' => 'Paket 10']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
+        $designator = Designator::create([
+            'code' => 'M-REGIONAL-PACKAGE',
+            'item_name' => 'Material Paket Regional',
+            'unit' => 'unit',
+            'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'),
+        ]);
+
+        foreach ([
+            ['JATIM', 'TECH-JATIM', $package5],
+            ['JATENGDIY', 'TECH-JATENG', $package5],
+            ['BALNUS', 'TECH-BALNUS', $package10],
+        ] as [$regionCode, $branchCode, $expectedPackage]) {
+            $region = Region::query()->where('code', $regionCode)->firstOrFail();
+            $branch = Branch::create([
+                'code' => $branchCode,
+                'name' => $branchCode,
+                'region' => $region->name,
+                'region_id' => $region->id_region,
+                'is_active' => true,
+            ]);
+            $serviceArea = ServiceArea::create([
+                'workzone' => $branchCode,
+                'name' => $branchCode,
+                'branch_id' => $branch->id_branch,
+                'region_id' => $region->id_region,
+                'is_active' => true,
+            ]);
+            $lop = QeLop::create([
+                'incident' => 'LOP-'.$branchCode,
+                'nama_lop' => 'Reservasi '.$branchCode,
+                'program_type' => 'recovery',
+                'status_lop' => 'picked_up',
+                'branch' => $branch->name,
+                'branch_id' => $branch->id_branch,
+                'sto' => $serviceArea->workzone,
+                'service_area_id' => $serviceArea->id_service_area,
+                'created_by' => $admin->id_user,
+            ]);
+            $lop->assignments()->create([
+                'technician_id' => $technician->id_user,
+                'assigned_by' => $admin->id_user,
+                'assigned_at' => now(),
+                'status' => 'active',
+            ]);
+
+            if ($regionCode === 'JATIM') {
+                $this->actingAs($technician)
+                    ->get(route('technician.projects.show', [$lop, 'step' => 1]))
+                    ->assertOk()
+                    ->assertSee('Paket 5')
+                    ->assertSee('Otomatis sesuai region');
+            }
+
+            $this->actingAs($technician)
+                ->put(route('technician.projects.materials', $lop), [
+                    'items' => [['designator_id' => $designator->id_designator, 'qty' => 2]],
+                ])
+                ->assertRedirect();
+
+            $this->assertSame($expectedPackage->id_package, $lop->fresh()->package_id);
+        }
     }
 
     public function test_steps_ahead_of_the_first_incomplete_step_are_locked(): void

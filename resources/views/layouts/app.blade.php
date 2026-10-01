@@ -98,7 +98,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 18.75h18M5.25 16.5V9.75m4.5 6.75V5.25m4.5 11.25v-4.5m4.5 4.5V7.5" />
                         </svg>
                     </span>
-                    Financial Overview
+                    Revenue Overview
                 </span>
             </a>
             @endif

@@ -39,7 +39,17 @@
                             <td class="px-5 py-4"><p class="font-semibold">{{ $lop->sto ?: '—' }}</p><p class="text-xs text-ink-400">{{ $lop->branch ?: '—' }}</p></td>
                             <td class="px-5 py-4 text-xs">{{ $lop->program_type->label() }}</td>
                             <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
-                            <td class="px-5 py-4">@if($lop->boq)<span class="text-xs font-bold text-emerald-600">{{ $lop->boq->item_count }} item</span>@else<span class="text-xs text-ink-400">Belum ada</span>@endif</td>
+                            <td class="px-5 py-4">
+                                @if($lop->boq)
+                                    <span class="text-xs font-bold text-emerald-600">{{ $lop->boq->item_count }} item</span>
+                                    <span class="mt-1 block text-[9px] font-bold uppercase tracking-wider text-ink-400">BOQ Plan</span>
+                                @elseif($lop->materialReservation?->items->isNotEmpty())
+                                    <span class="text-xs font-bold text-blue-600 dark:text-blue-400">{{ $lop->materialReservation->items->count() }} item</span>
+                                    <span class="mt-1 block text-[9px] font-bold uppercase tracking-wider text-ink-400">Reservasi Teknisi</span>
+                                @else
+                                    <span class="text-xs text-ink-400">Belum ada</span>
+                                @endif
+                            </td>
                             <td class="px-5 py-4"><div class="flex justify-end gap-1.5">
                                 <x-table-action label="Lihat detail LOP" @click="detail = true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></x-table-action>
                                 @can('update', $lop)<x-table-action label="Edit data LOP" tone="primary" :href="route('lop.edit', $lop)"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931Z"/><path d="M19.5 7.125V18A2.25 2.25 0 0117.25 20.25H6.75A2.25 2.25 0 014.5 18V7.5A2.25 2.25 0 016.75 5.25H12"/></svg></x-table-action>@endcan

@@ -259,6 +259,7 @@ Route::middleware(['auth'])->prefix('designator-prices')->name('designator-price
 Route::middleware(['auth'])->prefix('evidence-approval')->name('evidence-approval.')->group(function () {
     Route::get('/', [EvidenceApprovalController::class, 'index'])->name('index');
     Route::get('/lop/{qe_lop}', [EvidenceApprovalController::class, 'reviewLop'])->name('lop.review');
+    Route::post('/lop/{qe_lop}/approve-group', [EvidenceApprovalController::class, 'approveGroup'])->name('lop.approve-group');
     Route::post('/lop/{qe_lop}/complete', [EvidenceApprovalController::class, 'completeReview'])->name('lop.complete');
     Route::get('/{evidence}', [EvidenceApprovalController::class, 'show'])->name('show');
     Route::post('/{evidence}/approve', [EvidenceApprovalController::class, 'approve'])->name('approve');

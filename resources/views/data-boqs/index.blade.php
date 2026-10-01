@@ -38,7 +38,48 @@
         </div>
     </form>
 
+    @if ($reservationBoqs->total() > 0)
+        <section class="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-900/60 dark:bg-ink-900">
+            <div class="flex flex-col gap-2 border-b border-blue-100 bg-blue-50/70 px-5 py-4 dark:border-blue-900/50 dark:bg-blue-950/20 sm:flex-row sm:items-center sm:justify-between">
+                <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">BOQ Aktual dari Reservasi Teknisi</h2><p class="mt-1 text-xs text-ink-500">LOP tanpa BOQ Plan ditampilkan berdasarkan item dan quantity aktual reservasi teknisi.</p></div>
+                <span class="w-fit rounded-full bg-white px-3 py-1 text-[10px] font-bold text-blue-700 shadow-sm dark:bg-ink-900 dark:text-blue-300">JATIM/JATENG: Paket-5 · BALNUS: Paket-10</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800">
+                    <thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Paket</th><th class="px-5 py-3 text-right">Nilai Jasa</th><th class="px-5 py-3 text-right">Nilai Material</th><th class="px-5 py-3 text-right">Nilai BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
+                    <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
+                        @foreach($reservationBoqs as $lop)
+                            @php
+                                $summary = $lop->effective_boq;
+                            @endphp
+                            <tr x-data="{ detail: false }" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                                <td class="px-5 py-4"><p class="font-bold">{{ $lop->incident }}</p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
+                                <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $summary['package_label'] }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $summary['item_count'] }} item aktual</p></td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['material_total'], 0, ',', '.') }}</td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($summary['grand_total'], 0, ',', '.') }}@if($summary['missing_price_count'])<span class="mt-1 block text-[9px] font-bold text-amber-600">{{ $summary['missing_price_count'] }} harga belum tersedia</span>@endif</td>
+                                <td class="px-5 py-4 text-right">
+                                    <x-table-action label="Detail BOQ aktual" @click="detail = true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></x-table-action>
+                                    <div x-show="detail" x-cloak @keydown.escape.window="detail=false" class="fixed inset-0 z-[100] flex items-end justify-center bg-ink-950/70 p-4 text-left sm:items-center" @click.self="detail=false">
+                                        <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-ink-900">
+                                            <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-blue-600">BOQ Aktual · Reservasi Teknisi</p><h3 class="mt-1 text-xl font-extrabold">{{ $lop->incident }}</h3><p class="mt-1 text-xs text-ink-500">{{ $summary['package_label'] }} · {{ $summary['item_count'] }} item</p></div><button type="button" @click="detail=false" class="grid h-9 w-9 place-items-center rounded-full border border-ink-200 dark:border-ink-700">×</button></div>
+                                            @if($summary['uses_regional_package'])<div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">Paket {{ $summary['package']?->code }} dipilih otomatis berdasarkan region branch LOP.</div>@elseif($summary['uses_reference_package'])<div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">Region LOP belum terpetakan. Nilai menggunakan {{ $summary['package']?->code }} sebagai referensi harga terbaru.</div>@endif
+                                            <div class="mt-5 overflow-x-auto rounded-2xl border border-ink-100 dark:border-ink-800"><table class="min-w-full text-xs"><thead class="bg-ink-50 text-[10px] uppercase text-ink-500 dark:bg-ink-800"><tr><th class="px-4 py-3 text-left">Designator</th><th class="px-4 py-3 text-left">Item</th><th class="px-4 py-3 text-right">Reservasi</th><th class="px-4 py-3 text-right">Aktual</th><th class="px-4 py-3 text-right">Harga</th><th class="px-4 py-3 text-right">Total</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@foreach($summary['items'] as $item)<tr><td class="px-4 py-3 font-bold">{{ $item['code'] }}</td><td class="px-4 py-3 text-ink-500">{{ $item['name'] }}</td><td class="px-4 py-3 text-right">{{ number_format($item['qty_reserved'], 0, ',', '.') }}</td><td class="px-4 py-3 text-right font-bold">{{ $item['qty_actual'] === null ? 'Belum direkap' : number_format($item['qty_actual'], 0, ',', '.') }}</td><td class="px-4 py-3 text-right">{{ $item['unit_price'] === null ? '—' : 'Rp '.number_format($item['unit_price'], 0, ',', '.') }}</td><td class="px-4 py-3 text-right font-bold">Rp {{ number_format($item['total'], 0, ',', '.') }}</td></tr>@endforeach</tbody></table></div>
+                                            <div class="mt-4 flex justify-end"><div class="rounded-xl bg-ink-50 px-5 py-3 text-right dark:bg-ink-800"><p class="text-[10px] font-bold uppercase text-ink-400">Total Aktual</p><p class="mt-1 text-lg font-extrabold">Rp {{ number_format($summary['grand_total'], 0, ',', '.') }}</p></div></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-5 py-3">{{ $reservationBoqs->links() }}</div>
+        </section>
+    @endif
+
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
+        <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">BOQ Plan</h2><p class="mt-1 text-xs text-ink-500">BOQ hasil import atau pengelolaan manual.</p></div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800">
                 <thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50">

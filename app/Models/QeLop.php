@@ -231,6 +231,11 @@ class QeLop extends Model
         return $this->hasOne(QeBoq::class, 'qe_lop_id', 'id_qe_lops');
     }
 
+    public function package(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'package_id', 'id_package')->withTrashed();
+    }
+
     public function survey(): HasOne
     {
         return $this->hasOne(QeSurvey::class, 'qe_lop_id', 'id_qe_lops');

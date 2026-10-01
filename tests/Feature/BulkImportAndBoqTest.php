@@ -7,6 +7,7 @@ use App\Jobs\ProcessBulkLopImport;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Designator;
+use App\Models\DesignatorPackagePrice;
 use App\Models\DesignatorType;
 use App\Models\Package;
 use App\Models\QeBoq;
@@ -266,6 +267,66 @@ class BulkImportAndBoqTest extends TestCase
             'designator_id' => $designatorA->id_designator,
             'qty_actual' => 1,
         ]);
+    }
+
+    public function test_master_lop_and_data_boq_show_technician_reservation_when_plan_boq_is_missing(): void
+    {
+        [, , $branch] = $this->branchData();
+        $serviceArea = ServiceArea::query()->where('branch_id', $branch->id_branch)->firstOrFail();
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create(['branch_id' => $branch->id_branch]);
+        $type = DesignatorType::firstOrCreate(['code' => 'MATERIAL'], ['name' => 'Material', 'is_active' => true]);
+        $designator = Designator::create([
+            'code' => 'M-RESERVATION-BOQ',
+            'item_name' => 'Material dari Reservasi Teknisi',
+            'unit' => 'unit',
+            'designator_type_id' => $type->id_designator_type,
+        ]);
+        $package = Package::create(['code' => '10-AKTUAL', 'name' => 'Paket Aktual Teknisi']);
+        DesignatorPackagePrice::create([
+            'designator_id' => $designator->id_designator,
+            'package_id' => $package->id_package,
+            'price' => 25_000,
+        ]);
+        $lop = QeLop::create([
+            'incident' => 'INC-RESERVATION-BOQ',
+            'nama_lop' => 'LOP Tanpa BOQ Plan',
+            'program_type' => 'recovery',
+            'sto' => $serviceArea->workzone,
+            'branch' => $branch->name,
+            'branch_id' => $branch->id_branch,
+            'service_area_id' => $serviceArea->id_service_area,
+            'status_lop' => 'completed',
+            'created_by' => $admin->id_user,
+        ]);
+        $reservation = $lop->materialReservation()->create([
+            'technician_id' => $technician->id_user,
+            'status' => 'submitted',
+            'submitted_at' => now(),
+        ]);
+        $reservation->items()->create([
+            'designator_id' => $designator->id_designator,
+            'qty' => 5,
+            'qty_actual' => 4,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('data-lops.index'))
+            ->assertOk()
+            ->assertSee('INC-RESERVATION-BOQ')
+            ->assertSee('Reservasi Teknisi')
+            ->assertSee('1 item');
+
+        $this->actingAs($admin)
+            ->get(route('data-boqs.index'))
+            ->assertOk()
+            ->assertSee('BOQ Aktual dari Reservasi Teknisi')
+            ->assertSee('INC-RESERVATION-BOQ')
+            ->assertSee('10-AKTUAL')
+            ->assertSee('Rp 100.000')
+            ->assertSee('Material dari Reservasi Teknisi');
+
+        $this->assertDatabaseMissing('qe_boqs', ['qe_lop_id' => $lop->id_qe_lops]);
     }
 
     public function test_boq_parser_detects_project_and_supported_package_headers(): void
