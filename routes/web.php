@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BoqImportController;
+use App\Http\Controllers\BoqPlanController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BulkLopImportController;
 use App\Http\Controllers\DashboardController;

@@ -19,6 +19,9 @@ class ImportRowWriter
             return;
         }
 
+        // Hapus hasil import lama untuk batch ini agar tidak ada duplikat
+        DB::table('qe_import_rows')->where('import_batch_id', $batch->id_import_batch)->delete();
+
         $now = now();
         $records = array_map(fn (array $row): array => [
             'import_batch_id' => $batch->id_import_batch,

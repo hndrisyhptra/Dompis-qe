@@ -17,7 +17,7 @@ class StoreBoqImportRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
             'target' => ['sometimes', 'in:plan,actual'],
-            'replace_existing' => ['sometimes', 'boolean'],
+            'replace_existing' => ['sometimes', 'nullable'],
         ];
     }
 }

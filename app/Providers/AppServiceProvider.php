@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Policies\EvidencePolicy;
 use App\Policies\QeLopPolicy;
 use App\Policies\UserPolicy;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Queue\Events\JobProcessed;
+use App\Listeners\UpdateQueueLastProcessedAt;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -43,5 +46,8 @@ class AppServiceProvider extends ServiceProvider
         // dipegang MANAGER + SUPER_ADMIN sejak seeder awal; ADMIN ditambahkan
         // lewat migration 2026_09_07_000004 (terscope branch di controller).
         Gate::define('view-reports', fn (User $user) => $user->hasPermission('reporting'));
+
+        // Register queue monitoring listener
+        Event::listen(JobProcessed::class, UpdateQueueLastProcessedAt::class);
     }
 }

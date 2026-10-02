@@ -1106,8 +1106,8 @@ window.importUploadForm = (action) => ({
             let payload = {};
             try { payload = JSON.parse(xhr.responseText); } catch (_) {}
 
-            // Handle duplicate file warning from server
-            if (payload.duplicate) {
+            // Handle duplicate file warning from server (HTTP 200 - not replace)
+            if (xhr.status === 200 && payload.duplicate) {
                 this.duplicateWarning = payload.message;
                 this.uploading = false;
                 this.phase = 'File duplikat terdeteksi';

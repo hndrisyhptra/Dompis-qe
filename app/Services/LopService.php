@@ -31,7 +31,7 @@ class LopService
     ) {}
 
     /**
-     * Normalisasi segment: untuk relok_utilitas simpan array (preserve order, unique, max 3),
+     * Normalisasi segment: untuk relok_utilitas simpan array (preserve order, unique, max 5),
      * untuk program lain simpan array dengan 1 elemen agar konsisten dengan cast array di Model.
      */
     private function normalizeSegment(mixed $segment, string $programType): array
@@ -49,7 +49,7 @@ class LopService
                 $unique[] = $v;
             }
 
-            return $programType === 'relok_utilitas' ? array_slice($unique, 0, 3) : array_slice($unique, 0, 1);
+            return $programType === 'relok_utilitas' ? array_slice($unique, 0, 5) : array_slice($unique, 0, 1);
         }
 
         $val = strtolower(trim((string) $segment));

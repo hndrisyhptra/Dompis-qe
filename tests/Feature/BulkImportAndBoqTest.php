@@ -484,4 +484,60 @@ class BulkImportAndBoqTest extends TestCase
         $this->actingAs($superAdmin)->get(route('data-lops.index'))
             ->assertOk()->assertSee('INC-SDA')->assertSee('INC-SBY');
     }
+
+    public function test_boq_import_duplicate_detection_and_replace_existing(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        [, , $branch] = $this->branchData();
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $package = Package::create(['code' => '5', 'name' => 'Paket 5']);
+        $lop = QeLop::create([
+            'incident' => 'INC-DUP-TEST', 'nama_lop' => 'LOP Duplicate Test', 'program_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => ['odp'],
+            'job_description' => 'Test', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
+        ]);
+
+        $fileContent = "PROJECT : LOP Duplicate Test,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-ODP-01,Box ODP,unit,125000,0,4\n";
+
+        // First upload - should create new batch
+        $file1 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
+        $result1 = app(ImportBatchService::class)->create('boq', $file1, $admin, ['target' => 'plan']);
+        $this->assertTrue($result1['isNew']);
+        $batch = $result1['batch'];
+
+        // Second upload with same content - should detect duplicate
+        $file2 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
+        $response = $this->actingAs($admin)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post(route('bulk-import.boq.store'), [
+                'file' => $file2,
+                'target' => 'plan',
+                'replace_existing' => false,
+            ]);
+
+        $response->assertOk(); // Should return JSON with duplicate warning
+        $response->assertStatus(200)
+            ->assertJsonStructure(['message', 'duplicate', 'result_url'])
+            ->assertJson(['duplicate' => true]);
+
+        $batch->refresh();
+        $this->assertFalse($batch->metadata['replace_existing'] ?? false);
+        $this->assertSame('plan', $batch->metadata['target']);
+
+        // Replace existing - should reset batch and allow re-import
+        $file3 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
+        $response = $this->actingAs($admin)->postJson(route('bulk-import.boq.store'), [
+            'file' => $file3,
+            'target' => 'plan',
+            'replace_existing' => 'on',
+        ]);
+
+        $response->assertJson(['duplicate' => false]);
+        $batch = QeImportBatch::findOrFail($batch->id_import_batch);
+        $this->assertSame('queued', $batch->status);
+        $this->assertTrue($batch->metadata['replace_existing']);
+        $this->assertNull($batch->error_message);
+        $this->assertNull($batch->completed_at);
+    }
 }

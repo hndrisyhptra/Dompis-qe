@@ -30,7 +30,7 @@ class BoqImportController extends Controller
     public function store(StoreBoqImportRequest $request): RedirectResponse|JsonResponse
     {
         $target = $request->input('target', 'actual');
-        $replaceExisting = $request->boolean('replace_existing');
+        $replaceExisting = filter_var($request->input('replace_existing', false), FILTER_VALIDATE_BOOLEAN);
 
         $result = $this->batchService->create('boq', $request->file('file'), $request->user(), [
             'target' => $target,
@@ -43,9 +43,31 @@ class BoqImportController extends Controller
         // If file is duplicate, return warning to frontend
         if (!$isNew) {
             if ($replaceExisting) {
-                // If replace is allowed, reset batch and re-dispatch
-                $batch->update(['status' => 'queued', 'error_message' => null]);
-                ProcessBoqImport::dispatch($batch->id_import_batch);
+                // If replace is allowed, reset batch and re-dispatch ONLY if not already queued/processing
+                $shouldDispatch = ! in_array($batch->status, ['queued', 'processing'], true);
+                
+                // Always update metadata with replace_existing flag
+                $batch->update([
+                    'status' => 'queued',
+                    'error_message' => null,
+                    'completed_at' => null,
+                    'metadata' => array_merge($batch->metadata ?? [], [
+                        'replace_existing' => true,
+                        'target' => $target,
+                    ]),
+                ]);
+                
+                if ($shouldDispatch) {
+                    ProcessBoqImport::dispatch($batch->id_import_batch);
+                }
+                
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'message' => 'File BOQ sudah di-import sebelumnya. Batch telah di-reset dan diproses ulang.',
+                        'duplicate' => false,
+                        'result_url' => route('imports.show', $batch, false),
+                    ], 202);
+                }
                 return redirect()->route('imports.show', $batch)
                     ->with('status', 'File BOQ sudah di-import sebelumnya, batch telah di-reset dan diproses ulang.');
             }

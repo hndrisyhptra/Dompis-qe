@@ -27,6 +27,7 @@ class BoqImportService
 
     public function process(QeImportBatch $batch, User $actor, string $target = 'actual'): void
     {
+        $replaceExisting = (bool) ($batch->metadata['replace_existing'] ?? false);
         $batch->update(['status' => 'processing', 'started_at' => now(), 'error_message' => null]);
 
         $parsed = $this->parse(Storage::disk($batch->disk)->path($batch->file_path));
@@ -62,6 +63,7 @@ class BoqImportService
         $target = $batch->metadata['target'] ?? 'actual';
         $hasExistingPlan = $lop->boqPlan()->exists();
         $hasExistingActual = $lop->boq()->exists();
+        $targetHasExisting = $target === 'plan' ? $hasExistingPlan : $hasExistingActual;
 
         $batch->update([
             'metadata' => [
@@ -69,6 +71,7 @@ class BoqImportService
                 'lop_has_existing_boq' => $hasExistingPlan || $hasExistingActual,
                 'existing_boq_type' => $hasExistingPlan ? 'plan' : ($hasExistingActual ? 'actual' : null),
                 'target_type' => $target,
+                'target_has_existing_boq' => $targetHasExisting,
             ],
         ]);
 
@@ -199,18 +202,16 @@ class BoqImportService
             return;
         }
 
-        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals, $target) {
-            $replaceExisting = (bool) ($batch->metadata['replace_existing'] ?? false);
+        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals, $target, $replaceExisting) {
+            // Hanya import yangmentation diblokir bila LOP sudah punya BOQ dengan
+            // tipe yang sama. BOQ Plan dan BOQ Actual boleh hidup berdampingan,
+            // sehingga import berlawanan tipe tidak perlu "Replace existing".
+            $targetHasExisting = (bool) ($batch->metadata['target_has_existing_boq'] ?? false);
 
-            // Check if LOP already has BOQ and replacement not allowed
-            $hasExistingPlan = (bool) ($batch->metadata['lop_has_existing_boq'] ?? false);
-            $existingType = $batch->metadata['existing_boq_type'] ?? null;
-
-            if ($hasExistingPlan && ! $replaceExisting) {
+            if ($targetHasExisting && ! $replaceExisting) {
                 $targetType = $target === 'plan' ? 'BOQ Plan' : 'BOQ Actual';
-                $existingTypeLabel = $existingType === 'plan' ? 'BOQ Plan' : 'BOQ Actual';
                 throw new RuntimeException(
-                    "LOP {$lop->incident} sudah memiliki {$existingTypeLabel}. " .
+                    "LOP {$lop->incident} sudah memiliki {$targetType}. " .
                     "Centang 'Replace existing' untuk menimpa, atau batalkan import."
                 );
             }
