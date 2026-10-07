@@ -146,6 +146,44 @@ class BulkImportAndBoqTest extends TestCase
         ])->assertSessionHasErrors('items.0.qty');
     }
 
+    public function test_boq_import_preserves_item_descriptions_longer_than_255_characters(): void
+    {
+        Storage::fake('local');
+        [, , $branch] = $this->branchData();
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+
+        DesignatorType::firstOrCreate(['code' => 'MATERIAL'], ['name' => 'Material', 'is_active' => true]);
+        DesignatorType::firstOrCreate(['code' => 'JASA'], ['name' => 'Jasa', 'is_active' => true]);
+        Package::create(['code' => '5', 'name' => 'Paket 5']);
+        $lop = QeLop::create([
+            'incident' => 'INC-LONG-BOQ', 'nama_lop' => 'LOP LONG DESCRIPTION', 'program_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => ['odp'],
+            'job_description' => 'Penggantian ODP', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
+        ]);
+        $longItemName = rtrim(str_repeat(
+            'Pengadaan dan pemasangan perangkat jaringan fiber optik beserta aksesoris instalasi lengkap ',
+            5
+        ));
+        $file = UploadedFile::fake()->createWithContent(
+            'boq-long-description.csv',
+            "PROJECT : LOP LONG DESCRIPTION,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-LONG-DESCRIPTION,{$longItemName},unit,1000,0,2\n"
+        );
+        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
+
+        app(BoqImportService::class)->process($batch, $admin);
+
+        $this->assertGreaterThan(255, strlen($longItemName));
+        $this->assertSame('completed', $batch->refresh()->status);
+        $this->assertDatabaseHas('designators', [
+            'code' => 'M-LONG-DESCRIPTION',
+            'item_name' => $longItemName,
+        ]);
+        $this->assertSame(
+            $longItemName,
+            QeBoq::where('qe_lop_id', $lop->id_qe_lops)->firstOrFail()->items()->firstOrFail()->item_name
+        );
+    }
+
     public function test_active_boq_can_add_edit_and_remove_unused_items_while_preserving_manual_reservation_items(): void
     {
         [, , $branch] = $this->branchData();
