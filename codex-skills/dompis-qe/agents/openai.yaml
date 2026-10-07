@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dompis QE Development"
+  short_description: "Audit and continue Dompis QE safely"
+  default_prompt: "Use $dompis-qe to audit the current repository state and continue this Dompis QE task safely."
+
+policy:
+  allow_implicit_invocation: true
