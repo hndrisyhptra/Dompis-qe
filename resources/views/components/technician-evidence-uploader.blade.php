@@ -1,4 +1,4 @@
-@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true])
+@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'type' => 'PHOTO', 'showStatus' => true])
 
 @php
     $startsExpanded = $existing->isEmpty();
@@ -11,7 +11,7 @@
         expanded: @js($startsExpanded),
         endpoint: @js($allowUpload ? route('technician.projects.evidence.file', $lop, false) : null),
         category: @js($category),
-        type: 'PHOTO',
+        type: @js($type),
         designatorId: @js($designatorId),
      })" @keydown.escape.window="closePreview()"
      class="overflow-hidden rounded-2xl border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
@@ -20,7 +20,7 @@
         <span class="min-w-0 flex-1">
             <span class="block text-sm font-bold text-ink-900 dark:text-white">{{ $title }}</span>
             <span class="mt-1 block line-clamp-1 text-xs leading-5 text-ink-500 dark:text-ink-400">{{ $description }}</span>
-            @if ($existing->isNotEmpty())
+            @if ($showStatus && $existing->isNotEmpty())
                 <span class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold">
                     @if ($pendingCount)<span class="text-amber-600 dark:text-amber-400"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400"></span>{{ $pendingCount }} pending</span>@endif
                     @if ($approvedCount)<span class="text-emerald-600 dark:text-emerald-400"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500"></span>{{ $approvedCount }} approve</span>@endif
@@ -57,7 +57,7 @@
                     $fileUrl = $evidence->url();
                     $thumbUrl = $evidence->thumbUrl();
                     $isImage = str_starts_with($mime, 'image/') || in_array(strtolower(pathinfo($evidence->file_path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp']);
-                    $statusStyle = match ($evidence->status->value) {
+                    $statusStyle = ! $showStatus ? 'border-ink-100 dark:border-ink-700' : match ($evidence->status->value) {
                         'approved' => 'border-emerald-300 dark:border-emerald-800',
                         'rejected' => 'border-brand-300 dark:border-brand-800',
                         default => 'border-amber-300 dark:border-amber-800',
@@ -80,9 +80,11 @@
                                 <span class="grid h-full w-full place-items-center text-center text-brand-600 dark:text-brand-300"><span><svg class="mx-auto h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9a9 9 0 00-9-9z"/></svg><span class="mt-1 block text-[9px] font-bold">PDF</span></span></span>
                             @endif
                         </span>
-                        <span class="absolute left-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[8px] font-extrabold shadow-sm {{ $statusLabelStyle }}">
-                            {{ $evidence->status->label() }}
-                        </span>
+                        @if ($showStatus)
+                            <span class="absolute left-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[8px] font-extrabold shadow-sm {{ $statusLabelStyle }}">
+                                {{ $evidence->status->label() }}
+                            </span>
+                        @endif
                         <span class="absolute inset-0 grid place-items-center bg-black/0 text-transparent transition group-hover:bg-black/25 group-hover:text-white">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         </span>
@@ -152,6 +154,7 @@
             </div>
             <input x-ref="camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="sr-only" @change="selectQueue($event)">
             <input x-ref="picker" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" class="sr-only" @change="selectQueue($event)">
+            <p x-show="selectionError" x-text="selectionError" class="mt-2 text-[10px] font-bold text-brand-600"></p>
         </div>
 
         <template x-if="queueActive">
@@ -202,7 +205,7 @@
         <form method="POST" action="{{ route('technician.projects.evidence', $lop) }}" enctype="multipart/form-data" class="mt-3 space-y-2">
             @csrf
             <input type="hidden" name="category" value="{{ $category }}">
-            <input type="hidden" name="type" value="PHOTO">
+            <input type="hidden" name="type" value="{{ $type }}">
             @if ($designatorId)<input type="hidden" name="designator_id" value="{{ $designatorId }}">@endif
             <input type="file" name="files[]" multiple accept="image/jpeg,image/png,image/webp,application/pdf" class="w-full text-xs">
             <button type="submit" class="min-h-11 w-full rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Upload evidence</button>
@@ -228,8 +231,8 @@
                 <img :src="preview.url" :alt="preview.name" class="max-h-[72vh] w-full rounded-2xl object-contain">
             </template>
             <template x-if="preview && !preview.isImage">
-                <div class="grid min-h-64 place-items-center rounded-2xl bg-white p-8 text-center text-ink-800">
-                    <div><svg class="mx-auto h-14 w-14 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9a9 9 0 00-9-9z"/></svg><p class="mt-3 text-sm font-bold">Dokumen PDF siap diupload</p><p class="mt-1 text-xs text-ink-500" x-text="preview.name"></p></div>
+                <div class="overflow-hidden rounded-2xl bg-white">
+                    <iframe :src="preview.url" :title="preview.name" class="h-[70vh] w-full"></iframe>
                 </div>
             </template>
         </div>

@@ -28,9 +28,9 @@
             <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-3xl">Revenue Overview</h1>
             <p class="mt-1 max-w-3xl text-sm leading-6 text-ink-500 dark:text-ink-400">Ringkasan nilai plan, realisasi, dan gap pekerjaan per program sesuai cakupan wilayah akun.</p>
         </div>
-        <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
+        <!-- <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
             <strong>Metode:</strong> Plan hanya dihitung untuk QE Preventive dan QE Relok Utilitas. Realisasi memakai BOQ Plan atau reservasi aktual teknisi untuk LOP <strong>Completed</strong>. Reservasi JATIM/JATENG DIY memakai Paket 5 dan BALNUS memakai Paket 10; {{ $referencePackageLabel ?: 'paket terbaru' }} hanya menjadi fallback jika region belum terpetakan.
-        </div>
+        </div> -->
     </header>
 
     @if ($scopeWarning)

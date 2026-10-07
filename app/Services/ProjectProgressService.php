@@ -31,6 +31,9 @@ class ProjectProgressService
 
         $items = $lop->materialReservation?->items ?? collect();
         $evidences = $lop->evidences;
+        $reviewableEvidences = $evidences->reject(
+            fn ($evidence) => $evidence->category === EvidenceCategory::REQUEST_LETTER
+        );
         $reservedIds = $items->pluck('designator_id')->unique();
         $progressIds = $evidences->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $evidences->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
@@ -54,15 +57,15 @@ class ProjectProgressService
 
         $totalSteps = count($steps);
         $completedSteps = collect($steps)->filter()->count();
-        $pendingCount = $evidences->where('status', EvidenceStatus::PENDING)->count();
-        $approvedCount = $evidences->where('status', EvidenceStatus::APPROVED)->count();
-        $rejectedCount = $evidences->where('status', EvidenceStatus::REJECTED)->count();
+        $pendingCount = $reviewableEvidences->where('status', EvidenceStatus::PENDING)->count();
+        $approvedCount = $reviewableEvidences->where('status', EvidenceStatus::APPROVED)->count();
+        $rejectedCount = $reviewableEvidences->where('status', EvidenceStatus::REJECTED)->count();
         $percentage = (int) round($completedSteps / $totalSteps * 100);
 
         [$reviewKey, $reviewLabel, $reviewVariant] = $this->reviewState(
             $lop,
             $percentage,
-            $evidences,
+            $reviewableEvidences,
             $pendingCount,
             $approvedCount,
             $rejectedCount,
@@ -76,7 +79,7 @@ class ProjectProgressService
             'review_key' => $reviewKey,
             'review_label' => $reviewLabel,
             'review_variant' => $reviewVariant,
-            'evidence_count' => $evidences->count(),
+            'evidence_count' => $reviewableEvidences->count(),
             'pending_count' => $pendingCount,
             'approved_count' => $approvedCount,
             'rejected_count' => $rejectedCount,

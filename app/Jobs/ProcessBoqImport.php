@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\BoqImportService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class ProcessBoqImport implements ShouldQueue
@@ -24,16 +25,15 @@ class ProcessBoqImport implements ShouldQueue
         $batch = QeImportBatch::findOrFail($this->batchId);
 
         // Gunakan cache lock agar tidak ada 2 job memproses batch yang sama bersamaan
-        $lock = \Illuminate\Support\Facades\Cache::lock("import_batch_{$this->batchId}", 600);
+        $lock = Cache::lock("import_batch_{$this->batchId}", 600);
 
-        if (!$lock->get()) {
+        if (! $lock->get()) {
             return;
         }
 
         try {
             $actor = User::findOrFail($batch->uploaded_by);
-            $target = $batch->metadata['target'] ?? 'actual';
-            $service->process($batch, $actor, $target);
+            $service->process($batch, $actor);
         } finally {
             $lock->release();
         }

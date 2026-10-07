@@ -11,7 +11,9 @@ use App\Models\QeLop;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceService;
+use App\Services\ProjectProgressService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
@@ -23,7 +25,7 @@ class EvidenceAsyncUploadTest extends TestCase
     use RefreshDatabase;
 
     /** @return array{0: User, 1: User, 2: QeLop} */
-    private function assignedProject(string $status = 'survey'): array
+    private function assignedProject(string $status = 'survey', string $program = 'recovery'): array
     {
         $region = Region::query()->where('code', 'JATIM')->firstOrFail();
         $branch = Branch::create([
@@ -48,7 +50,7 @@ class EvidenceAsyncUploadTest extends TestCase
         $lop = QeLop::create([
             'incident' => 'LOP-ASYNC-01',
             'nama_lop' => 'Async Upload',
-            'program_type' => 'recovery',
+            'program_type' => $program,
             'sto' => $serviceArea->workzone,
             'branch' => $branch->name,
             'branch_id' => $branch->id_branch,
@@ -210,5 +212,119 @@ class EvidenceAsyncUploadTest extends TestCase
             'designator_id' => $stray->id_designator,
             'file' => UploadedFile::fake()->image('before.webp'),
         ])->assertStatus(422)->assertJsonValidationErrors('designator_id');
+    }
+
+    public function test_admin_can_upload_multiple_request_letters_for_preventive_lop(): void
+    {
+        Storage::fake('public');
+        [$admin, , $lop] = $this->assignedProject('survey', 'preventive');
+
+        $response = $this->actingAs($admin)
+            ->from(route('program.show', 'preventive'))
+            ->post(route('lop.request-letters.store', $lop), [
+                'files' => [
+                    UploadedFile::fake()->image('surat-lokasi.jpg'),
+                    UploadedFile::fake()->create('surat-permintaan.pdf', 120, 'application/pdf'),
+                ],
+            ]);
+
+        $response->assertRedirect(route('program.show', 'preventive'));
+        $this->assertDatabaseCount('qe_evidences', 2);
+        $this->assertDatabaseHas('qe_evidences', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'category' => 'request_letter',
+            'step' => 'SURVEY',
+            'type' => 'PHOTO',
+            'status' => 'approved',
+        ]);
+        $this->assertDatabaseHas('qe_evidences', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'category' => 'request_letter',
+            'type' => 'DOCUMENT',
+            'status' => 'approved',
+        ]);
+
+        $lop->refresh()->load('evidences');
+        $this->assertSame(0, app(EvidenceApprovalService::class)->summary($lop)['total']);
+        $this->assertSame(0, app(ProjectProgressService::class)->summary($lop)['evidence_count']);
+        foreach ($lop->evidences as $evidence) {
+            Storage::disk('public')->assertExists($evidence->file_path);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('program.show', 'preventive'))
+            ->assertOk()
+            ->assertSee('Kelola Surat Permintaan');
+
+        $deletedLetter = $lop->evidences->first();
+        $this->actingAs($admin)
+            ->delete(route('lop.request-letters.destroy', [$lop, $deletedLetter]))
+            ->assertRedirect();
+        $this->assertSoftDeleted('qe_evidences', ['id_evidence' => $deletedLetter->id_evidence]);
+        Storage::disk('public')->assertMissing($deletedLetter->file_path);
+    }
+
+    public function test_request_letter_is_not_available_for_recovery_lop(): void
+    {
+        Storage::fake('public');
+        [$admin, , $lop] = $this->assignedProject('survey', 'recovery');
+
+        $this->actingAs($admin)->post(route('lop.request-letters.store', $lop), [
+            'files' => [UploadedFile::fake()->create('surat.pdf', 20, 'application/pdf')],
+        ])->assertNotFound();
+
+        $this->assertDatabaseCount('qe_evidences', 0);
+        $this->actingAs($admin)
+            ->get(route('program.show', 'recovery'))
+            ->assertOk()
+            ->assertDontSee('Kelola Surat Permintaan');
+    }
+
+    public function test_technician_can_upload_request_letter_only_when_admin_has_not_provided_one(): void
+    {
+        Storage::fake('public');
+        [$admin, $technician, $lop] = $this->assignedProject('survey', 'relok_utilitas');
+
+        $this->actingAs($technician)->postJson(route('technician.projects.evidence.file', $lop), [
+            'category' => 'request_letter',
+            'type' => 'DOCUMENT',
+            'file' => UploadedFile::fake()->create('surat-teknisi.pdf', 30, 'application/pdf'),
+        ])->assertCreated()->assertJsonPath('status', 'approved');
+
+        $this->actingAs($admin)->post(route('lop.request-letters.store', $lop), [
+            'files' => [UploadedFile::fake()->image('surat-admin.jpg')],
+        ])->assertRedirect();
+
+        $this->actingAs($technician)->postJson(route('technician.projects.evidence.file', $lop), [
+            'category' => 'request_letter',
+            'type' => 'DOCUMENT',
+            'file' => UploadedFile::fake()->create('surat-tambahan.pdf', 30, 'application/pdf'),
+        ])->assertUnprocessable()->assertJsonValidationErrors('request_letter');
+
+        $this->assertDatabaseCount('qe_evidences', 2);
+    }
+
+    public function test_request_letter_appears_in_technician_step_three(): void
+    {
+        Storage::fake('public');
+        [$admin, $technician, $lop] = $this->assignedProject('survey', 'preventive');
+        $this->reservedDesignator($lop, $technician);
+
+        app(EvidenceService::class)->upload($lop, [
+            'step' => 'BEFORE',
+            'type' => 'PHOTO',
+            'category' => 'material_arrival',
+        ], UploadedFile::fake()->image('material.jpg'), $technician);
+
+        $this->actingAs($admin)->post(route('lop.request-letters.store', $lop), [
+            'files' => [UploadedFile::fake()->create('surat-admin.pdf', 30, 'application/pdf')],
+        ]);
+
+        $this->actingAs($technician)
+            ->get(route('technician.projects.show', [$lop, 'step' => 3]))
+            ->assertOk()
+            ->assertSee('Surat Permintaan')
+            ->assertSee('surat-admin.pdf')
+            ->assertSee('sudah disediakan admin');
     }
 }

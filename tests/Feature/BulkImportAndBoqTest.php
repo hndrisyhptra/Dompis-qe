@@ -102,8 +102,7 @@ class BulkImportAndBoqTest extends TestCase
             'boq.csv',
             "PROJECT : LOP BOQ,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-ODP-01,Box ODP,unit,125000,0,4\n"
         );
-        $result = app(ImportBatchService::class)->create('boq', $file, $admin);
-        $batch = $result['batch'];
+        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
 
         app(BoqImportService::class)->process($batch, $admin);
 
@@ -183,6 +182,50 @@ class BulkImportAndBoqTest extends TestCase
             $longItemName,
             QeBoq::where('qe_lop_id', $lop->id_qe_lops)->firstOrFail()->items()->firstOrFail()->item_name
         );
+    }
+
+    public function test_preventive_boq_import_uses_existing_boq_and_reservation_flow(): void
+    {
+        Storage::fake('local');
+        [, , $branch] = $this->branchData();
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $type = DesignatorType::firstOrCreate(['code' => 'MATERIAL'], ['name' => 'Material', 'is_active' => true]);
+        $designator = Designator::create([
+            'code' => 'M-PREV-01', 'item_name' => 'Material Preventive', 'unit' => 'unit',
+            'designator_type_id' => $type->id_designator_type,
+        ]);
+        $package = Package::create(['code' => '5', 'name' => 'Paket 5']);
+        $lop = QeLop::create([
+            'incident' => 'INC-PREV-BOQ', 'nama_lop' => 'LOP PREVENTIVE BOQ', 'program_type' => 'preventive',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => ['odp'],
+            'job_description' => 'Preventive ODP', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
+        ]);
+        $file = UploadedFile::fake()->createWithContent(
+            'boq-preventive.csv',
+            "PROJECT : LOP PREVENTIVE BOQ,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-PREV-01,Material Preventive,unit,100000,0,3\n"
+        );
+        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
+
+        app(BoqImportService::class)->process($batch, $admin);
+
+        $this->assertDatabaseHas('qe_boqs', [
+            'qe_lop_id' => $lop->id_qe_lops,
+            'package_id' => $package->id_package,
+        ]);
+        $this->assertDatabaseHas('qe_boq_items', [
+            'designator_id' => $designator->id_designator,
+            'qty' => 3,
+        ]);
+        $this->assertSame($package->id_package, $lop->refresh()->package_id);
+
+        $technician = User::factory()->role(UserRole::TEKNISI->value)->create(['branch_id' => $branch->id_branch]);
+        app(LopService::class)->assign($lop->refresh(), $technician, $admin);
+
+        $this->assertDatabaseHas('qe_material_reservation_items', [
+            'designator_id' => $designator->id_designator,
+            'qty' => 3,
+            'qty_actual' => null,
+        ]);
     }
 
     public function test_active_boq_can_add_edit_and_remove_unused_items_while_preserving_manual_reservation_items(): void
@@ -460,8 +503,7 @@ class BulkImportAndBoqTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'boq-tif').'.xlsx';
         (new Xlsx($spreadsheet))->save($path);
         $file = new UploadedFile($path, 'boq-tif-10.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
-        $result = app(ImportBatchService::class)->create('boq', $file, $admin);
-        $batch = $result['batch'];
+        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
 
         app(BoqImportService::class)->process($batch, $admin);
 
@@ -523,7 +565,7 @@ class BulkImportAndBoqTest extends TestCase
             ->assertOk()->assertSee('INC-SDA')->assertSee('INC-SBY');
     }
 
-    public function test_boq_import_duplicate_detection_and_replace_existing(): void
+    public function test_boq_import_uses_simple_upload_and_reimport_replaces_operational_boq(): void
     {
         Storage::fake('local');
         Queue::fake();
@@ -538,46 +580,29 @@ class BulkImportAndBoqTest extends TestCase
 
         $fileContent = "PROJECT : LOP Duplicate Test,,,,,,\n,, ,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-ODP-01,Box ODP,unit,125000,0,4\n";
 
-        // First upload - should create new batch
         $file1 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
-        $result1 = app(ImportBatchService::class)->create('boq', $file1, $admin, ['target' => 'plan']);
-        $this->assertTrue($result1['isNew']);
-        $batch = $result1['batch'];
+        $batch = app(ImportBatchService::class)->create('boq', $file1, $admin);
+        app(BoqImportService::class)->process($batch, $admin);
 
-        // Second upload with same content - should detect duplicate
         $file2 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
         $response = $this->actingAs($admin)
             ->withHeaders(['Accept' => 'application/json'])
-            ->post(route('bulk-import.boq.store'), [
-                'file' => $file2,
-                'target' => 'plan',
-                'replace_existing' => false,
-            ]);
+            ->post(route('bulk-import.boq.store'), ['file' => $file2]);
 
-        $response->assertOk(); // Should return JSON with duplicate warning
-        $response->assertStatus(200)
-            ->assertJsonStructure(['message', 'duplicate', 'result_url'])
-            ->assertJson(['duplicate' => true]);
+        $response->assertAccepted()->assertJsonStructure(['message', 'result_url']);
+        $this->assertDatabaseCount('qe_import_batches', 2);
+        $this->actingAs($admin)->get(route('bulk-import.boq.index'))
+            ->assertOk()
+            ->assertDontSee('BOQ Plan (Acuan)')
+            ->assertDontSee('BOQ Actual (Direct)')
+            ->assertDontSee('Replace existing');
 
-        $batch->refresh();
-        $this->assertFalse($batch->metadata['replace_existing'] ?? false);
-        $this->assertSame('plan', $batch->metadata['target']);
-
-        // Replace existing - should reset batch and allow re-import
-        $file3 = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
-        $response = $this->actingAs($admin)->postJson(route('bulk-import.boq.store'), [
-            'file' => $file3,
-            'target' => 'plan',
-            'replace_existing' => 'on',
-        ]);
-
-        $response->assertJson(['duplicate' => false]);
-        $batch = QeImportBatch::findOrFail($batch->id_import_batch);
-        $this->assertSame('queued', $batch->status);
-        $this->assertTrue($batch->metadata['replace_existing']);
-        $this->assertNull($batch->error_message);
-        $this->assertNull($batch->completed_at);
+        $secondBatch = QeImportBatch::latest('id_import_batch')->firstOrFail();
+        app(BoqImportService::class)->process($secondBatch, $admin);
+        $this->assertDatabaseCount('qe_boqs', 1);
+        $this->assertSame($package->id_package, $lop->refresh()->boq->package_id);
     }
+
     public function test_boq_import_auto_creates_lop_from_project_name_with_sto_and_segment(): void
     {
         Storage::fake('local');
@@ -599,11 +624,10 @@ class BulkImportAndBoqTest extends TestCase
         $fileContent = "PROJECT : 3JBR_QEREC_INC53492291_DISTRIBUSI_DESC,,,,,,\nSTO : JBR,,,,,,\nSEGMENT : distribusi,,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-CONTOH,Box ODP,unit,125000,0,4\n";
 
         $file = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
-        $result = app(ImportBatchService::class)->create('boq', $file, $admin, ['target' => 'plan']);
-        $batch = $result['batch'];
+        $batch = app(ImportBatchService::class)->create('boq', $file, $admin);
 
         app(BoqImportService::class)->process($batch, $admin);
-        
+
         $batch->refresh();
         $this->assertSame('completed', $batch->status);
         $lop = QeLop::where('incident', 'INC53492291')->first();
@@ -616,20 +640,20 @@ class BulkImportAndBoqTest extends TestCase
         Storage::fake('local');
         Queue::fake();
         [, , $branch] = $this->branchData();
-        
+
         // Add JBR ServiceArea for the test
         $jbrServiceArea = ServiceArea::updateOrCreate(['workzone' => 'JBR'], [
             'workzone' => 'JBR', 'name' => 'JEMBER',
             'branch_id' => $branch->id_branch, 'region_id' => $branch->region_id,
             'is_active' => true,
         ]);
-        
+
         // Use super admin to bypass branch scope check (existing LOP is in JEMBER)
         $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
-        
+
         // Add Package 5 for the test
         Package::updateOrCreate(['code' => '5'], ['name' => 'Paket 5', 'is_active' => true]);
-        
+
         // Create an existing LOP with the SAME incident, but DIFFERENT nama_lop
         QeLop::create([
             'incident' => 'INC53492291', 'nama_lop' => 'NAMA LOP LAIN BERBEDA', 'program_type' => 'recovery',
@@ -640,8 +664,7 @@ class BulkImportAndBoqTest extends TestCase
         $fileContent = "PROJECT : 3JBR_QEREC_INC53492291_DISTRIBUSI_DESC,,,,,,\nSTO : JBR,,,,,,\nSEGMENT : distribusi,,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-CONTOH,Box ODP,unit,125000,0,4\n";
 
         $file = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
-        $result = app(ImportBatchService::class)->create('boq', $file, $superAdmin, ['target' => 'plan']);
-        $batch = $result['batch'];
+        $batch = app(ImportBatchService::class)->create('boq', $file, $superAdmin);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Incident INC53492291 sudah digunakan oleh LOP lain');

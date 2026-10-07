@@ -50,6 +50,8 @@ async function makeThumb(file) {
 window.evidenceUploader = (options = {}) => ({
     expanded: options.expanded ?? true,
     endpoint: options.endpoint ?? null,     // set => mode antrean async per-file
+    maxFiles: options.maxFiles ?? 12,
+    selectionError: '',
     meta: {
         category: options.category ?? null,
         type: options.type ?? 'PHOTO',
@@ -72,7 +74,13 @@ window.evidenceUploader = (options = {}) => ({
     // ---- mode antrean (endpoint) --------------------------------------
 
     async selectQueue(event) {
-        const picked = Array.from(event.target.files);
+        this.selectionError = '';
+        const available = Math.max(0, this.maxFiles - this.queue.length);
+        const allPicked = Array.from(event.target.files);
+        const picked = allPicked.slice(0, available);
+        if (allPicked.length > available) {
+            this.selectionError = `Maksimal ${this.maxFiles} file dalam satu kali upload.`;
+        }
         event.target.value = '';
         for (const file of picked) {
             const item = {
@@ -81,7 +89,7 @@ window.evidenceUploader = (options = {}) => ({
                 origSize: file.size,
                 size: file.size,
                 isImage: isImageFile(file),
-                previewUrl: isImageFile(file) ? URL.createObjectURL(file) : null,
+                previewUrl: URL.createObjectURL(file),
                 status: 'selected',
                 progress: 0,
                 error: '',
@@ -208,14 +216,19 @@ window.evidenceUploader = (options = {}) => ({
 
     async selectFiles(event) {
         this.releasePreviews();
-        const picked = Array.from(event.target.files);
+        this.selectionError = '';
+        const allPicked = Array.from(event.target.files);
+        const picked = allPicked.slice(0, this.maxFiles);
+        if (allPicked.length > this.maxFiles) {
+            this.selectionError = `Maksimal ${this.maxFiles} file dalam satu kali upload.`;
+        }
         this.files = picked.map((file) => ({
             file,
             name: file.name,
             size: file.size,
             type: file.type,
             isImage: isImageFile(file),
-            url: isImageFile(file) ? URL.createObjectURL(file) : null,
+            url: URL.createObjectURL(file),
             compressing: isImageFile(file),
             error: '',
         }));
@@ -827,58 +840,17 @@ window.lopReportModal = () => ({
     },
 });
 
-// Detail LOP — tab BOQ Plan (read-only) + tab Material & Laporan (dipakai di lop-detail-modal)
+// Detail LOP — tab Material & Laporan tanpa scroll horizontal, view only (dipakai di lop-detail-modal)
 window.detailLaporanTab = (lopId) => ({
     tab: 'overview',
-    type: 'plan',
+    type: 'boq',
     loading: false,
     error: '',
     priced: false,
     packageInfo: null,
     lines: [],
     grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
-    _fetched: { boq: false, sisa: false, plan: false },
-
-    // BOQ Plan
-    planLoading: false,
-    planError: '',
-    planLines: [],
-    planGrand: { materialCount: 0, serviceCount: 0, totalPrice: 0 },
-    _planFetched: false,
-
-    async fetchPlanIfNeeded() {
-        if (this._planFetched) return;
-        await this.fetchPlan();
-    },
-
-    async fetchPlan() {
-        this.planLoading = true;
-        this.planError = '';
-        try {
-            const res = await fetch(`/reports/lop/${lopId}/boq-plan?json=1`, { headers: { Accept: 'application/json' } });
-            if (!res.ok) {
-                const txt = await res.text();
-                let msg = `Gagal (${res.status})`;
-                try { const j = JSON.parse(txt); msg = j.message || msg; } catch (_) {}
-                throw new Error(msg);
-            }
-            const json = await res.json();
-            this.planLines = Array.isArray(json.lines) ? json.lines : [];
-            this.planGrand = {
-                materialCount: this.planLines.filter((l) => l.type === 'MATERIAL').length,
-                serviceCount: this.planLines.filter((l) => l.type === 'JASA').length,
-                totalPrice: this.planLines.reduce((s, l) => s + Number(l.total_price || 0), 0),
-            };
-            this._planFetched = true;
-        } catch (e) {
-            this.planError = e?.message || 'Gagal memuat BOQ Plan';
-            this.planLines = [];
-        } finally {
-            this.planLoading = false;
-        }
-    },
-
-    retryPlan() { this._planFetched = false; this.fetchPlan(); },
+    _fetched: { boq: false, sisa: false },
 
     async fetchIfNeeded(t) {
         const key = t || this.type;
@@ -895,43 +867,6 @@ window.detailLaporanTab = (lopId) => ({
         const type = t || this.type;
         this.loading = true;
         this.error = '';
-
-        if (type === 'plan') {
-            try {
-                await this.fetchPlan();
-                if (this.planError) throw new Error(this.planError);
-
-                this.priced = true;
-                this.packageInfo = { name: 'Plan (Sesuai Import)' };
-                this.lines = this.planLines.map(l => ({
-                    designator_id: l.designator_id,
-                    designator_code: l.designator_code,
-                    designator_name: l.item_name,
-                    unit: l.unit,
-                    qty: l.qty,
-                    qty_actual: null,
-                    price: l.unit_price,
-                    total_actual: l.total_price,
-                    price_missing: false
-                }));
-                this.grand = {
-                    qty: this.planLines.reduce((s, l) => s + Number(l.qty || 0), 0),
-                    qty_actual: 0,
-                    sisa: 0,
-                    total_actual: this.planGrand.totalPrice,
-                    nilai_sisa: 0,
-                    not_recapped_count: 0,
-                    price_missing_count: 0
-                };
-                this._fetched[type] = true;
-            } catch (e) {
-                this.error = e?.message || 'Gagal memuat BOQ Plan';
-                this.lines = [];
-            } finally {
-                this.loading = false;
-            }
-            return;
-        }
 
         try {
             const url = `/reports/lop/${lopId}/${type === 'boq' ? 'boq-actual' : 'sisa-material'}?json=1`;
@@ -1098,16 +1033,10 @@ window.importUploadForm = (action) => ({
     uploadPercent: 0,
     phase: 'Pilih file untuk memulai',
     error: '',
-    duplicateWarning: '',
-    existingBoqWarning: '',
-    replaceExisting: false,
 
     selectFile(event) {
         this.fileName = event.target.files?.[0]?.name || '';
         this.error = '';
-        this.duplicateWarning = '';
-        this.existingBoqWarning = '';
-        this.replaceExisting = false;
         this.uploadPercent = 0;
         this.phase = this.fileName ? 'File siap diunggah' : 'Pilih file untuk memulai';
     },
@@ -1117,12 +1046,6 @@ window.importUploadForm = (action) => ({
 
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
-
-        // If there's a duplicate/existing warning and user hasn't confirmed replace, show warning
-        if ((this.duplicateWarning || this.existingBoqWarning) && !this.replaceExisting) {
-            // Warning already shown by UI, just return
-            return;
-        }
 
         this.uploading = true;
         this.uploadPercent = 0;
@@ -1144,26 +1067,10 @@ window.importUploadForm = (action) => ({
             let payload = {};
             try { payload = JSON.parse(xhr.responseText); } catch (_) {}
 
-            // Handle duplicate file warning from server (HTTP 200 - not replace)
-            if (xhr.status === 200 && payload.duplicate) {
-                this.duplicateWarning = payload.message;
-                this.uploading = false;
-                this.phase = 'File duplikat terdeteksi';
-                return;
-            }
-
             if (xhr.status >= 200 && xhr.status < 300 && payload.result_url) {
                 this.uploadPercent = 100;
                 this.phase = 'Upload selesai · membuka progres antrean';
                 window.location.assign(payload.result_url);
-                return;
-            }
-
-            // Check for existing BOQ error from server
-            if (xhr.status === 422 && payload.errors?.replace_existing) {
-                this.existingBoqWarning = payload.errors.replace_existing[0];
-                this.uploading = false;
-                this.phase = 'LOP sudah memiliki BOQ';
                 return;
             }
 

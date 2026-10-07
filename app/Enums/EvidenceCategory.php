@@ -11,6 +11,7 @@ enum EvidenceCategory: string
     case PROGRESS = 'progress';
     case AFTER = 'after';
     case SLOT_PORT = 'slot_port';
+    case REQUEST_LETTER = 'request_letter';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum EvidenceCategory: string
             self::PROGRESS => 'Progress',
             self::AFTER => 'After',
             self::SLOT_PORT => 'Slot Port',
+            self::REQUEST_LETTER => 'Surat Permintaan',
         };
     }
 }

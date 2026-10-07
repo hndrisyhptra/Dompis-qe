@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
+use App\Enums\EvidenceStep;
+use App\Enums\EvidenceType;
 use App\Enums\LopStatus;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
@@ -48,7 +51,8 @@ class EvidenceService
         ?UploadedFile $thumb = null,
         ?array &$writtenPaths = null,
     ): QeEvidence {
-        $dir = "evidences/{$lop->id_qe_lops}/{$data['step']}";
+        $step = $data['step'] instanceof EvidenceStep ? $data['step']->value : $data['step'];
+        $dir = "evidences/{$lop->id_qe_lops}/{$step}";
         // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.
         $uuid = (string) Str::uuid();
 
@@ -71,13 +75,22 @@ class EvidenceService
         }
 
         try {
+            $categoryValue = $data['category'] ?? null;
+            $category = $categoryValue instanceof EvidenceCategory
+                ? $categoryValue
+                : EvidenceCategory::tryFrom((string) ($data['category'] ?? ''));
+            $isRequestLetter = $category === EvidenceCategory::REQUEST_LETTER;
+            $type = $isRequestLetter
+                ? (str_starts_with((string) $file->getMimeType(), 'image/') ? EvidenceType::PHOTO : EvidenceType::DOCUMENT)
+                : $data['type'];
+
             return QeEvidence::create([
                 'qe_lop_id' => $lop->id_qe_lops,
                 'designator_id' => $data['designator_id'] ?? null,
                 'uploaded_by' => $actor->id_user,
-                'step' => $data['step'],
-                'type' => $data['type'],
-                'category' => $data['category'] ?? null,
+                'step' => $step,
+                'type' => $type,
+                'category' => $category ?? ($data['category'] ?? null),
                 'file_path' => $path,
                 'thumb_path' => $thumbPath,
                 'metadata' => [
@@ -86,9 +99,12 @@ class EvidenceService
                     'size' => $file->getSize(),
                     'latitude' => $data['latitude'] ?? null,
                     'longitude' => $data['longitude'] ?? null,
+                    ...($isRequestLetter ? ['approval_exempt' => true] : []),
                 ],
                 'note' => $data['note'] ?? null,
-                'status' => EvidenceStatus::PENDING,
+                // Surat Permintaan adalah dokumen referensi pekerjaan, bukan
+                // evidence hasil pekerjaan yang perlu masuk antrean approval.
+                'status' => $isRequestLetter ? EvidenceStatus::APPROVED : EvidenceStatus::PENDING,
             ]);
         } catch (Throwable $exception) {
             Storage::disk($this->disk())->delete(array_filter([$path, $thumbPath]));

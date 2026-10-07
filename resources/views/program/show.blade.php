@@ -170,6 +170,13 @@
                             <x-table-action label="Tracking Riwayat" tone="info" onclick="document.getElementById('lop-tracking-{{ $lop->id_qe_lops }}').showModal()">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                             </x-table-action>
+                            @if ($lop->program_type->usesProjectStatus())
+                                @can('uploadEvidence', $lop)
+                                    <x-table-action label="Kelola Surat Permintaan" tone="primary" onclick="document.getElementById('request-letter-{{ $lop->id_qe_lops }}').showModal()">
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75h6.75m-3.375-3.375v6.75"/></svg>
+                                    </x-table-action>
+                                @endcan
+                            @endif
                         </div>
                     </td>
                 </tr>
@@ -182,6 +189,11 @@
     @foreach ($lops as $lop)
         <x-lop-detail-modal :id="'lop-detail-'.$lop->id_qe_lops" :$lop />
         <x-lop-tracking-modal :id="'lop-tracking-'.$lop->id_qe_lops" :$lop />
+        @if ($lop->program_type->usesProjectStatus())
+            @can('uploadEvidence', $lop)
+                <x-request-letter-modal :id="'request-letter-'.$lop->id_qe_lops" :$lop />
+            @endcan
+        @endif
         @can('assign', $lop)
             <x-assign-technician-modal :id="'assign-technician-'.$lop->id_qe_lops" :$lop :$technicians :return-to="'program:'.$programType->value" />
         @endcan

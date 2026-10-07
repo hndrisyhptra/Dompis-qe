@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Enums\LopStatus;
-use App\Enums\UserRole;
-use App\Enums\ProgramType;
-use App\Enums\ProjectStatus;
 use App\Enums\LopBudgetType;
+use App\Enums\LopSegment;
+use App\Enums\LopStatus;
+use App\Enums\ProgramType;
+use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Designator;
 use App\Models\DesignatorType;
@@ -17,8 +17,6 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
-use App\Enums\LopSegment;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -30,16 +28,14 @@ class BoqImportService
     public function __construct(
         private readonly SpreadsheetReader $reader,
         private readonly BoqService $boqService,
-        private readonly BoqPlanService $boqPlanService,
         private readonly LopVisibilityService $visibility,
         private readonly ImportRowWriter $rowWriter,
-        private readonly \App\Services\LopService $lopService,
-        private readonly \App\Services\ManualIncidentService $incidentService,
+        private readonly LopService $lopService,
+        private readonly ManualIncidentService $incidentService,
     ) {}
 
-    public function process(QeImportBatch $batch, User $actor, string $target = 'actual'): void
+    public function process(QeImportBatch $batch, User $actor): void
     {
-        $replaceExisting = (bool) ($batch->metadata['replace_existing'] ?? false);
         $batch->update(['status' => 'processing', 'started_at' => now(), 'error_message' => null]);
 
         $parsed = $this->parse(Storage::disk($batch->disk)->path($batch->file_path));
@@ -64,7 +60,6 @@ class BoqImportService
             $rows
         );
         $package = $this->resolvePackage($parsed['meta']['package_code']);
-
         $batch->update([
             'metadata' => [
                 ...($batch->metadata ?? []),
@@ -73,22 +68,6 @@ class BoqImportService
                 'lop_name' => $lop->nama_lop,
                 'package_id' => $package->id_package,
                 'package_code' => $package->code,
-            ],
-        ]);
-
-        // Check if LOP already has BOQ Plan or Actual
-        $target = $batch->metadata['target'] ?? 'actual';
-        $hasExistingPlan = $lop->boqPlan()->exists();
-        $hasExistingActual = $lop->boq()->exists();
-        $targetHasExisting = $target === 'plan' ? $hasExistingPlan : $hasExistingActual;
-
-        $batch->update([
-            'metadata' => [
-                ...($batch->metadata ?? []),
-                'lop_has_existing_boq' => $hasExistingPlan || $hasExistingActual,
-                'existing_boq_type' => $hasExistingPlan ? 'plan' : ($hasExistingActual ? 'actual' : null),
-                'target_type' => $target,
-                'target_has_existing_boq' => $targetHasExisting,
             ],
         ]);
 
@@ -219,20 +198,7 @@ class BoqImportService
             return;
         }
 
-        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals, $target, $replaceExisting) {
-            // Hanya import yangmentation diblokir bila LOP sudah punya BOQ dengan
-            // tipe yang sama. BOQ Plan dan BOQ Actual boleh hidup berdampingan,
-            // sehingga import berlawanan tipe tidak perlu "Replace existing".
-            $targetHasExisting = (bool) ($batch->metadata['target_has_existing_boq'] ?? false);
-
-            if ($targetHasExisting && ! $replaceExisting) {
-                $targetType = $target === 'plan' ? 'BOQ Plan' : 'BOQ Actual';
-                throw new RuntimeException(
-                    "LOP {$lop->incident} sudah memiliki {$targetType}. " .
-                    "Centang 'Replace existing' untuk menimpa, atau batalkan import."
-                );
-            }
-
+        DB::transaction(function () use ($normalizedRows, $actor, $lop, $package, $batch, $totals) {
             $this->createMissingDesignators($normalizedRows, $actor);
             $designators = Designator::query()
                 ->whereIn('code', collect($normalizedRows)->where('status', 'ready')->pluck('designator'))
@@ -257,14 +223,7 @@ class BoqImportService
                 ];
             }
 
-            $reference = [];
-            if ($target === 'plan') {
-                $plan = $this->boqPlanService->save($lop, $valid, $actor);
-                $reference = ['plan_id' => $plan->id_plan];
-            } else {
-                $boq = $this->boqService->save($lop, $valid, $package, $actor, 'import');
-                $reference = ['boq_id' => $boq->id_boq];
-            }
+            $boq = $this->boqService->save($lop, $valid, $package, $actor, 'import');
 
             $resultRows = [];
             foreach ($normalizedRows as $row) {
@@ -276,9 +235,9 @@ class BoqImportService
                     'reference' => $row['designator'],
                     'message' => $isSkipped
                         ? 'VOL kosong atau 0 — item tidak dipakai.'
-                        : ($target === 'plan' ? 'Item BOQ Plan berhasil disimpan.' : 'Item BOQ Actual berhasil disimpan.'),
+                        : 'Item BOQ berhasil disimpan.',
                     'payload' => $row,
-                    'result' => $isSkipped ? null : $reference,
+                    'result' => $isSkipped ? null : ['boq_id' => $boq->id_boq],
                 ];
             }
             $this->rowWriter->insert($batch, $resultRows);
@@ -366,7 +325,7 @@ class BoqImportService
 
         // Auto-compute LOP Meta
         if ($project !== '' && empty($lopMeta['program_type'])) {
-             $lopMeta['program_type'] = $this->detectProgramType($project);
+            $lopMeta['program_type'] = $this->detectProgramType($project);
         }
 
         // Fallback to parseProjectName if LOP meta incomplete (missing STO, segment, or incident)
@@ -587,9 +546,9 @@ class BoqImportService
 
         // 3. No LOP found and no meta data to create one
         throw new RuntimeException(
-            "LOP dengan nama PROJECT '{$project}' tidak ditemukan. " .
-            "Silakan buat LOP terlebih dahulu via menu Input LOP, " .
-            "atau tambahkan field LOP (SEGMENT, PROGRAM_TYPE, dll) di file Excel."
+            "LOP dengan nama PROJECT '{$project}' tidak ditemukan. ".
+            'Silakan buat LOP terlebih dahulu via menu Input LOP, '.
+            'atau tambahkan field LOP (SEGMENT, PROGRAM_TYPE, dll) di file Excel.'
         );
     }
 
@@ -654,7 +613,7 @@ class BoqImportService
         $rules = [
             'program_type' => ['required', Rule::enum(ProgramType::class)],
             'segment' => ['required', 'array', 'min:1', 'max:5'],
-            'segment.*' => [Rule::enum(\App\Enums\LopSegment::class)],
+            'segment.*' => [Rule::enum(LopSegment::class)],
             'sto' => ['required', 'string'],
             'job_description' => ['required', 'string', 'max:2000'],
         ];
@@ -662,7 +621,7 @@ class BoqImportService
         $validator = Validator::make($meta, $rules);
         if ($validator->fails()) {
             $errors = $validator->errors()->all();
-            throw new RuntimeException('Data LOP tidak lengkap: ' . implode(', ', $errors));
+            throw new RuntimeException('Data LOP tidak lengkap: '.implode(', ', $errors));
         }
     }
 
@@ -703,7 +662,7 @@ class BoqImportService
     /**
      * Generate unique incident number with retry logic.
      */
-    private function generateUniqueIncident(Branch $branch, \App\Enums\ProgramType $programType): string
+    private function generateUniqueIncident(Branch $branch, ProgramType $programType): string
     {
         for ($i = 0; $i < 3; $i++) {
             $incident = $this->incidentService->generate($branch, $programType);
@@ -731,7 +690,7 @@ class BoqImportService
             return ProgramType::PREVENTIVE->value;
         }
 
-                return ProgramType::RECOVERY->value; // default
+        return ProgramType::RECOVERY->value; // default
     }
 
     /**

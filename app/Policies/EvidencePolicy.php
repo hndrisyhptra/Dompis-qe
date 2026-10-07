@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\UserRole;
 use App\Models\QeEvidence;
@@ -91,6 +92,10 @@ class EvidencePolicy
 
     private function canReview(User $user, QeEvidence $evidence): bool
     {
+        if ($evidence->category === EvidenceCategory::REQUEST_LETTER) {
+            return false;
+        }
+
         if (! $user->hasPermission('approve_evidence')) {
             return false;
         }

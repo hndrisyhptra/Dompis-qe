@@ -62,6 +62,8 @@ class EvidenceApprovalService
 
         $step = $filters['step'] ?? '';
         $evidenceFilter = function ($query) use ($status, $step): void {
+            $this->onlyReviewable($query);
+
             if ($status !== 'all') {
                 $query->where('status', $status);
             }
@@ -81,13 +83,13 @@ class EvidenceApprovalService
                 $query->with(['designator', 'uploader', 'reviewer'])->latest();
             }])
             ->withCount([
-                'evidences',
-                'evidences as pending_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::PENDING),
-                'evidences as approved_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::APPROVED),
-                'evidences as rejected_evidences_count' => fn ($query) => $query->where('status', EvidenceStatus::REJECTED),
+                'evidences' => fn ($query) => $this->onlyReviewable($query),
+                'evidences as pending_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::PENDING),
+                'evidences as approved_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::APPROVED),
+                'evidences as rejected_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::REJECTED),
                 // Evidence yang sudah pernah ditolak lalu diunggah ulang teknisi
                 // (jalur replace menaruh metadata.replaced_at) & kini menunggu review.
-                'evidences as reuploaded_pending_count' => fn ($query) => $query
+                'evidences as reuploaded_pending_count' => fn ($query) => $this->onlyReviewable($query)
                     ->where('status', EvidenceStatus::PENDING)
                     ->whereNotNull('metadata->replaced_at'),
             ])
@@ -167,16 +169,19 @@ class EvidenceApprovalService
 
     public function summary(QeLop $lop): array
     {
-        $total = isset($lop->evidences_count) ? (int) $lop->evidences_count : $lop->evidences->count();
+        $evidences = $lop->evidences->reject(
+            fn ($evidence) => $evidence->category === EvidenceCategory::REQUEST_LETTER
+        );
+        $total = isset($lop->evidences_count) ? (int) $lop->evidences_count : $evidences->count();
         $pending = isset($lop->pending_evidences_count)
             ? (int) $lop->pending_evidences_count
-            : $lop->evidences->where('status', EvidenceStatus::PENDING)->count();
+            : $evidences->where('status', EvidenceStatus::PENDING)->count();
         $approved = isset($lop->approved_evidences_count)
             ? (int) $lop->approved_evidences_count
-            : $lop->evidences->where('status', EvidenceStatus::APPROVED)->count();
+            : $evidences->where('status', EvidenceStatus::APPROVED)->count();
         $rejected = isset($lop->rejected_evidences_count)
             ? (int) $lop->rejected_evidences_count
-            : $lop->evidences->where('status', EvidenceStatus::REJECTED)->count();
+            : $evidences->where('status', EvidenceStatus::REJECTED)->count();
 
         return [
             'total' => $total,
@@ -202,14 +207,14 @@ class EvidenceApprovalService
     private function stats(Builder $lopQuery): array
     {
         $lopIds = (clone $lopQuery)->select('qe_lops.id_qe_lops');
-        $evidenceQuery = QeEvidence::query()->whereIn('qe_lop_id', $lopIds);
+        $evidenceQuery = $this->onlyReviewable(QeEvidence::query()->whereIn('qe_lop_id', $lopIds));
 
         return [
-            'lop_pending' => (clone $lopQuery)->whereHas('evidences', fn (Builder $query) => $query->where('status', EvidenceStatus::PENDING))->count(),
+            'lop_pending' => (clone $lopQuery)->whereHas('evidences', fn (Builder $query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::PENDING))->count(),
             'evidence_pending' => (clone $evidenceQuery)->where('status', EvidenceStatus::PENDING)->count(),
             'lop_approved' => (clone $lopQuery)
-                ->whereHas('evidences')
-                ->whereDoesntHave('evidences', fn (Builder $query) => $query->where('status', '!=', EvidenceStatus::APPROVED))
+                ->whereHas('evidences', fn (Builder $query) => $this->onlyReviewable($query))
+                ->whereDoesntHave('evidences', fn (Builder $query) => $this->onlyReviewable($query)->where('status', '!=', EvidenceStatus::APPROVED))
                 ->count(),
             'evidence_rejected' => (clone $evidenceQuery)->where('status', EvidenceStatus::REJECTED)->count(),
         ];
@@ -245,5 +250,13 @@ class EvidenceApprovalService
         } elseif ($region = trim((string) ($filters['region'] ?? ''))) {
             $query->whereIn('branch', Branch::query()->where('region', $region)->select('name'));
         }
+    }
+
+    private function onlyReviewable($query)
+    {
+        return $query->where(function ($builder): void {
+            $builder->whereNull('category')
+                ->orWhere('category', '!=', EvidenceCategory::REQUEST_LETTER->value);
+        });
     }
 }

@@ -25,7 +25,7 @@ class DataLopController extends Controller
         $this->authorize('viewAny', QeLop::class);
 
         $query = $this->scope($request)
-            ->with(['creator', 'boq', 'materialReservation.items']);
+            ->with(['creator', 'boq', 'materialReservation.items', 'evidences.uploader']);
 
         if ($search = $request->string('q')->trim()->value()) {
             $query->where(fn ($q) => $q->where('incident', 'like', "%{$search}%")

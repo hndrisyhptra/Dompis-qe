@@ -61,7 +61,7 @@ Before taking task actions:
 - Assignment source: `qe_lop_assignments`.
 - Status source: `qe_lops.status_lop`; transition through `LopService`.
 - Admin scope source: `LopVisibilityService`.
-- Evidence source: `qe_evidences`; approval completion requires every evidence approved.
+- Evidence source: `qe_evidences`; approval completion requires every reviewable workflow evidence approved. Supporting `request_letter` documents are explicitly excluded from approval/progress aggregates.
 - Workflow completeness source: `TechnicianWorkflowService::state()` and `ProjectProgressService`.
 - BOQ/value source: `BoqService` and `LopBoqValueService`; preserve snapshots.
 - Regional package source: `RegionalPackageResolver`.

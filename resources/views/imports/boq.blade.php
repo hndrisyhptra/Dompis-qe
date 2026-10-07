@@ -12,7 +12,7 @@
             Upload file <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">.xlsx / .xls / .csv</code> format BOQ.
             Sistem mencocokkan <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">PROJECT : ...</code> dengan LOP.
             Jika LOP belum ada, sistem akan membuat LOP otomatis menggunakan field <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">SEGMENT : ...</code> dan <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">STO : ...</code> yang ada di header file.
-            <span class="mt-1 block text-xs">VOL kosong atau 0 tidak dipakai. Awalan <code>M-</code> = material dan <code>J-</code> = jasa.</span>
+            <span class="mt-1 block text-xs">Tujuan BOQ ditentukan otomatis dari program LOP. VOL kosong atau 0 tidak dipakai. Awalan <code>M-</code> = material dan <code>J-</code> = jasa.</span>
         </p>
       </div>
       <a href="{{ route('bulk-import.boq.template') }}" class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 19.5h14"/></svg>Unduh Template</a>
@@ -32,19 +32,6 @@
         <form method="POST" action="{{ route('bulk-import.boq.store', [], false) }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.boq.store', [], false)))" @submit.prevent="submit($event)" class="space-y-5">
             @csrf
             <div>
-                <label class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Tujuan Import</label>
-                <div class="flex gap-4">
-                    <label class="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-300">
-                        <input type="radio" name="target" value="plan" checked class="text-brand-600 focus:ring-brand-500">
-                        BOQ Plan (Acuan)
-                    </label>
-                    <label class="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-300">
-                        <input type="radio" name="target" value="actual" class="text-brand-600 focus:ring-brand-500">
-                        BOQ Actual (Direct)
-                    </label>
-                </div>
-            </div>
-            <div>
                 <label for="file" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">File Excel BOQ</label>
                 <label for="file" class="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink-200 bg-ink-50/30 px-6 py-8 text-center transition hover:border-brand-400 hover:bg-brand-50/40 dark:border-ink-700 dark:bg-ink-800/30">
                     <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-brand-600 shadow-sm dark:bg-ink-900">
@@ -54,22 +41,6 @@
                     <input type="file" id="file" name="file" accept=".xlsx,.xls,.csv" required class="sr-only" @change="selectFile($event)">
                 </label>
                 @error('file')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
-            </div>
-
-            <!-- Duplicate/Existing BOQ Warning -->
-            <div x-show="duplicateWarning || existingBoqWarning" x-cloak class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
-                <div class="flex items-start gap-3">
-                    <svg class="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
-                    <div class="flex-1">
-                        <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">Peringatan Duplikasi</p>
-                        <div x-show="duplicateWarning" class="mt-1 text-sm text-amber-700 dark:text-amber-300" x-html="duplicateWarning"></div>
-                        <div x-show="existingBoqWarning" class="mt-1 text-sm text-amber-700 dark:text-amber-300" x-html="existingBoqWarning"></div>
-                    </div>
-                </div>
-                <label class="mt-3 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
-                    <input type="checkbox" name="replace_existing" x-model="replaceExisting" class="text-brand-600 focus:ring-brand-500 rounded">
-                    Saya yakin ingin menimpa data yang sudah ada (Replace existing)
-                </label>
             </div>
 
             <div x-show="uploading || error" x-cloak class="rounded-xl border border-ink-100 bg-ink-50 p-3 dark:border-ink-700 dark:bg-ink-800/70"><div class="flex items-center justify-between gap-3 text-xs"><span class="font-semibold text-ink-600 dark:text-ink-300" x-text="phase"></span><strong class="tabular-nums text-brand-700 dark:text-brand-300" x-text="`${uploadPercent}%`"></strong></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-white dark:bg-ink-900"><div class="h-full rounded-full bg-brand-600 transition-all duration-300" :style="`width:${uploadPercent}%`"></div></div><p x-show="error" class="mt-2 text-xs font-semibold text-red-600 dark:text-red-300" x-text="error"></p></div>

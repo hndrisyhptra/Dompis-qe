@@ -76,7 +76,7 @@ class TechnicianWorkflowController extends Controller
 
         $step = match ($request->validated('category')) {
             'material_arrival' => 2,
-            'pre', 'insera', 'before' => 3,
+            'pre', 'insera', 'before', 'request_letter' => 3,
             'progress' => 4,
             'after', 'slot_port' => 5,
         };
@@ -124,7 +124,7 @@ class TechnicianWorkflowController extends Controller
 
         $step = match ($evidence->category?->value) {
             'material_arrival' => 2,
-            'pre', 'insera', 'before' => 3,
+            'pre', 'insera', 'before', 'request_letter' => 3,
             'progress' => 4,
             'after', 'slot_port' => 5,
             default => 3,

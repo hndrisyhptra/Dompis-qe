@@ -16,7 +16,7 @@ class QeImportBatch extends Model
     protected $primaryKey = 'id_import_batch';
 
     protected $fillable = [
-        'uuid', 'type', 'status', 'disk', 'file_path', 'original_name', 'file_hash',
+        'uuid', 'type', 'status', 'disk', 'file_path', 'original_name',
         'total_rows', 'success_rows', 'failed_rows', 'metadata',
         'error_message', 'uploaded_by', 'started_at', 'completed_at',
     ];

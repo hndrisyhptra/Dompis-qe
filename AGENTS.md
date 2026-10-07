@@ -24,7 +24,7 @@ Permintaan eksplisit seperti “perbaiki”, “implementasikan”, atau “lanj
 - Evidence tetap generik di `qe_evidences` dengan `step`, `category`, `type`, dan `designator_id` opsional.
 - BEFORE, PROGRESS, dan AFTER hanya boleh menunjuk designator dalam reservasi LOP.
 - Evidence rejected tidak memenuhi checklist sampai diganti dan direview ulang.
-- LOP hanya `completed` setelah semua evidence approved.
+- LOP hanya `completed` setelah semua evidence workflow yang dapat direview approved. Dokumen pendukung `request_letter` dikecualikan dari antrean dan perhitungan approval.
 - `status_project` hanya untuk Preventive/Relok: `usulan` sebelum assignment dan `on_going` setelah assignment. Recovery memakai `null`.
 - Scope ADMIN wajib memakai `LopVisibilityService`: Area, Region, Branch, atau multi Service Area.
 - Pertahankan fallback legacy `qe_lops.branch` dan `qe_lops.sto` selama data foreign key belum seluruhnya dibackfill.

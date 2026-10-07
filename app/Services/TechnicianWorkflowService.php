@@ -6,6 +6,7 @@ use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\EvidenceStep;
 use App\Enums\LopStatus;
+use App\Enums\UserRole;
 use App\Models\Designator;
 use App\Models\Package;
 use App\Models\QeEvidence;
@@ -23,7 +24,6 @@ class TechnicianWorkflowService
         private readonly LopService $lopService,
         private readonly EvidenceService $evidenceService,
         private readonly RegionalPackageResolver $regionalPackages,
-        private readonly BoqPlanService $boqPlanService,
     ) {}
 
     /** @return array{package: Package|null, expected_code: string|null, source: string} */
@@ -49,8 +49,6 @@ class TechnicianWorkflowService
         if ($lop->status_lop !== LopStatus::ASSIGNED) {
             throw ValidationException::withMessages(['workflow' => 'Project ini tidak dapat di-pickup pada status sekarang.']);
         }
-
-        $this->boqPlanService->convertToActual($lop);
 
         $this->lopService->transitionStatus($lop, LopStatus::PICKED_UP, $technician, 'Project di-pickup teknisi');
     }
@@ -187,6 +185,28 @@ class TechnicianWorkflowService
         $this->assertActiveAssignment($lop, $technician);
         $category = EvidenceCategory::from($data['category']);
 
+        if ($category === EvidenceCategory::REQUEST_LETTER) {
+            if (! $lop->program_type->usesProjectStatus()) {
+                throw ValidationException::withMessages([
+                    'request_letter' => 'Surat Permintaan hanya tersedia untuk QE Relok Utilitas dan QE Preventive.',
+                ]);
+            }
+
+            $hasAdminLetter = $lop->evidences()
+                ->where('category', EvidenceCategory::REQUEST_LETTER)
+                ->whereHas('uploader.role', fn ($query) => $query->whereIn('code', [
+                    UserRole::SUPER_ADMIN->value,
+                    UserRole::ADMIN->value,
+                ]))
+                ->exists();
+
+            if ($hasAdminLetter) {
+                throw ValidationException::withMessages([
+                    'request_letter' => 'Surat Permintaan sudah disediakan admin dan tidak perlu diupload ulang.',
+                ]);
+            }
+        }
+
         if (in_array($category, [EvidenceCategory::BEFORE, EvidenceCategory::PROGRESS, EvidenceCategory::AFTER], true)) {
             $isReserved = $lop->materialReservation?->items()
                 ->where('designator_id', $data['designator_id'])->exists() ?? false;
@@ -199,7 +219,7 @@ class TechnicianWorkflowService
         }
 
         $data['step'] = match ($category) {
-            EvidenceCategory::PRE, EvidenceCategory::INSERA => EvidenceStep::SURVEY->value,
+            EvidenceCategory::PRE, EvidenceCategory::INSERA, EvidenceCategory::REQUEST_LETTER => EvidenceStep::SURVEY->value,
             EvidenceCategory::MATERIAL_ARRIVAL, EvidenceCategory::BEFORE => EvidenceStep::BEFORE->value,
             EvidenceCategory::PROGRESS => EvidenceStep::PROGRESS->value,
             EvidenceCategory::AFTER, EvidenceCategory::SLOT_PORT => EvidenceStep::AFTER->value,
@@ -245,7 +265,7 @@ class TechnicianWorkflowService
 
     public function state(QeLop $lop): array
     {
-        $lop->loadMissing(['materialReservation.items.designator', 'survey', 'evidences.designator']);
+        $lop->loadMissing(['materialReservation.items.designator', 'survey', 'evidences.designator', 'evidences.uploader.role']);
         $items = $lop->materialReservation?->items ?? collect();
         $validEvidence = $lop->evidences->filter(fn ($evidence) => $evidence->status !== EvidenceStatus::REJECTED);
         $reservedIds = $items->pluck('designator_id')->unique();

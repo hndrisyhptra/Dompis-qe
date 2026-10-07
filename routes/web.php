@@ -3,7 +3,6 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BoqImportController;
-use App\Http\Controllers\BoqPlanController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BulkLopImportController;
 use App\Http\Controllers\DashboardController;
@@ -25,6 +24,7 @@ use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RequestLetterController;
 use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\ServiceAreaController;
 use App\Http\Controllers\TechnicianController;
@@ -83,6 +83,11 @@ Route::middleware('auth')->prefix('evidence-files')->name('evidence-files.')->gr
 });
 
 Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
+    Route::post('/lop/{qe_lop}/request-letters', [RequestLetterController::class, 'store'])
+        ->name('lop.request-letters.store');
+    Route::delete('/lop/{qe_lop}/request-letters/{evidence}', [RequestLetterController::class, 'destroy'])
+        ->name('lop.request-letters.destroy');
+
     Route::prefix('bulk-import')->name('bulk-import.')->group(function () {
         Route::get('/lop', [BulkLopImportController::class, 'index'])->name('lop.index');
         Route::post('/lop', [BulkLopImportController::class, 'store'])->name('lop.store');
@@ -139,7 +144,6 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::get('/lop/{qe_lop}/boq-actual/export', [ReportController::class, 'lopBoqActualExport'])->name('lop.boq-actual.export');
     Route::get('/lop/{qe_lop}/sisa-material', [ReportController::class, 'lopSisaMaterial'])->name('lop.sisa-material');
     Route::get('/lop/{qe_lop}/sisa-material/export', [ReportController::class, 'lopSisaMaterialExport'])->name('lop.sisa-material.export');
-    Route::get('/lop/{qe_lop}/boq-plan', [BoqPlanController::class, 'show'])->name('lop.boq-plan');
 });
 
 Route::middleware(['auth'])->prefix('settings/lop-name-format')->name('lop-name-format.')->group(function () {

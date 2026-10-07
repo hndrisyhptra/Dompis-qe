@@ -3,7 +3,7 @@
 Terakhir diaudit: **7 Oktober 2026**  
 Repository: `hndrisyhptra/dompis-qe`  
 Branch aktif: `collab/import-LOP-import-BOQ`  
-HEAD saat audit: `98f39c9` (`fix: paket reservasi material auto sesuai scope teknisi`)
+HEAD dasar saat audit terbaru: `4b3bfcf` (`merge: integrate remote BOQ import updates`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -15,7 +15,7 @@ Alur utama saat ini:
 
 ```text
 Input/import LOP
-    -> BOQ plan opsional
+    -> BOQ snapshot opsional
     -> assign teknisi
     -> pickup
     -> reservasi material
@@ -41,35 +41,17 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal sama dengan `origin/collab/import-LOP-import-BOQ` pada commit `98f39c9`.
-- Branch ini **8 commit di depan `origin/main`** dan tidak tertinggal dari `origin/main` saat audit.
-- Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan 8 commit tersebut sudah di-merge atau memang sengaja ditinggalkan.
+- HEAD lokal sama dengan `origin/collab/import-LOP-import-BOQ` pada commit `4b3bfcf` sebelum perubahan kerja terbaru.
+- Branch ini **15 commit di depan `origin/main`** dan tidak tertinggal dari `origin/main` saat audit terbaru.
+- Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Saat audit terdapat:
-
-```text
-M  resources/views/revenue/index.blade.php
-M  tests/Feature/BulkImportAndBoqTest.php
-?? database/migrations/2026_10_02_000001_expand_boq_item_name_columns.php
-```
-
-Maknanya:
-
-- `resources/views/revenue/index.blade.php`: kotak penjelasan metode Revenue Overview sedang dikomentari. Perubahan ini belum dipastikan sebagai keputusan final UI.
-- `tests/Feature/BulkImportAndBoqTest.php`: ditambah regression test agar uraian designator lebih dari 255 karakter tetap tersimpan utuh.
-- `2026_10_02_000001_expand_boq_item_name_columns.php`: mengubah `designators.item_name` dan `qe_boq_items.item_name` menjadi `TEXT`.
-
-Risiko penting: database lokal sudah mencatat migration tersebut sebagai `Ran`, tetapi file migration masih untracked. File ini harus ikut commit sebelum berpindah mesin/akun agar schema database tidak lebih maju daripada repository.
+Saat audit terbaru terdapat perubahan kerja belum di-commit untuk mengembalikan Import BOQ menjadi satu form upload tanpa pilihan BOQ Plan/Actual dan tanpa deduplikasi `file_hash`. Ada juga perubahan lama milik user pada `resources/views/revenue/index.blade.php`; jangan ditimpa atau dipulihkan tanpa konfirmasi.
 
 ### 2.3 Status migration lokal
 
-Hasil read-only `php artisan migrate:status` pada 7 Oktober 2026:
-
-- Semua migration repository berstatus `Ran`.
-- Migration terbaru `2026_10_02_000001_expand_boq_item_name_columns` berada pada batch 16.
-- Inspeksi schema mengonfirmasi `designators.item_name` dan `qe_boq_items.item_name` bertipe `TEXT`.
+Migration redundan untuk tabel `qe_boq_plans`, relasi `boq_plan_id`, dan kolom `file_hash` sudah dikeluarkan dari perubahan kerja. Runtime kembali memakai schema existing tanpa migration baru. Migration `2026_10_02_000001_expand_boq_item_name_columns.php` tetap penting untuk uraian BOQ panjang.
 
 Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap server produksi sama; periksa `migrate:status` di server setelah pull.
 
@@ -117,7 +99,7 @@ Aturan bisnis lintas halaman seharusnya berada di service, bukan diduplikasi di 
 - `qe_material_reservations` dan `qe_material_reservation_items`: material rencana teknisi serta `qty_actual`.
 - `qe_surveys`: lokasi survey per LOP.
 - `qe_evidences`: semua evidence generik, status review, metadata, dan path file.
-- `qe_boqs`, `qe_boq_items`, `qe_boq_histories`: BOQ plan dan snapshot nilai.
+- `qe_boqs`, `qe_boq_items`, `qe_boq_histories`: BOQ plan/snapshot nilai.
 - `qe_import_batches`, `qe_import_rows`: antrean, progress, dan hasil import.
 - `designators`, `designator_types`, `designator_categories`: master item.
 - `packages`, `designator_package_prices`: paket KHS dan harga per designator.
@@ -175,7 +157,7 @@ Workflow mobile teknisi aktual terdiri dari lima langkah:
 
 1. Reservasi material.
 2. Evidence material tiba.
-3. Evidence pra: lokasi, foto kondisi awal, dan capture ticket Insera.
+3. Evidence pra: Surat Permintaan opsional untuk Preventive/Relok, lokasi, foto kondisi awal, dan capture ticket Insera.
 4. Evidence progress per designator reservasi.
 5. Evidence after per designator, evidence slot/port, dan `qty_actual`.
 
@@ -183,11 +165,12 @@ LOP baru dapat diajukan bila semua checklist wajib lengkap. Rejected evidence da
 
 ### 4.5 BOQ dan reservasi material
 
-- BOQ plan satu per LOP, memiliki paket dan item snapshot.
+- BOQ satu per LOP di `qe_boqs`, memiliki paket dan item snapshot di `qe_boq_items`.
 - BOQ dapat dibuat lewat import atau dikelola dari Master Data.
 - Item BOQ dapat dicari, ditambah, diedit, dan dihapus selama aturan status mengizinkan.
-- Saat assign, BOQ plan dapat mengisi reservasi teknisi.
-- Jika BOQ plan tidak ada, reservasi teknisi menjadi fallback BOQ aktual/Data BOQ.
+- Saat assign, item material BOQ mengisi `qe_material_reservation_items.qty` sebagai kuantitas rencana.
+- Teknisi mengisi `qe_material_reservation_items.qty_actual` sebagai kuantitas realisasi; tidak ada tabel BOQ Plan terpisah.
+- Jika BOQ tidak ada, reservasi teknisi menjadi fallback Data BOQ dan perhitungan nilai sesuai aturan service.
 - Qty aplikasi diperlakukan sebagai bilangan bulat meskipun beberapa kolom database masih decimal untuk kompatibilitas.
 - Harga disimpan pada snapshot BOQ; jangan menghitung ulang histori BOQ dari harga master terbaru.
 
@@ -195,7 +178,7 @@ Pemilihan paket reservasi otomatis:
 
 - Region JATIM dan JATENG DIY -> `Paket-5`.
 - Region BALNUS -> `Paket-10`.
-- BOQ plan yang sudah memiliki paket tetap lebih diprioritaskan untuk workflow teknisi.
+- BOQ yang sudah memiliki paket tetap lebih diprioritaskan untuk workflow teknisi.
 - Implementasi ada di `RegionalPackageResolver` dan `TechnicianWorkflowService::reservationPackage()`.
 
 ### 4.6 Bulk Import LOP dan Import BOQ
@@ -206,6 +189,8 @@ Pemilihan paket reservasi otomatis:
 - BOQ membaca nama project/LOP, header Paket-5/Paket-10, harga material/jasa, serta volume.
 - Hanya item dengan volume lebih dari nol yang disimpan/ditampilkan.
 - Import BOQ dapat membuat master designator yang belum tersedia jika data wajib lengkap.
+- Form Import BOQ hanya memiliki satu pilihan upload. Semua program disimpan ke `qe_boqs/qe_boq_items` sebagai snapshot rencana.
+- Unggah ulang membuat batch baru lalu memperbarui BOQ terkait; alur tidak memakai tabel `qe_boq_plans`, deduplikasi `file_hash`, radio target, atau checkbox replace.
 - Job `ProcessBulkLopImport` dan `ProcessBoqImport` mempunyai timeout 600 detik dan satu kali attempt.
 - Worker produksi harus berjalan; setelah deploy gunakan `php artisan queue:restart`.
 
@@ -216,10 +201,12 @@ Pemilihan paket reservasi otomatis:
 - File asli dikompresi tanpa mengganti nama, MIME, atau ekstensi; thumbnail terpisah boleh WebP.
 - File ditampilkan melalui route terautentikasi, bukan mengandalkan URL storage publik langsung.
 - Preview dan hapus sebelum upload tersedia.
+- QE Preventive/Relok mempunyai dokumen pendukung multi-file `request_letter` (PDF/foto). Admin mengelolanya dari aksi LOP; teknisi melihatnya pada Step 3 dan dapat upload sendiri hanya bila admin belum menyediakan file.
+- Surat Permintaan tetap disimpan di `qe_evidences`, tetapi dikecualikan dari progres dan antrean approval karena bukan evidence hasil pekerjaan.
 - Galeri menampilkan pending, approved, rejected, serta alasan reject.
 - Approval dikelompokkan per LOP, step, evidence group, dan item designator.
 - Reviewer dapat approve, reject, reset, dan bulk approve per accordion/group.
-- LOP selesai hanya bila semua evidence sudah approved.
+- LOP selesai hanya bila semua evidence workflow yang dapat direview sudah approved.
 - Admin Area/Region/Branch dapat mereview seluruh evidence dalam scope lokasi. Admin Service Area tetap dibatasi scope service area, bukan hanya pembuat LOP.
 
 ### 4.8 Dashboard, program, dan Revenue Overview
@@ -231,7 +218,7 @@ Pemilihan paket reservasi otomatis:
 - Plan hanya dihitung untuk Preventive dan Relok.
 - Realisasi hanya dihitung untuk LOP `completed`.
 - QE Recovery tidak mempunyai plan; hanya menambah realisasi.
-- Nilai aktual mengambil BOQ plan/snapshot lebih dahulu, lalu reservasi teknisi sebagai fallback jika BOQ tidak ada.
+- Nilai plan mengambil BOQ snapshot; data penggunaan material memakai reservasi `qty` dan `qty_actual`, dengan fallback legacy yang dijaga oleh service nilai.
 
 ### 4.9 Laporan dan master data
 
@@ -324,7 +311,7 @@ Pemilihan paket reservasi otomatis:
 4. Evidence tetap generik di `qe_evidences`; kategori/step bukan tabel terpisah.
 5. BEFORE, PROGRESS, dan AFTER harus memakai designator yang ada pada reservasi LOP.
 6. Evidence rejected tidak dihitung sebagai kelengkapan workflow sampai diganti dan kembali pending/approved.
-7. Completion approval memerlukan seluruh evidence approved.
+7. Completion approval memerlukan seluruh evidence workflow yang dapat direview approved; kategori `request_letter` adalah dokumen pendukung dan tidak ikut agregat approval/progres.
 8. Scope ADMIN harus melalui `LopVisibilityService`; fallback legacy `branch`/`sto` tetap dipertahankan sampai backfill selesai.
 9. QE Recovery tidak menggunakan `status_project`; Preventive/Relok mulai sebagai `usulan` dan menjadi `on_going` saat assignment.
 10. BOQ menyimpan snapshot harga dan uraian. Jangan mengganti histori BOQ dengan join harga master terkini.
@@ -367,18 +354,35 @@ Pemilihan paket reservasi otomatis:
 
 - Fondasi bulk import, BOQ master, queue, progress, admin scope, project status, service area, dan UI terkait.
 
-### 7.7 Perubahan belum di-commit — 2 sampai 7 Oktober 2026
+### 7.7 Perubahan yang dibawa saat handover awal — 2 sampai 7 Oktober 2026
 
-- Migration `item_name` menjadi `TEXT` untuk mengatasi SQLSTATE `Data too long for column item_name`.
-- Test import deskripsi lebih dari 255 karakter.
+- Migration dan regression test `item_name` panjang sudah masuk ke riwayat branch melalui commit `d669288` dan merge `4b3bfcf`.
 - Kotak metode Revenue Overview sedang disembunyikan menggunakan komentar Blade/HTML.
+
+### 7.8 Perubahan kerja setelah merge `4b3bfcf` — 7 Oktober 2026
+
+- Import BOQ dikembalikan menjadi satu form upload tanpa radio BOQ Plan/Actual dan tanpa konfirmasi replace.
+- Ketergantungan runtime pada `qe_import_batches.file_hash` dihapus untuk memperbaiki error `Unknown column 'file_hash'`.
+- Seluruh Import BOQ kembali memakai `qe_boqs/qe_boq_items`; tabel `qe_boq_plans` hasil merge dihapus karena redundan dan belum diterapkan pada database lokal.
+- Item material BOQ disalin ke reservasi sebagai `qty`, sedangkan realisasi tetap dicatat pada `qty_actual` oleh teknisi.
+- Paket hasil pembacaan file tersimpan pada BOQ existing dan digunakan pada reservasi teknisi.
+- Regression test mencakup upload sederhana, reimport, Import BOQ Preventive menggunakan schema existing, deskripsi panjang, serta workflow teknisi.
+
+### 7.9 Surat Permintaan Preventive/Relok — 8 Oktober 2026
+
+- Aksi LOP pada Inbox, halaman Program, dan Master Data LOP dapat membuka modal kelola Surat Permintaan.
+- Admin dapat memilih, mereview, menghapus dari daftar, lalu mengupload maksimal 12 PDF/foto per aksi.
+- Teknisi melihat accordion Surat Permintaan pada Step 3 Evidence Pra dan dapat mengupload banyak file bila admin belum menyediakan dokumen.
+- File memakai kategori `request_letter` pada `qe_evidences`; foto/PDF mempertahankan format aslinya dan ditampilkan melalui route file terautentikasi.
+- Surat Permintaan merupakan dokumen pendukung, bukan evidence approval, sehingga tidak mengubah progres, status review, atau syarat completion.
+- Tidak ada migration atau tabel baru untuk fitur ini.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
 
-- Commit migration `2026_10_02_000001_expand_boq_item_name_columns.php` bersama regression test. Database lokal sudah menjalankannya; repository belum menyimpan file itu dalam commit.
-- Verifikasi server produksi sudah menerima dan menjalankan migration tersebut sebelum retry import BOQ panjang.
+- Pastikan migration perluasan panjang uraian sudah dijalankan pada tiap environment setelah mendapat izin dan backup/tag siap.
+- Jangan menambahkan kembali tabel `qe_boq_plans` atau kolom `file_hash`; keduanya tidak diperlukan oleh alur Import BOQ canonical.
 - Pastikan worker queue produksi hidup. Batch berhenti di `queued` bila worker tidak berjalan.
 
 ### Prioritas menengah
@@ -405,8 +409,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-222 tests passed
-1091 assertions
+230 tests passed
+1139 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.

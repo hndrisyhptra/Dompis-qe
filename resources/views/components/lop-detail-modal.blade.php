@@ -127,8 +127,6 @@
                     {{-- Sub-toggle BOQ / Sisa --}}
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex rounded-full bg-ink-100 p-1 dark:bg-ink-800">
-                            <button type="button" @click="switchType('plan')" :class="type==='plan' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
-                                    class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Plan</button>
                             <button type="button" @click="switchType('boq')" :class="type==='boq' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                                     class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Actual</button>
                             <button type="button" @click="switchType('sisa')" :class="type==='sisa' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"

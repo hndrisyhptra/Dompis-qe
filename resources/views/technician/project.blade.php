@@ -11,6 +11,12 @@
                 && ($designatorId === null || $evidence->designator_id === $designatorId);
         });
     };
+    $requestLetters = $evidenceFor('request_letter');
+    $hasAdminRequestLetter = $requestLetters->contains(fn ($evidence) => in_array(
+        $evidence->uploader?->role?->code,
+        [\App\Enums\UserRole::SUPER_ADMIN->value, \App\Enums\UserRole::ADMIN->value],
+        true
+    ));
 @endphp
 
     <a href="{{ route('technician.inbox') }}"
@@ -163,6 +169,19 @@
     @elseif ($step === 3)
         <section class="mt-5 space-y-4">
             <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Tag lokasi pekerjaan, foto sebab/kondisi awal pekerjaan, dan capture tiket Insera.</p></div>
+
+            @if ($lop->program_type->usesProjectStatus())
+                <div>
+                    <x-technician-evidence-uploader :lop="$lop" category="request_letter" type="DOCUMENT"
+                        title="Surat Permintaan"
+                        description="Dokumen acuan dari admin. Jika belum tersedia, Anda dapat upload beberapa PDF atau foto sekaligus."
+                        :existing="$requestLetters" :allow-upload="! $hasAdminRequestLetter" :show-status="false" />
+                    @if ($hasAdminRequestLetter)
+                        <p class="mt-2 px-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Surat Permintaan sudah disediakan admin dan siap dilihat.</p>
+                    @endif
+                </div>
+            @endif
+
             <div x-data="{ latitude: '{{ $state['survey']?->latitude }}', longitude: '{{ $state['survey']?->longitude }}', accuracy: '{{ $state['survey']?->accuracy }}', source: '{{ $state['survey']?->location_source ?? 'manual' }}', locating: false, error: '', locate() { this.locating = true; this.error = ''; if (!navigator.geolocation) { this.error='GPS tidak didukung perangkat.'; this.locating=false; return; } navigator.geolocation.getCurrentPosition(p => { this.latitude=p.coords.latitude.toFixed(7); this.longitude=p.coords.longitude.toFixed(7); this.accuracy=p.coords.accuracy.toFixed(2); this.source='gps'; this.locating=false; }, () => { this.error='Lokasi gagal diambil. Aktifkan izin GPS atau isi manual.'; this.locating=false; }, { enableHighAccuracy: true, timeout: 15000 }); } }"
                  class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
                 <div class="flex items-start justify-between gap-3"><div><h3 class="text-sm font-bold">Tag lokasi pekerjaan</h3><p class="mt-1 text-xs text-ink-500">Gunakan GPS atau masukkan koordinat manual.</p></div>@if($state['survey'])<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">Tersimpan</span>@endif</div>
