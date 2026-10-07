@@ -40,7 +40,6 @@ class DataBoqController extends Controller
             ->with([
                 'package',
                 'materialReservation.items.designator.type',
-                'materialReservation.items.designator.prices',
             ])
             ->whereDoesntHave('boq')
             ->whereHas('materialReservation.items');

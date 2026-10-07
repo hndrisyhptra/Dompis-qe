@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ProgramType;
 use App\Models\Package;
 use App\Models\QeLop;
 
@@ -11,7 +12,10 @@ use App\Models\QeLop;
  */
 class LopBoqValueService
 {
-    public function __construct(private readonly RegionalPackageResolver $regionalPackages) {}
+    public function __construct(
+        private readonly RegionalPackageResolver $regionalPackages,
+        private readonly LopBoqProjectionService $projection,
+    ) {}
 
     private bool $referencePackageResolved = false;
 
@@ -43,10 +47,9 @@ class LopBoqValueService
             'boq.package',
             'boq.items.designator.type',
             'materialReservation.items.designator.type',
-            'materialReservation.items.designator.prices',
         ]);
 
-        if ($lop->boq !== null) {
+        if ($lop->boq !== null && $lop->program_type !== ProgramType::RECOVERY) {
             $items = $lop->boq->items->map(fn ($item): array => [
                 'designator_id' => $item->designator_id,
                 'code' => $item->designator_code,
@@ -71,28 +74,26 @@ class LopBoqValueService
         }
 
         $regionalPackage = $this->regionalPackages->forLop($lop);
-        $package = $regionalPackage ?? $lop->package ?? $this->referencePackage();
+        $projection = $this->projection->report($lop, 'actual');
+        $package = $projection['package'];
         $usesRegionalPackage = $regionalPackage !== null;
         $usesReferencePackage = ! $usesRegionalPackage && $lop->package_id === null && $package !== null;
-        $items = ($lop->materialReservation?->items ?? collect())->map(function ($item) use ($package): array {
-            $price = $package
-                ? $item->designator?->prices->firstWhere('package_id', $package->id_package)?->price
-                : null;
-            $qty = $item->qty_actual === null ? (float) $item->qty : (float) $item->qty_actual;
-            $unitPrice = $price === null ? null : (float) $price;
+        $items = collect($projection['lines'])->map(function (array $item): array {
+            $qtyActual = $item['qty_actual'] === null ? null : (float) $item['qty_actual'];
 
             return [
-                'designator_id' => $item->designator_id,
-                'code' => $item->designator?->code ?? '—',
-                'name' => $item->designator?->item_name ?? 'Designator tidak ditemukan',
-                'unit' => $item->designator?->unit ?? '—',
-                'type' => strtoupper((string) ($item->designator?->type?->code ?? 'MATERIAL')),
-                'qty' => $qty,
-                'qty_reserved' => (float) $item->qty,
-                'qty_actual' => $item->qty_actual === null ? null : (float) $item->qty_actual,
-                'unit_price' => $unitPrice,
-                'total' => $unitPrice === null ? 0.0 : round($qty * $unitPrice, 2),
-                'price_missing' => $unitPrice === null,
+                'designator_id' => $item['designator_id'],
+                'code' => $item['designator_code'],
+                'name' => $item['designator_name'],
+                'unit' => $item['unit'] ?? '—',
+                'type' => $item['type'],
+                'qty' => $qtyActual ?? 0.0,
+                'qty_reserved' => (float) $item['qty'],
+                'qty_actual' => $qtyActual,
+                'unit_price' => $item['price'],
+                'total' => (float) ($item['total_actual'] ?? 0),
+                'price_missing' => $item['price_missing'],
+                'source' => $item['source'],
             ];
         })->values();
 

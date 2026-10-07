@@ -20,12 +20,15 @@
             'value' => $num($rencana),
             'sub' => 'total kebutuhan pada reservasi',
         ],
-        [
+    ];
+
+    if ($report !== 'plan') {
+        $tiles[] = [
             'label' => 'Qty Actual',
             'value' => $num($actual),
             'sub' => $actualPct.'% dari rencana terpakai',
-        ],
-    ];
+        ];
+    }
 
     if ($report === 'sisa') {
         $tiles[] = [
@@ -37,11 +40,23 @@
     }
 
     if ($priced) {
-        $v = $report === 'boq' ? ($g['total_actual'] ?? 0) : ($g['nilai_sisa'] ?? 0);
+        $v = match ($report) {
+            'plan' => $g['total_plan'] ?? 0,
+            'boq' => $g['total_actual'] ?? 0,
+            default => $g['nilai_sisa'] ?? 0,
+        };
         $tiles[] = [
-            'label' => $report === 'boq' ? 'Nilai Material Terpakai' : 'Nilai Material Sisa',
+            'label' => match ($report) {
+                'plan' => 'Nilai BOQ Plan',
+                'boq' => 'Nilai BOQ Actual',
+                default => 'Nilai Material Sisa',
+            },
             'value' => 'Rp '.number_format($v ?? 0, 0, ',', '.'),
-            'sub' => $report === 'boq' ? 'qty actual × harga KHS' : 'sisa × harga KHS',
+            'sub' => match ($report) {
+                'plan' => 'snapshot hasil import BOQ',
+                'boq' => 'qty actual × harga satuan',
+                default => 'sisa × harga satuan',
+            },
             'money' => true,
         ];
     }
@@ -53,7 +68,7 @@
     };
 
     $notes = [];
-    if (($g['not_recapped_count'] ?? 0) > 0) {
+    if ($report !== 'plan' && ($g['not_recapped_count'] ?? 0) > 0) {
         $notes[] = number_format($g['not_recapped_count']).' baris belum diisi qty actual oleh teknisi — belum dihitung ke total.';
     }
     if ($priced && ($g['price_missing_count'] ?? 0) > 0) {

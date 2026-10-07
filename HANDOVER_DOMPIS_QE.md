@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **7 Oktober 2026**  
-Repository: `hndrisyhptra/dompis-qe`  
-Branch aktif: `collab/import-LOP-import-BOQ`  
-HEAD dasar saat audit terbaru: `4b3bfcf` (`merge: integrate remote BOQ import updates`)
+Terakhir diaudit: **8 Oktober 2026**
+Repository: `hndrisyhptra/dompis-qe`
+Branch aktif: `collab/import-LOP-import-BOQ`
+HEAD dasar saat audit terbaru: `e17e6d3` (`feat: upload surat permintaan`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,13 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal sama dengan `origin/collab/import-LOP-import-BOQ` pada commit `4b3bfcf` sebelum perubahan kerja terbaru.
-- Branch ini **15 commit di depan `origin/main`** dan tidak tertinggal dari `origin/main` saat audit terbaru.
+- HEAD lokal saat implementasi terbaru berada di commit `e17e6d3`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Saat audit terbaru terdapat perubahan kerja belum di-commit untuk mengembalikan Import BOQ menjadi satu form upload tanpa pilihan BOQ Plan/Actual dan tanpa deduplikasi `file_hash`. Ada juga perubahan lama milik user pada `resources/views/revenue/index.blade.php`; jangan ditimpa atau dipulihkan tanpa konfirmasi.
+Saat audit terbaru terdapat perubahan kerja belum di-commit untuk memisahkan BOQ Plan, BOQ Actual, dan Sisa Material per LOP serta memasukkan pasangan jasa otomatis untuk reservasi QE Recovery. Tidak ada perubahan schema pada pekerjaan ini.
 
 ### 2.3 Status migration lokal
 
@@ -171,6 +170,9 @@ LOP baru dapat diajukan bila semua checklist wajib lengkap. Rejected evidence da
 - Saat assign, item material BOQ mengisi `qe_material_reservation_items.qty` sebagai kuantitas rencana.
 - Teknisi mengisi `qe_material_reservation_items.qty_actual` sebagai kuantitas realisasi; tidak ada tabel BOQ Plan terpisah.
 - Jika BOQ tidak ada, reservasi teknisi menjadi fallback Data BOQ dan perhitungan nilai sesuai aturan service.
+- Detail LOP dan Detail Data BOQ memisahkan tiga proyeksi: BOQ Plan dari snapshot import, BOQ Actual dari `qty_actual`, dan Sisa Material dari selisih reservasi dengan aktual.
+- QE Recovery tidak memiliki BOQ Plan. Teknisi hanya memilih item `MATERIAL`; pasangan `JASA` dicari otomatis memakai pola kode `M-...` -> `J-...` untuk perhitungan dan detail lengkap.
+- Pasangan jasa virtual tidak disimpan ke `qe_material_reservation_items`, sehingga UI reservasi dan evidence tetap hanya per item material.
 - Qty aplikasi diperlakukan sebagai bilangan bulat meskipun beberapa kolom database masih decimal untuk kompatibilitas.
 - Harga disimpan pada snapshot BOQ; jangan menghitung ulang histori BOQ dari harga master terbaru.
 
@@ -376,6 +378,15 @@ Pemilihan paket reservasi otomatis:
 - File memakai kategori `request_letter` pada `qe_evidences`; foto/PDF mempertahankan format aslinya dan ditampilkan melalui route file terautentikasi.
 - Surat Permintaan merupakan dokumen pendukung, bukan evidence approval, sehingga tidak mengubah progres, status review, atau syarat completion.
 - Tidak ada migration atau tabel baru untuk fitur ini.
+
+### 7.10 Proyeksi BOQ Plan/Actual/Sisa — 8 Oktober 2026
+
+- `LopBoqProjectionService` menjadi sumber data per LOP untuk membedakan BOQ Plan, BOQ Actual, dan Sisa Material.
+- Preventive/Relok menampilkan snapshot import sebagai Plan; qty aktual teknisi diterapkan ke baris material beserta jasa pasangannya sebagai Actual.
+- Recovery tetap tanpa Plan. Reservasi hanya menyimpan material, sedangkan designator jasa pasangan masuk otomatis ke nilai Actual berdasarkan paket wilayah/LOP.
+- Detail LOP dan Detail Data BOQ menampilkan kategori MATERIAL/JASA; Sisa Material hanya menampilkan MATERIAL.
+- Route JSON per LOP `reports.lop.boq-plan` ditambahkan. Tidak ada migration atau perubahan database.
+- Regression test utama: `LopBoqProjectionTest`.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 

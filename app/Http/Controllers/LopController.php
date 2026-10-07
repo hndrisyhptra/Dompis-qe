@@ -65,7 +65,7 @@ class LopController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader',
+                'survey', 'evidences.uploader', 'boq',
             ])
             ->where('status_lop', '!=', LopStatus::COMPLETED->value);
 
@@ -155,7 +155,7 @@ class LopController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader',
+                'survey', 'evidences.uploader', 'boq',
             ])
             ->where('status_lop', LopStatus::COMPLETED->value);
 

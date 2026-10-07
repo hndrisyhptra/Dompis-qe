@@ -10,6 +10,7 @@ use App\Exports\BoqActualExport;
 use App\Exports\SisaMaterialExport;
 use App\Models\Package;
 use App\Models\QeLop;
+use App\Services\LopBoqProjectionService;
 use App\Services\MaterialReportService;
 use App\Support\LocationScope;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,10 @@ class ReportController extends Controller
 {
     use LocationScope;
 
-    public function __construct(private readonly MaterialReportService $service) {}
+    public function __construct(
+        private readonly MaterialReportService $service,
+        private readonly LopBoqProjectionService $lopBoqProjection,
+    ) {}
 
     public function boqActual(Request $request): View
     {
@@ -63,7 +67,12 @@ class ReportController extends Controller
 
     public function lopBoqActual(Request $request, QeLop $qe_lop): View|JsonResponse
     {
-        return $this->lopReport($request, $qe_lop, 'boq');
+        return $this->lopReport($request, $qe_lop, 'actual');
+    }
+
+    public function lopBoqPlan(Request $request, QeLop $qe_lop): View|JsonResponse
+    {
+        return $this->lopReport($request, $qe_lop, 'plan');
     }
 
     public function lopSisaMaterial(Request $request, QeLop $qe_lop): View|JsonResponse
@@ -90,21 +99,19 @@ class ReportController extends Controller
         $isBroad = $user->hasRole(UserRole::SUPER_ADMIN, UserRole::MANAGER);
         [$regionFilter, $branchFilter] = $isBroad ? $this->resolveLocationFilters($request) : ['', ''];
 
-        // Per-LOP: paksa lop_id, view=per_lop, package default = lop->package_id
         $filters = $this->service->normalizeFilters($request);
         $filters['lop_id'] = $qe_lop->id_qe_lops;
         $filters['view'] = 'per_lop';
         $filters['region'] = $regionFilter;
         $filters['branch'] = $branchFilter;
-        // default package = LOP package jika request tidak kirim
-        $filters['package'] = $qe_lop->package_id ?? $filters['package'];
-
-        $data = $this->service->perLop($filters, $user, null);
+        $projection = $this->lopBoqProjection->report($qe_lop, $report);
+        $data = $this->projectionPayload($qe_lop, $projection, $filters);
 
         // Jika request AJAX/JSON, kembalikan payload untuk modal Alpine
         if ($request->wantsJson() || $request->boolean('json')) {
             return response()->json([
                 'report' => $report,
+                'has_plan' => $projection['has_plan'],
                 'lop' => [
                     'id' => $qe_lop->id_qe_lops,
                     'incident' => $qe_lop->incident,
@@ -113,17 +120,23 @@ class ReportController extends Controller
                     'program' => $qe_lop->program_type?->label(),
                 ],
                 'priced' => $data['priced'],
-                'package' => $data['package'] ? ['id' => $data['package']->id, 'name' => $data['package']->name] : null,
-                'columns' => $this->service->columns($report, 'per_lop', $data['priced']),
-                'groups' => $data['groups'] instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator ? $data['groups']->items() : $data['groups'],
+                'package' => $data['package'] ? [
+                    'id' => $data['package']->id_package,
+                    'name' => $projection['package_label'],
+                ] : null,
+                'groups' => $data['groups'],
                 'grand' => $data['grand'],
             ]);
         }
 
         // Fallback: tampilkan halaman laporan single LOP (reuse view per-lop)
         return view('reports.lop-per-lop', [
-            'title' => $report === 'boq' ? 'BOQ Actual' : 'Sisa Material',
-            'report' => $report,
+            'title' => match ($report) {
+                'plan' => 'BOQ Plan',
+                'sisa' => 'Sisa Material',
+                default => 'BOQ Actual',
+            },
+            'report' => $report === 'actual' ? 'boq' : $report,
             'mode' => 'per_lop',
             'data' => $data,
             'priced' => $data['priced'],
@@ -149,9 +162,8 @@ class ReportController extends Controller
         $filters['view'] = 'per_lop';
         $filters['region'] = $regionFilter;
         $filters['branch'] = $branchFilter;
-        $filters['package'] = $qe_lop->package_id ?? $filters['package'];
-
-        $payload = $this->service->perLop($filters, $user, null);
+        $projection = $this->lopBoqProjection->report($qe_lop, $report === 'boq' ? 'actual' : $report);
+        $payload = $this->projectionPayload($qe_lop, $projection, $filters);
 
         $slug = $report === 'boq' ? 'boq-actual' : 'sisa-material';
         $safeLop = preg_replace('/[^\w\-]+/', '_', $qe_lop->incident ?: $qe_lop->nama_lop);
@@ -167,6 +179,34 @@ class ReportController extends Controller
         }
 
         return $this->streamCsv($payload, $report, 'per_lop', "{$name}.csv");
+    }
+
+    /** @return array<string, mixed> */
+    private function projectionPayload(QeLop $lop, array $projection, array $filters): array
+    {
+        $group = [
+            'lop' => [
+                'id' => $lop->id_qe_lops,
+                'name' => $lop->nama_lop,
+                'incident' => $lop->incident,
+                'branch' => $lop->branch,
+                'program' => $lop->program_type?->label(),
+                'segment' => $lop->segmentLabel(),
+                'status' => $lop->status_lop?->label(),
+                'status_raw' => $lop->status_lop?->value,
+            ],
+            'lines' => $projection['lines'],
+            'subtotal' => $projection['grand'],
+        ];
+
+        return [
+            'mode' => 'per_lop',
+            'priced' => $projection['priced'],
+            'package' => $projection['package'],
+            'filters' => $filters,
+            'groups' => $projection['lines'] === [] ? [] : [$group],
+            'grand' => $projection['grand'] + ['lop_count' => $projection['lines'] === [] ? 0 : 1],
+        ];
     }
 
     // ---------------------------------------------------------------------

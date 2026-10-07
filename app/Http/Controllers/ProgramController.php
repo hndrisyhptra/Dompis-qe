@@ -135,7 +135,7 @@ class ProgramController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader', 'branchRef', 'serviceArea',
+                'survey', 'evidences.uploader', 'branchRef', 'serviceArea', 'boq',
             ]);
 
         if ($bucketFilter !== '') {

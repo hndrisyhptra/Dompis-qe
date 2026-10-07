@@ -841,16 +841,17 @@ window.lopReportModal = () => ({
 });
 
 // Detail LOP — tab Material & Laporan tanpa scroll horizontal, view only (dipakai di lop-detail-modal)
-window.detailLaporanTab = (lopId) => ({
+window.detailLaporanTab = (lopId, hasPlan = false) => ({
     tab: 'overview',
-    type: 'boq',
+    hasPlan,
+    type: hasPlan ? 'plan' : 'actual',
     loading: false,
     error: '',
     priced: false,
     packageInfo: null,
     lines: [],
-    grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
-    _fetched: { boq: false, sisa: false },
+    grand: { qty: 0, qty_actual: 0, sisa: 0, total_plan: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
+    _fetched: { plan: false, actual: false, sisa: false },
 
     async fetchIfNeeded(t) {
         const key = t || this.type;
@@ -869,7 +870,8 @@ window.detailLaporanTab = (lopId) => ({
         this.error = '';
 
         try {
-            const url = `/reports/lop/${lopId}/${type === 'boq' ? 'boq-actual' : 'sisa-material'}?json=1`;
+            const endpoint = type === 'plan' ? 'boq-plan' : (type === 'actual' ? 'boq-actual' : 'sisa-material');
+            const url = `/reports/lop/${lopId}/${endpoint}?json=1`;
             const res = await fetch(url, { headers: { Accept: 'application/json' } });
             if (!res.ok) {
                 const txt = await res.text();
@@ -878,6 +880,7 @@ window.detailLaporanTab = (lopId) => ({
                 throw new Error(msg);
             }
             const json = await res.json();
+            this.hasPlan = !!json.has_plan;
             this.priced = !!json.priced;
             this.packageInfo = json.package || null;
             const groups = Array.isArray(json.groups) ? json.groups : [];
@@ -893,6 +896,17 @@ window.detailLaporanTab = (lopId) => ({
     },
 
     retry() { this._fetched[this.type] = false; this.fetchReport(this.type); },
+
+    emptyTitle() {
+        if (this.type === 'plan') return 'BOQ Plan belum tersedia';
+        if (this.type === 'sisa') return 'Belum ada data sisa material';
+        return 'BOQ Actual belum tersedia';
+    },
+
+    emptyDescription() {
+        if (this.type === 'plan') return 'Import BOQ terlebih dahulu untuk menampilkan acuan pekerjaan.';
+        return 'Teknisi belum mengisi reservasi atau rekap qty aktual untuk LOP ini.';
+    },
 
     formatNumber(v) {
         if (v == null || v === '') return '—';

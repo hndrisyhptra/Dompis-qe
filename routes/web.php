@@ -139,7 +139,8 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::get('/boq-actual/export', [ReportController::class, 'boqActualExport'])->name('boq-actual.export');
     Route::get('/sisa-material', [ReportController::class, 'sisaMaterial'])->name('sisa-material');
     Route::get('/sisa-material/export', [ReportController::class, 'sisaMaterialExport'])->name('sisa-material.export');
-    // Per-LOP laporan (dipakai dari kolom Aksi LOP, default package = lop->package_id, tanpa rekap)
+    // Per-LOP: Plan dari snapshot import; Actual/Sisa dari reservasi dan qty aktual teknisi.
+    Route::get('/lop/{qe_lop}/boq-plan', [ReportController::class, 'lopBoqPlan'])->name('lop.boq-plan');
     Route::get('/lop/{qe_lop}/boq-actual', [ReportController::class, 'lopBoqActual'])->name('lop.boq-actual');
     Route::get('/lop/{qe_lop}/boq-actual/export', [ReportController::class, 'lopBoqActualExport'])->name('lop.boq-actual.export');
     Route::get('/lop/{qe_lop}/sisa-material', [ReportController::class, 'lopSisaMaterial'])->name('lop.sisa-material');

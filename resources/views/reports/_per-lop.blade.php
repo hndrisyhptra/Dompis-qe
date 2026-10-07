@@ -10,7 +10,11 @@
     $td = 'px-4 py-2 text-ink-700 dark:text-ink-200';
     $tdNum = 'px-4 py-2 text-right tabular-nums text-ink-800 dark:text-ink-100';
     $money = fn ($v) => $v === null ? '—' : 'Rp ' . number_format($v, 0, ',', '.');
-    $subValue = fn ($s) => $report === 'boq' ? $s['total_actual'] : $s['nilai_sisa'];
+    $subValue = fn ($s) => match ($report) {
+        'plan' => $s['total_plan'],
+        'boq' => $s['total_actual'],
+        default => $s['nilai_sisa'],
+    };
 @endphp
 
 @if (! $isPrint && (is_countable($groups) ? count($groups) : $groups->count()) > 1)
@@ -38,7 +42,7 @@
                     <span class="hidden sm:inline"><x-badge :variant="\App\Enums\LopStatus::from($group['lop']['status_raw'])->badgeVariant()">{{ $group['lop']['status'] }}</x-badge></span>
                 @endif
                 <span class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-ink-500 dark:text-ink-400">
-                    <span>Actual <strong class="tabular-nums text-ink-800 dark:text-ink-100">{{ (float) $sub['qty_actual'] }}</strong></span>
+                    @if ($report !== 'plan')<span>Actual <strong class="tabular-nums text-ink-800 dark:text-ink-100">{{ (float) $sub['qty_actual'] }}</strong></span>@endif
                     @if ($report === 'sisa')<span>Sisa <strong class="tabular-nums {{ (float) $sub['sisa'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-ink-800 dark:text-ink-100' }}">{{ (float) $sub['sisa'] }}</strong></span>@endif
                     @if ($priced)<span class="font-bold text-ink-800 dark:text-ink-100">{{ $money($subValue($sub)) }}</span>@endif
                 </span>
@@ -53,11 +57,11 @@
                                 <th class="{{ $th }}">Uraian</th>
                                 <th class="{{ $th }}">Satuan</th>
                                 <th class="{{ $thNum }}">Qty Plan</th>
-                                <th class="{{ $thNum }}">Qty Actual</th>
+                                @if ($report !== 'plan')<th class="{{ $thNum }}">Qty Actual</th>@endif
                                 @if ($report === 'sisa')<th class="{{ $thNum }}">Sisa</th>@endif
                                 @if ($priced)
                                     <th class="{{ $thNum }}">Harga KHS</th>
-                                    <th class="{{ $thNum }}">{{ $report === 'boq' ? 'Total Actual' : 'Nilai Sisa' }}</th>
+                                    <th class="{{ $thNum }}">{{ $report === 'plan' ? 'Total Plan' : ($report === 'boq' ? 'Total Actual' : 'Nilai Sisa') }}</th>
                                 @endif
                             </tr>
                         </thead>
@@ -68,7 +72,7 @@
                                     <td class="{{ $td }} max-w-xs truncate text-ink-500 dark:text-ink-400">{{ $line['designator_name'] }}</td>
                                     <td class="{{ $td }}">{{ $line['unit'] }}</td>
                                     <td class="{{ $tdNum }}">{{ (float) $line['qty'] }}</td>
-                                    <td class="{{ $tdNum }}">{{ $line['qty_actual'] === null ? '—' : (float) $line['qty_actual'] }}</td>
+                                    @if ($report !== 'plan')<td class="{{ $tdNum }}">{{ $line['qty_actual'] === null ? '—' : (float) $line['qty_actual'] }}</td>@endif
                                     @if ($report === 'sisa')
                                         <td class="{{ $tdNum }} font-semibold">{{ $line['sisa'] === null ? 'belum direkap' : (float) $line['sisa'] }}</td>
                                     @endif
@@ -77,14 +81,14 @@
                                             @if ($line['price_missing'])<span class="text-amber-600 dark:text-amber-400">belum diset</span>
                                             @else Rp {{ number_format($line['price'], 0, ',', '.') }}@endif
                                         </td>
-                                        <td class="{{ $tdNum }}">{{ $money($report === 'boq' ? $line['total_actual'] : $line['nilai_sisa']) }}</td>
+                                        <td class="{{ $tdNum }}">{{ $money($report === 'plan' ? $line['total_plan'] : ($report === 'boq' ? $line['total_actual'] : $line['nilai_sisa'])) }}</td>
                                     @endif
                                 </tr>
                             @endforeach
                             <tr class="bg-ink-50/70 font-bold dark:bg-ink-800/70">
                                 <td class="{{ $td }}" colspan="3">Subtotal</td>
                                 <td class="{{ $tdNum }}">{{ (float) $sub['qty'] }}</td>
-                                <td class="{{ $tdNum }}">{{ (float) $sub['qty_actual'] }}</td>
+                                @if ($report !== 'plan')<td class="{{ $tdNum }}">{{ (float) $sub['qty_actual'] }}</td>@endif
                                 @if ($report === 'sisa')<td class="{{ $tdNum }}">{{ (float) $sub['sisa'] }}</td>@endif
                                 @if ($priced)
                                     <td class="{{ $tdNum }}"></td>

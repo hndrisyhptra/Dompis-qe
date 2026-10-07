@@ -87,6 +87,7 @@ class AdminDashboardService
                 'materialReservation.items.designator',
                 'survey',
                 'evidences',
+                'boq',
             ])
             ->orderByRaw("CASE status_lop WHEN 'rejected' THEN 0 WHEN 'waiting_approval' THEN 1 WHEN 'draft' THEN 2 WHEN 'progress' THEN 3 ELSE 4 END")
             ->orderByDesc('updated_at')

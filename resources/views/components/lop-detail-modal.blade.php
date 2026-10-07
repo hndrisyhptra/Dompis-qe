@@ -26,10 +26,11 @@
     };
 
     $canViewReport = auth()->user()?->hasPermission('reporting');
+    $hasBoqPlan = $lop->program_type->usesProjectStatus() && $lop->boq !== null;
 @endphp
 
 <x-modal :id="$id" title="Detail LOP" size="xl">
-    <div x-data="detailLaporanTab({{ $lop->id_qe_lops }})" class="flex flex-col">
+    <div x-data="detailLaporanTab({{ $lop->id_qe_lops }}, {{ $hasBoqPlan ? 'true' : 'false' }})" class="flex flex-col">
         {{-- Header + Tab bar (sticky) --}}
         <div class="sticky -top-5 -mx-5 z-10 -mt-5 border-b border-ink-100 bg-white/95 px-5 py-4 backdrop-blur dark:border-ink-700 dark:bg-ink-900/95">
             <div class="flex items-start justify-between gap-3">
@@ -124,10 +125,12 @@
             {{-- Tab: Material & Laporan (tanpa scroll horizontal, view only) --}}
             @if ($canViewReport)
                 <div x-show="tab==='material'" x-transition class="space-y-5">
-                    {{-- Sub-toggle BOQ / Sisa --}}
+                    {{-- Sub-toggle Plan / Actual / Sisa --}}
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex rounded-full bg-ink-100 p-1 dark:bg-ink-800">
-                            <button type="button" @click="switchType('boq')" :class="type==='boq' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
+                            <button x-show="hasPlan" type="button" @click="switchType('plan')" :class="type==='plan' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
+                                    class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Plan</button>
+                            <button type="button" @click="switchType('actual')" :class="type==='actual' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                                     class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Actual</button>
                             <button type="button" @click="switchType('sisa')" :class="type==='sisa' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                                     class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">Sisa Material</button>
@@ -158,17 +161,17 @@
                         <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-ink-700">
                             <svg class="h-5 w-5 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5"/></svg>
                         </div>
-                        <p class="mt-3 text-sm font-bold text-ink-900 dark:text-white">Belum ada material submitted</p>
-                        <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Teknisi belum merekap qty aktual (Step 5) untuk LOP ini.</p>
+                        <p class="mt-3 text-sm font-bold text-ink-900 dark:text-white" x-text="emptyTitle()"></p>
+                        <p class="mt-1 text-xs text-ink-500 dark:text-ink-400" x-text="emptyDescription()"></p>
                     </div>
 
                     {{-- Summary tiles --}}
                     <div x-show="!loading && !error && lines.length>0" x-cloak class="grid grid-cols-2 gap-3">
                         <div class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
-                            <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500">Qty Plan</p>
+                            <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500" x-text="type==='plan' ? 'Total Qty Plan' : 'Qty Reservasi'"></p>
                             <p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white" x-text="formatNumber(grand.qty)"></p>
                         </div>
-                        <div class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
+                        <div x-show="type!=='plan'" class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
                             <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500">Qty Actual</p>
                             <p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white" x-text="formatNumber(grand.qty_actual)"></p>
                         </div>
@@ -177,27 +180,31 @@
                             <p class="mt-1 text-sm font-extrabold text-amber-700 dark:text-amber-300" x-text="formatNumber(grand.sisa)"></p>
                         </div>
                         <div x-show="priced" class="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 dark:border-emerald-900/30 dark:bg-emerald-950/20">
-                            <p class="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300" x-text="type==='boq' ? 'Total Actual' : 'Nilai Sisa'"></p>
-                            <p class="mt-1 text-sm font-extrabold text-emerald-700 dark:text-emerald-300" x-text="formatMoney(type==='boq' ? grand.total_actual : grand.nilai_sisa)"></p>
+                            <p class="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300" x-text="type==='plan' ? 'Nilai Plan' : (type==='actual' ? 'Nilai Actual' : 'Nilai Sisa')"></p>
+                            <p class="mt-1 text-sm font-extrabold text-emerald-700 dark:text-emerald-300" x-text="formatMoney(type==='plan' ? grand.total_plan : (type==='actual' ? grand.total_actual : grand.nilai_sisa))"></p>
                         </div>
                     </div>
 
-                    <p x-show="!loading && grand.not_recapped_count>0" class="text-xs text-amber-600 dark:text-amber-400"><span x-text="grand.not_recapped_count"></span> item belum direkap.</p>
+                    <p x-show="type!=='plan' && !loading && grand.not_recapped_count>0" class="text-xs text-amber-600 dark:text-amber-400"><span x-text="grand.not_recapped_count"></span> item belum direkap.</p>
                     <p x-show="!loading && grand.price_missing_count>0" class="text-xs text-red-600 dark:text-red-400"><span x-text="grand.price_missing_count"></span> designator belum ada harga KHS.</p>
 
                     {{-- Card list — tanpa tabel, tanpa scroll horizontal --}}
                     <div x-show="!loading && !error && lines.length>0" x-cloak class="space-y-2.5">
-                        <template x-for="line in lines" :key="line.designator_id">
+                        <template x-for="line in lines" :key="`${type}-${line.designator_code}`">
                             <div class="rounded-xl border border-ink-100 bg-white p-3 dark:border-ink-700 dark:bg-ink-900">
                                 <div class="flex gap-3">
                                     <div class="min-w-0 flex-1">
                                         <p class="font-mono text-xs font-bold text-ink-900 dark:text-white" x-text="line.designator_code"></p>
                                         <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-ink-600 dark:text-ink-300" x-text="line.designator_name || '—'"></p>
-                                        <p class="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600 dark:bg-ink-800 dark:text-ink-300" x-text="line.unit || '—'"></p>
+                                        <div class="mt-1 flex flex-wrap gap-1">
+                                            <span class="inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600 dark:bg-ink-800 dark:text-ink-300" x-text="line.unit || '—'"></span>
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold" :class="line.type==='JASA' ? 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300'" x-text="line.type"></span>
+                                            <span x-show="line.source==='auto_service'" class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">Otomatis</span>
+                                        </div>
                                     </div>
                                     <div class="shrink-0 text-right tabular-nums">
                                         <p class="text-xs"><span class="text-ink-400">Plan </span><span class="font-bold text-ink-900 dark:text-white" x-text="formatNumber(line.qty)"></span></p>
-                                        <p class="mt-1 text-xs">
+                                        <p x-show="type!=='plan'" class="mt-1 text-xs">
                                             <span class="text-ink-400">Actual </span>
                                             <span :class="line.qty_actual==null ? 'text-ink-400' : 'font-bold text-ink-900 dark:text-white'" x-text="line.qty_actual==null ? '—' : formatNumber(line.qty_actual)"></span>
                                             <span x-show="line.qty_actual==null" class="ml-1 rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-bold text-ink-500 dark:bg-ink-700">belum direkap</span>
@@ -207,7 +214,7 @@
                                         </p>
                                         <p x-show="priced" class="mt-1 text-[11px] text-ink-500 dark:text-ink-400">
                                             <span x-show="line.price_missing">harga belum diset</span>
-                                            <span x-show="!line.price_missing" x-text="'Rp ' + formatMoney(line.price).replace('Rp ','') + ' · ' + formatMoney(type==='boq' ? line.total_actual : line.nilai_sisa)"></span>
+                                            <span x-show="!line.price_missing" x-text="formatMoney(line.price) + ' · ' + formatMoney(type==='plan' ? line.total_plan : (type==='actual' ? line.total_actual : line.nilai_sisa))"></span>
                                         </p>
                                     </div>
                                 </div>
@@ -215,7 +222,7 @@
                         </template>
                         <div class="flex justify-between rounded-xl bg-ink-900 px-4 py-3 text-xs font-bold text-white dark:bg-white dark:text-ink-900">
                             <span>Subtotal</span>
-                            <span class="tabular-nums" x-text="formatNumber(grand.qty) + ' · ' + formatNumber(grand.qty_actual) + (type==='sisa' ? ' · ' + formatNumber(grand.sisa) : '')"></span>
+                            <span class="tabular-nums" x-text="type==='plan' ? formatMoney(grand.total_plan) : (type==='actual' ? formatMoney(grand.total_actual) : formatMoney(grand.nilai_sisa))"></span>
                         </div>
                     </div>
                 </div>
