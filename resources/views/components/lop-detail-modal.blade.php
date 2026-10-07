@@ -56,6 +56,7 @@
             <div class="mt-4 flex gap-1 rounded-full bg-ink-100 p-1 dark:bg-ink-800 w-fit max-w-full overflow-x-auto">
                 <button type="button" @click="tab='overview'" :class="tab==='overview' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                         class="whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold transition">Overview</button>
+
                 @if ($canViewReport)
                     <button type="button" @click="tab='material'; fetchIfNeeded(type)" :class="tab==='material' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                             class="whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold transition">Material & Laporan</button>
@@ -118,12 +119,16 @@
                 </div>
             </div>
 
+
+
             {{-- Tab: Material & Laporan (tanpa scroll horizontal, view only) --}}
             @if ($canViewReport)
                 <div x-show="tab==='material'" x-transition class="space-y-5">
                     {{-- Sub-toggle BOQ / Sisa --}}
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex rounded-full bg-ink-100 p-1 dark:bg-ink-800">
+                            <button type="button" @click="switchType('plan')" :class="type==='plan' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
+                                    class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Plan</button>
                             <button type="button" @click="switchType('boq')" :class="type==='boq' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                                     class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Actual</button>
                             <button type="button" @click="switchType('sisa')" :class="type==='sisa' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"

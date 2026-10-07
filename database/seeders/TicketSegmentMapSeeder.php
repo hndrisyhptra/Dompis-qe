@@ -20,6 +20,7 @@ class TicketSegmentMapSeeder extends Seeder
             'GAMAS DISTRIBUSI' => 'distribusi',
             'GAMAS ODP' => 'odp',
             'GAMAS GPON' => 'gpon',
+            'GAMAS OLT' => 'mini_olt',
         ];
 
         foreach ($maps as $source => $segment) {

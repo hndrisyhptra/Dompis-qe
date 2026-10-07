@@ -44,7 +44,8 @@ class BulkLopImportController extends Controller
             return back()->withErrors(['file' => 'Scope lokasi akun Admin belum dikonfigurasi. Hubungi Super Admin sebelum melakukan Bulk Import LOP.']);
         }
 
-        $batch = $this->batchService->create('bulk_lop', $request->file('file'), $request->user());
+        $result = $this->batchService->create('bulk_lop', $request->file('file'), $request->user());
+        $batch = $result['batch'];
         ProcessBulkLopImport::dispatch($batch->id_import_batch);
 
         if ($request->expectsJson()) {

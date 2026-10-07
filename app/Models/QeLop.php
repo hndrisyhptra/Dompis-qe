@@ -47,6 +47,7 @@ class QeLop extends Model
         'ihld_id',
         'package_id',
         'boq_snapshot',
+        'boq_plan_id',
         'status_lop',
         'created_by',
     ];
@@ -167,12 +168,6 @@ class QeLop extends Model
         return count($this->segments()) > 1;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RELATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -236,16 +231,15 @@ class QeLop extends Model
         return $this->belongsTo(Package::class, 'package_id', 'id_package')->withTrashed();
     }
 
+    public function boqPlan(): HasOne
+    {
+        return $this->hasOne(QeBoqPlan::class, 'qe_lop_id', 'id_qe_lops');
+    }
+
     public function survey(): HasOne
     {
         return $this->hasOne(QeSurvey::class, 'qe_lop_id', 'id_qe_lops');
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | HELPERS
-    |--------------------------------------------------------------------------
-    */
 
     public function currentTechnician(): ?User
     {

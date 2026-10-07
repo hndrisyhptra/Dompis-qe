@@ -23,6 +23,7 @@ class TechnicianWorkflowService
         private readonly LopService $lopService,
         private readonly EvidenceService $evidenceService,
         private readonly RegionalPackageResolver $regionalPackages,
+        private readonly BoqPlanService $boqPlanService,
     ) {}
 
     /** @return array{package: Package|null, expected_code: string|null, source: string} */
@@ -48,6 +49,8 @@ class TechnicianWorkflowService
         if ($lop->status_lop !== LopStatus::ASSIGNED) {
             throw ValidationException::withMessages(['workflow' => 'Project ini tidak dapat di-pickup pada status sekarang.']);
         }
+
+        $this->boqPlanService->convertToActual($lop);
 
         $this->lopService->transitionStatus($lop, LopStatus::PICKED_UP, $technician, 'Project di-pickup teknisi');
     }
