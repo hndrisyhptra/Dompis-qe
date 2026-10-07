@@ -3,7 +3,7 @@
 Terakhir diaudit: **8 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `e17e6d3` (`feat: upload surat permintaan`)
+HEAD dasar saat audit terbaru: `c4cf256` (`feat: Reservasi material include jasa`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat implementasi terbaru berada di commit `e17e6d3`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat implementasi dashboard terbaru berada di commit `c4cf256`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Saat audit terbaru terdapat perubahan kerja belum di-commit untuk memisahkan BOQ Plan, BOQ Actual, dan Sisa Material per LOP serta memasukkan pasangan jasa otomatis untuk reservasi QE Recovery. Tidak ada perubahan schema pada pekerjaan ini.
+Proyeksi BOQ Plan/Actual/Sisa dan pasangan jasa Recovery sudah masuk commit `c4cf256`. Perubahan kerja terbaru menambahkan tab dashboard dan monitoring harian per branch; tidak ada perubahan schema.
 
 ### 2.3 Status migration lokal
 
@@ -213,7 +213,9 @@ Pemilihan paket reservasi otomatis:
 
 ### 4.8 Dashboard, program, dan Revenue Overview
 
-- Dashboard ADMIN/SUPER_ADMIN memiliki KPI, pipeline, matrix program/WBS, filter, dan drill-down list LOP.
+- Dashboard ADMIN/SUPER_ADMIN memiliki KPI serta tab Program (matrix program), Status LOP (matrix pipeline), dan Summary (monitoring harian per branch).
+- Summary menyediakan tanggal monitoring WIB, enam KPI aktivitas, filter pergerakan/region/pencarian branch, accordion rincian LOP, pencarian Incident/nama LOP, dan pagination 20 LOP. Scope diterapkan kembali pada endpoint rincian.
+- Card Approval Evidence, Kesiapan Data & Penugasan, dan Prioritas Operasional dihapus dari dashboard; sudut card dashboard menggunakan `rounded-md`.
 - Matrix SUPER_ADMIN dapat dibuka per region/branch; ADMIN mengikuti scope lokasi.
 - Program Preventive dan Relok mempunyai tab Usulan/On Going; Recovery tidak memakai `status_project`.
 - Revenue Overview menyediakan filter region/branch/service area/program/status, KPI plan/realisasi/gap/rasio, chart per program/branch, matrix branch per program, dan trend segmen.
@@ -287,12 +289,14 @@ Pemilihan paket reservasi otomatis:
 ### 5.5 Dashboard dan nilai
 
 - `app/Services/AdminDashboardService.php`
+- `app/Services/DashboardMonitoringService.php`
 - `app/Services/RevenueService.php`
 - `app/Services/LopBoqValueService.php`
 - `app/Services/RegionalPackageResolver.php`
 - `app/Http/Controllers/DashboardController.php`
 - `app/Http/Controllers/RevenueController.php`
 - `resources/views/dashboard/index.blade.php`
+- `resources/views/dashboard/partials/monitoring.blade.php`
 - `resources/views/revenue/index.blade.php`
 
 ### 5.6 User dan scope
@@ -388,6 +392,20 @@ Pemilihan paket reservasi otomatis:
 - Route JSON per LOP `reports.lop.boq-plan` ditambahkan. Tidak ada migration atau perubahan database.
 - Regression test utama: `LopBoqProjectionTest`.
 
+### 7.11 Tab Dashboard dan Summary harian — 8 Oktober 2026
+
+- Matrix Program dan Status LOP dipisahkan ke tab. Tab aktif disimpan di URL dan dipertahankan saat mengganti filter/tanggal.
+- `DashboardMonitoringService` menghitung aktivitas harian dengan rentang waktu WIB inklusif awal hari dan eksklusif awal hari berikutnya; query mengikuti timezone penyimpanan `config('app.timezone')`.
+- Aktivitas berasal dari `qe_lop_histories`, pembuatan LOP (fallback bila tidak ada event created), tanggal upload/review di `qe_evidences`, dan `qe_boq_histories`. Aktor dan LOP bergerak dihitung unik. Tidak menganggap setiap perubahan `updated_at` sebagai event.
+- Review evidence memakai `reviewed_at` terakhir yang tersedia; reset/replacement tanpa histori audit tersendiri tidak direkonstruksi sebagai seluruh rangkaian event. Summary adalah monitoring aktivitas tercatat, bukan snapshot historis lengkap.
+- Total LOP mencakup record yang masih tersedia dan dibuat sebelum akhir tanggal monitoring; status/teknisi pada rincian mengikuti kondisi terkini. Branch tanpa LOP tetap muncul bila masuk scope.
+- Endpoint `dashboard.monitoring-lops` memuat maksimum 20 LOP per halaman dengan authorization role dan scope Area/Region/Branch/multi-Service Area di server.
+- Rincian branch berbentuk card LOP dengan accordion riwayat aktivitas harian, bukan tabel. Branch Bergerak otomatis membuka daftar dengan filter LOP Bergerak; filter dapat diganti ke semua/belum bergerak.
+- Last update branch/LOP menampilkan aktivitas terakhir dan identitas pelaku dalam format Nama — Role (contoh Budi — Admin, Adi — Teknisi), bukan teknisi assignment. Nama/role dibaca dari akun tersimpan saat ini karena histori lama tidak menyimpan snapshot identitas.
+- Endpoint `dashboard.monitoring-activities` memuat riwayat harian per LOP saat accordion dibuka, dipaginasi 20 event dan dibatasi scope backend. Waktu yang sama diurutkan stabil berdasarkan prioritas sumber dan ID event; review didahulukan dari upload.
+- Matrix dan filter branch memprioritaskan FK lokasi, tetap mendukung fallback nama branch legacy. Query prioritas dan agregat approval lama dihapus karena card tidak dipakai lagi.
+- Tidak ada migration, perubahan data operasional, atau tes browser. Regression test: `DashboardMonitoringTest` dan `AdminDashboardTest`.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -420,8 +438,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-230 tests passed
-1139 assertions
+240 tests passed
+1263 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -433,7 +451,7 @@ Pemetaan test utama:
 - Teknisi mobile: `TechnicianMobileWorkflowTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
-- Dashboard: `AdminDashboardTest`.
+- Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
 - Revenue: `RevenueDashboardTest`.
 - Reporting: `MaterialReportTest`.
 - User management: `UserManagementWorkflowTest`, `UserPermissionTest`.

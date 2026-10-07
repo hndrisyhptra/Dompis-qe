@@ -61,6 +61,13 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::get('/dashboard/matrix-lops', [DashboardController::class, 'matrixLops'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('dashboard.matrix-lops');
+Route::get('/dashboard/monitoring-lops', [DashboardController::class, 'monitoringLops'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('dashboard.monitoring-lops');
+Route::get('/dashboard/monitoring-activities/{lopId}', [DashboardController::class, 'monitoringActivities'])
+    ->whereNumber('lopId')
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('dashboard.monitoring-activities');
 Route::get('/revenue', [RevenueController::class, 'index'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('revenue.index');

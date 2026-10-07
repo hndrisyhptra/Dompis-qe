@@ -1160,7 +1160,111 @@ window.importBatchProgress = (options = {}) => ({
     },
 });
 
-window.dashboardMatrixModal = (endpoint) => ({
+window.dashboardMonitoring = () => ({
+    movement: 'all',
+    region: '',
+    search: '',
+    visible(name, region, moving) {
+        return (!this.region || region === this.region)
+            && (this.movement === 'all' || (this.movement === 'moving' ? moving : !moving))
+            && name.toLocaleLowerCase('id-ID').includes(this.search.trim().toLocaleLowerCase('id-ID'));
+    },
+    hasVisible(rows) {
+        return rows.some(row => this.visible(row.name, row.region, row.moving));
+    },
+});
+
+window.dashboardLopActivity = (endpoint, date) => ({
+    activityExpanded: false,
+    activityLoaded: false,
+    activityLoading: false,
+    activityError: '',
+    activityEvents: [],
+    activityPage: 1,
+    activityLastPage: 1,
+    async toggleActivity() {
+        this.activityExpanded = !this.activityExpanded;
+        if (this.activityExpanded && !this.activityLoaded && !this.activityLoading) await this.loadActivity(1);
+    },
+    async loadActivity(page = 1) {
+        if (this.activityLoading) return;
+        this.activityLoading = true;
+        this.activityError = '';
+        const url = new URL(endpoint, window.location.origin);
+        url.searchParams.set('date', date);
+        url.searchParams.set('page', page);
+        try {
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Riwayat tidak dapat dimuat. Silakan coba kembali.');
+            const data = await response.json();
+            this.activityEvents = data.data || [];
+            this.activityPage = Number(data.page || 1);
+            this.activityLastPage = Number(data.last_page || 1);
+            this.activityLoaded = true;
+        } catch (error) {
+            this.activityError = error.message;
+        } finally {
+            this.activityLoading = false;
+        }
+    },
+});
+
+window.dashboardBranchMonitoring = (endpoint, filters, initialMovement = '') => ({
+    expanded: false,
+    loaded: false,
+    loading: false,
+    error: '',
+    lops: [],
+    total: 0,
+    page: 1,
+    lastPage: 1,
+    lopMovement: initialMovement,
+    lopSearch: '',
+    requestId: 0,
+    toggle() {
+        this.expanded = !this.expanded;
+        if (this.expanded && !this.loaded && !this.loading) this.load(1);
+    },
+    async load(page = 1) {
+        const requestId = ++this.requestId;
+        this.loading = true;
+        this.error = '';
+        const url = new URL(endpoint, window.location.origin);
+        Object.entries({ ...filters, movement: this.lopMovement, q: this.lopSearch.trim(), page }).forEach(([key, value]) => {
+            if (value !== '' && value != null) url.searchParams.set(key, value);
+        });
+        try {
+            const response = await fetch(url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Rincian tidak dapat dimuat. Silakan coba kembali.');
+            const data = await response.json();
+            if (requestId !== this.requestId) return;
+            this.lops = data.data || [];
+            this.total = Number(data.total || 0);
+            this.page = Number(data.page || 1);
+            this.lastPage = Number(data.last_page || 1);
+            this.loaded = true;
+        } catch (error) {
+            if (requestId === this.requestId) this.error = error.message;
+        } finally {
+            if (requestId === this.requestId) this.loading = false;
+        }
+    },
+});
+
+window.dashboardMatrixModal = (endpoint, initialTab = 'program') => ({
+    dashboardTab: initialTab,
+    selectTab(tab) {
+        this.dashboardTab = tab;
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState({}, '', url);
+    },
+    nextTab(direction) {
+        const tabs = ['program', 'status', 'summary'];
+        const tab = tabs[(tabs.indexOf(this.dashboardTab) + direction + tabs.length) % tabs.length];
+        this.selectTab(tab);
+        document.getElementById('dashboard-tab-' + tab)?.focus();
+    },
     endpoint,
     title: 'Daftar LOP',
     subtitle: '',

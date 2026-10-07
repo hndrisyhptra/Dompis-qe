@@ -6,7 +6,6 @@ use App\Enums\LopStatus;
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
 use App\Models\Branch;
-use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,7 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 class AdminDashboardService
 {
     public function __construct(
-        private readonly ProjectProgressService $progressService,
+        private readonly DashboardMonitoringService $monitoring,
         private readonly LopVisibilityService $visibility,
     ) {}
 
@@ -40,7 +39,6 @@ class AdminDashboardService
             ->first();
         $total = (int) ($aggregate?->total ?? 0);
         $missingIhld = (int) ($aggregate?->missing_ihld ?? 0);
-        $assigned = (clone $query)->whereHas('activeAssignment')->count();
 
         $stats = [
             'total' => $total,
@@ -52,64 +50,22 @@ class AdminDashboardService
             'ihld_completion_percentage' => $total > 0
                 ? (int) round((($total - $missingIhld) / $total) * 100)
                 : 0,
-            'assigned' => $assigned,
-            'unassigned' => max(0, $total - $assigned),
         ];
-        $stats['assignment_percentage'] = $total > 0
-            ? (int) round(($stats['assigned'] / $total) * 100)
-            : 0;
 
         $matrixRegions = $this->matrixRegions(clone $query, $user, $filterState);
-
-        $lopIds = (clone $query)->select('qe_lops.id_qe_lops');
-        $evidenceAggregate = QeEvidence::query()
-            ->whereIn('qe_lop_id', $lopIds)
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending")
-            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
-            ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected")
-            ->first();
-
-        $evidenceStats = [
-            'total' => (int) ($evidenceAggregate?->total ?? 0),
-            'pending' => (int) ($evidenceAggregate?->pending ?? 0),
-            'approved' => (int) ($evidenceAggregate?->approved ?? 0),
-            'rejected' => (int) ($evidenceAggregate?->rejected ?? 0),
-        ];
-        $evidenceStats['approval_percentage'] = $evidenceStats['total'] > 0
-            ? (int) round(($evidenceStats['approved'] / $evidenceStats['total']) * 100)
-            : 0;
-
-        $priorityLops = (clone $query)
-            ->with([
-                'creator',
-                'activeAssignment.technician',
-                'materialReservation.items.designator',
-                'survey',
-                'evidences',
-                'boq',
-            ])
-            ->orderByRaw("CASE status_lop WHEN 'rejected' THEN 0 WHEN 'waiting_approval' THEN 1 WHEN 'draft' THEN 2 WHEN 'progress' THEN 3 ELSE 4 END")
-            ->orderByDesc('updated_at')
-            ->limit(7)
-            ->get();
-
-        foreach ($priorityLops as $lop) {
-            $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
-        }
 
         return [
             'isSuperAdmin' => $isSuperAdmin,
             'scopeLabel' => $isSuperAdmin ? 'Seluruh wilayah operasional' : $this->visibility->label($user),
-            'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleServiceAreaIds($user)->isEmpty(),
+            'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleBranchIds($user)->isEmpty(),
             'stats' => $stats,
-            'evidenceStats' => $evidenceStats,
             'matrixRegions' => $matrixRegions,
+            'monitoring' => $this->monitoring->summary(clone $query, $user, $filterState, $filters['date'] ?? null),
+            'dashboardTab' => in_array($filters['tab'] ?? '', ['program', 'status', 'summary'], true) ? $filters['tab'] : 'program',
             'pipelineStatuses' => collect(LopStatus::cases())->map(fn (LopStatus $status) => [
                 'value' => $status->value,
                 'label' => $status === LopStatus::WAITING_APPROVAL ? 'In Review' : $status->label(),
             ]),
-            'priorityLops' => $priorityLops,
             'filters' => $filterState,
             'regions' => Branch::query()->whereNotNull('region')->distinct()->orderBy('region')->pluck('region'),
             'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
@@ -134,18 +90,7 @@ class AdminDashboardService
                 : '',
         ];
 
-        if ($normalized['region'] !== '') {
-            $query->whereIn('branch', Branch::query()->where('region', $normalized['region'])->select('name'));
-        }
-        if ($normalized['branch'] !== '') {
-            $query->where('branch', $normalized['branch']);
-        }
-        if ($normalized['program'] !== '') {
-            $query->where('program_type', $normalized['program']);
-        }
-        if ($normalized['status'] !== '') {
-            $query->where('status_lop', $normalized['status']);
-        }
+        $this->applyFilters($query, $normalized);
 
         match ($normalized['metric']) {
             'assigned' => $query->where('status_lop', LopStatus::ASSIGNED),
@@ -186,6 +131,28 @@ class AdminDashboardService
         return ['total' => $total, 'data' => $rows];
     }
 
+    /** Scope diterapkan sebelum filter drill-down monitoring dari browser. */
+    public function monitoringLops(User $user, array $filters): array
+    {
+        $query = $this->scopedLops($user);
+        $this->applyFilters($query, [
+            'region' => (string) ($filters['region'] ?? ''),
+            'branch' => (string) ($filters['branch'] ?? ''),
+            'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '',
+            'status' => LopStatus::tryFrom((string) ($filters['status'] ?? ''))?->value ?? '',
+        ]);
+
+        return $this->monitoring->branchLops($query, $filters);
+    }
+
+    public function monitoringActivities(User $user, int $lopId, array $filters): array
+    {
+        $query = $this->scopedLops($user)->whereKey($lopId);
+        abort_unless((clone $query)->exists(), 404);
+
+        return $this->monitoring->lopActivities($query, $filters);
+    }
+
     private function scopedLops(User $user): Builder
     {
         $query = QeLop::query();
@@ -200,14 +167,16 @@ class AdminDashboardService
     private function matrixRegions(Builder $query, User $user, array $filters): array
     {
         $aggregates = (clone $query)
-            ->select(['qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop'])
+            ->leftJoin('branches as matrix_branches', 'matrix_branches.id_branch', '=', 'qe_lops.branch_id')
+            ->select(['qe_lops.program_type', 'qe_lops.status_lop'])
+            ->selectRaw("COALESCE(matrix_branches.name, NULLIF(qe_lops.branch, ''), 'BRANCH BELUM TERDATA') as matrix_branch")
             ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_count')
-            ->groupBy('qe_lops.branch', 'qe_lops.program_type', 'qe_lops.status_lop')
+            ->groupBy('matrix_branch', 'qe_lops.program_type', 'qe_lops.status_lop')
             ->get();
 
         $counts = [];
         foreach ($aggregates as $aggregate) {
-            $branch = trim((string) $aggregate->branch) ?: 'BRANCH BELUM TERDATA';
+            $branch = $aggregate->matrix_branch;
             $program = $aggregate->program_type instanceof ProgramType
                 ? $aggregate->program_type->value
                 : (string) $aggregate->program_type;
@@ -342,21 +311,28 @@ class AdminDashboardService
     private function applyFilters(Builder $query, array $filters): void
     {
         if ($filters['region'] !== '') {
-            $query->whereIn('branch', Branch::query()
-                ->where('region', $filters['region'])
-                ->select('name'));
+            $query->where(fn (Builder $q) => $q
+                ->whereIn('qe_lops.branch_id', Branch::query()->where('region', $filters['region'])->select('id_branch'))
+                ->orWhere(fn (Builder $legacy) => $legacy->whereNull('qe_lops.branch_id')
+                    ->whereIn('qe_lops.branch', Branch::query()->where('region', $filters['region'])->select('name'))));
         }
 
         if ($filters['branch'] !== '') {
-            $query->where('branch', $filters['branch']);
+            if ($filters['branch'] === 'BRANCH BELUM TERDATA') {
+                $query->whereNull('qe_lops.branch_id')->where(fn (Builder $q) => $q->whereNull('qe_lops.branch')->orWhere('qe_lops.branch', ''));
+            } else {
+                $query->where(fn (Builder $q) => $q
+                    ->whereIn('qe_lops.branch_id', Branch::query()->where('name', $filters['branch'])->select('id_branch'))
+                    ->orWhere(fn (Builder $legacy) => $legacy->whereNull('qe_lops.branch_id')->where('qe_lops.branch', $filters['branch'])));
+            }
         }
 
         if ($filters['program'] !== '') {
-            $query->where('program_type', $filters['program']);
+            $query->where('qe_lops.program_type', $filters['program']);
         }
 
         if ($filters['status'] !== '') {
-            $query->where('status_lop', $filters['status']);
+            $query->where('qe_lops.status_lop', $filters['status']);
         }
     }
 }

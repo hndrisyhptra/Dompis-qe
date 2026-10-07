@@ -34,18 +34,18 @@ class AdminDashboardTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $sidoarjo->id_branch]);
         $otherAdmin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $surabaya->id_branch]);
 
-        $sidoarjoLop = $this->makeLop($otherAdmin, 'DASH-SDA', 'SIDOARJO', ihldId: null);
+        $this->makeLop($otherAdmin, 'DASH-SDA', 'SIDOARJO', ihldId: null);
         $this->makeLop($admin, 'DASH-SBY', 'SURABAYA', ihldId: 'IHLD-SBY');
 
         $this->actingAs($admin)
             ->get(route('dashboard', ['region' => 'REGION BALNUS']))
             ->assertOk()
-            ->assertSee('DASH-SDA')
-            ->assertDontSee('DASH-SBY')
+            ->assertSee('Summary per Branch')
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 1
                 && $stats['missing_ihld'] === 1)
-            ->assertViewHas('priorityLops', fn ($lops) => $lops->count() === 1
-                && $lops->first()->is($sidoarjoLop));
+            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->count() === 1
+                && $monitoring['rows']->first()['name'] === 'SIDOARJO'
+                && $monitoring['rows']->first()['total_lops'] === 1);
     }
 
     public function test_admin_without_branch_sees_safe_empty_dashboard(): void
@@ -56,7 +56,7 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Branch akun belum dikonfigurasi')
+            ->assertSee('Scope akun belum dikonfigurasi')
             ->assertViewHas('scopeWarning', true)
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 0);
     }
@@ -86,9 +86,8 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('dashboard', ['region' => 'REGION JATIM']))
             ->assertOk()
-            ->assertSee('DASH-TARGET')
-            ->assertSee('DASH-JATIM-OTHER')
-            ->assertDontSee('DASH-BALNUS')
+            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 2
+                && ! $monitoring['rows']->contains('name', 'DENPASAR'))
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 2
                 && $stats['missing_ihld'] === 1);
 
@@ -99,13 +98,11 @@ class AdminDashboardTest extends TestCase
             'status' => 'draft',
         ]))
             ->assertOk()
-            ->assertSee('DASH-TARGET')
-            ->assertDontSee('DASH-JATIM-OTHER')
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 1
                 && $stats['active'] === 1
                 && $stats['missing_ihld'] === 1)
-            ->assertViewHas('evidenceStats', fn (array $stats) => $stats['total'] === 1
-                && $stats['pending'] === 1);
+            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 1
+                && $monitoring['stats']['activities'] === 2);
     }
 
     public function test_matrix_breaks_down_region_branch_program_and_pipeline_values(): void
