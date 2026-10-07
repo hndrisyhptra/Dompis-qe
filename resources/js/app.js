@@ -830,14 +830,14 @@ window.lopReportModal = () => ({
 // Detail LOP — tab BOQ Plan (read-only) + tab Material & Laporan (dipakai di lop-detail-modal)
 window.detailLaporanTab = (lopId) => ({
     tab: 'overview',
-    type: 'boq',
+    type: 'plan',
     loading: false,
     error: '',
     priced: false,
     packageInfo: null,
     lines: [],
     grand: { qty: 0, qty_actual: 0, sisa: 0, total_actual: 0, nilai_sisa: 0, not_recapped_count: 0, price_missing_count: 0 },
-    _fetched: { boq: false, sisa: false },
+    _fetched: { boq: false, sisa: false, plan: false },
 
     // BOQ Plan
     planLoading: false,
@@ -895,6 +895,44 @@ window.detailLaporanTab = (lopId) => ({
         const type = t || this.type;
         this.loading = true;
         this.error = '';
+
+        if (type === 'plan') {
+            try {
+                await this.fetchPlan();
+                if (this.planError) throw new Error(this.planError);
+
+                this.priced = true;
+                this.packageInfo = { name: 'Plan (Sesuai Import)' };
+                this.lines = this.planLines.map(l => ({
+                    designator_id: l.designator_id,
+                    designator_code: l.designator_code,
+                    designator_name: l.item_name,
+                    unit: l.unit,
+                    qty: l.qty,
+                    qty_actual: null,
+                    price: l.unit_price,
+                    total_actual: l.total_price,
+                    price_missing: false
+                }));
+                this.grand = {
+                    qty: this.planLines.reduce((s, l) => s + Number(l.qty || 0), 0),
+                    qty_actual: 0,
+                    sisa: 0,
+                    total_actual: this.planGrand.totalPrice,
+                    nilai_sisa: 0,
+                    not_recapped_count: 0,
+                    price_missing_count: 0
+                };
+                this._fetched[type] = true;
+            } catch (e) {
+                this.error = e?.message || 'Gagal memuat BOQ Plan';
+                this.lines = [];
+            } finally {
+                this.loading = false;
+            }
+            return;
+        }
+
         try {
             const url = `/reports/lop/${lopId}/${type === 'boq' ? 'boq-actual' : 'sisa-material'}?json=1`;
             const res = await fetch(url, { headers: { Accept: 'application/json' } });

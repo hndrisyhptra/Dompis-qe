@@ -9,9 +9,9 @@
         <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Bulk Import Data</p>
         <h1 class="mt-2 text-xl font-bold text-ink-900 dark:text-ink-50">Import BOQ via Excel</h1>
         <p class="mt-2 text-sm leading-6 text-ink-500 dark:text-ink-400">
-            Upload file <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">.xlsx / .xls / .csv</code> format BOQ existing.
-            Sistem mencocokkan <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">PROJECT : ...</code> dengan Nama LOP,
-            membaca paket dari header <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">TIF-n / PAKET-n</code>, lalu mengambil designator dengan VOL terisi.
+            Upload file <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">.xlsx / .xls / .csv</code> format BOQ.
+            Sistem mencocokkan <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">PROJECT : ...</code> dengan LOP.
+            Jika LOP belum ada, sistem akan membuat LOP otomatis menggunakan field <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">SEGMENT : ...</code> dan <code class="rounded bg-ink-100 px-1.5 py-0.5 text-xs dark:bg-ink-800">STO : ...</code> yang ada di header file.
             <span class="mt-1 block text-xs">VOL kosong atau 0 tidak dipakai. Awalan <code>M-</code> = material dan <code>J-</code> = jasa.</span>
         </p>
       </div>

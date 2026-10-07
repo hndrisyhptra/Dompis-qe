@@ -22,11 +22,8 @@ class TechnicianWorkflowService
     public function __construct(
         private readonly LopService $lopService,
         private readonly EvidenceService $evidenceService,
-<<<<<<< HEAD
         private readonly RegionalPackageResolver $regionalPackages,
-=======
         private readonly BoqPlanService $boqPlanService,
->>>>>>> fad743d (Fix conflict with remote branch)
     ) {}
 
     /** @return array{package: Package|null, expected_code: string|null, source: string} */

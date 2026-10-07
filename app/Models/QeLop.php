@@ -168,12 +168,6 @@ class QeLop extends Model
         return count($this->segments()) > 1;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RELATIONS
-    |--------------------------------------------------------------------------
-    */
-
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -246,12 +240,6 @@ class QeLop extends Model
     {
         return $this->hasOne(QeSurvey::class, 'qe_lop_id', 'id_qe_lops');
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | HELPERS
-    |--------------------------------------------------------------------------
-    */
 
     public function currentTechnician(): ?User
     {

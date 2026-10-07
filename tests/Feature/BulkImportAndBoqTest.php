@@ -540,4 +540,74 @@ class BulkImportAndBoqTest extends TestCase
         $this->assertNull($batch->error_message);
         $this->assertNull($batch->completed_at);
     }
+    public function test_boq_import_auto_creates_lop_from_project_name_with_sto_and_segment(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        [, , $branch] = $this->branchData();
+        ServiceArea::updateOrCreate(['workzone' => 'JBR'], [
+            'workzone' => 'JBR', 'name' => 'JEMBER',
+            'branch_id' => $branch->id_branch, 'region_id' => $branch->region_id,
+            'is_active' => true,
+        ]);
+        Package::updateOrCreate(['code' => '5'], ['name' => 'Paket 5', 'is_active' => true]);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+        $type = DesignatorType::firstOrCreate(['code' => 'MATERIAL'], ['name' => 'Material', 'is_active' => true]);
+        Designator::create([
+            'code' => 'M-CONTOH', 'item_name' => 'Box ODP', 'unit' => 'unit',
+            'designator_type_id' => $type->id_designator_type,
+        ]);
+
+        $fileContent = "PROJECT : 3JBR_QEREC_INC53492291_DISTRIBUSI_DESC,,,,,,\nSTO : JBR,,,,,,\nSEGMENT : distribusi,,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-CONTOH,Box ODP,unit,125000,0,4\n";
+
+        $file = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
+        $result = app(ImportBatchService::class)->create('boq', $file, $admin, ['target' => 'plan']);
+        $batch = $result['batch'];
+
+        app(BoqImportService::class)->process($batch, $admin);
+        
+        $batch->refresh();
+        $this->assertSame('completed', $batch->status);
+        $lop = QeLop::where('incident', 'INC53492291')->first();
+        $this->assertNotNull($lop);
+        $this->assertSame('draft', $lop->status_lop->value);
+    }
+
+    public function test_boq_import_auto_creates_lop_duplicate_incident_error(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        [, , $branch] = $this->branchData();
+        
+        // Add JBR ServiceArea for the test
+        $jbrServiceArea = ServiceArea::updateOrCreate(['workzone' => 'JBR'], [
+            'workzone' => 'JBR', 'name' => 'JEMBER',
+            'branch_id' => $branch->id_branch, 'region_id' => $branch->region_id,
+            'is_active' => true,
+        ]);
+        
+        // Use super admin to bypass branch scope check (existing LOP is in JEMBER)
+        $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        
+        // Add Package 5 for the test
+        Package::updateOrCreate(['code' => '5'], ['name' => 'Paket 5', 'is_active' => true]);
+        
+        // Create an existing LOP with the SAME incident, but DIFFERENT nama_lop
+        QeLop::create([
+            'incident' => 'INC53492291', 'nama_lop' => 'NAMA LOP LAIN BERBEDA', 'program_type' => 'recovery',
+            'sto' => 'JBR', 'branch' => 'JEMBER', 'area' => '3', 'segment' => ['distribusi'],
+            'status_lop' => 'draft', 'created_by' => $superAdmin->id_user,
+        ]);
+
+        $fileContent = "PROJECT : 3JBR_QEREC_INC53492291_DISTRIBUSI_DESC,,,,,,\nSTO : JBR,,,,,,\nSEGMENT : distribusi,,,,,,\nNO,DESIGNATOR,URAIAN PEKERJAAN,SATUAN,HARGA SATUAN (PAKET-5),,VOL\n,,,,MATERIAL,JASA,\n1,M-CONTOH,Box ODP,unit,125000,0,4\n";
+
+        $file = UploadedFile::fake()->createWithContent('boq.csv', $fileContent);
+        $result = app(ImportBatchService::class)->create('boq', $file, $superAdmin, ['target' => 'plan']);
+        $batch = $result['batch'];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Incident INC53492291 sudah digunakan oleh LOP lain');
+
+        app(BoqImportService::class)->process($batch, $superAdmin);
+    }
 }

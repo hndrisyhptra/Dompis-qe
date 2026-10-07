@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Enums\LopStatus;
+use App\Enums\ProgramType;
+use App\Enums\ProjectStatus;
 use App\Models\Designator;
 use App\Models\QeBoq;
 use App\Models\QeBoqPlan;
@@ -60,6 +62,12 @@ class BoqPlanService
                     'unit_price' => $item['unit_price'],
                     'total_price' => $item['qty'] * $item['unit_price'],
                 ]);
+            }
+
+            // Set status_project to USULAN for programs that support project status
+            if (in_array($lop->program_type, [ProgramType::PREVENTIVE, ProgramType::RELOK_UTILITAS])) {
+                $lop->status_project = ProjectStatus::USULAN;
+                $lop->save();
             }
 
             $lop->update(['boq_plan_id' => $plan->id_plan]);

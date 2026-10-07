@@ -56,8 +56,7 @@
             <div class="mt-4 flex gap-1 rounded-full bg-ink-100 p-1 dark:bg-ink-800 w-fit max-w-full overflow-x-auto">
                 <button type="button" @click="tab='overview'" :class="tab==='overview' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                         class="whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold transition">Overview</button>
-                <button type="button" @click="tab='plan'; fetchPlanIfNeeded()" :class="tab==='plan' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
-                        class="whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Plan</button>
+
                 @if ($canViewReport)
                     <button type="button" @click="tab='material'; fetchIfNeeded(type)" :class="tab==='material' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                             class="whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-bold transition">Material & Laporan</button>
@@ -120,65 +119,7 @@
                 </div>
             </div>
 
-            {{-- Tab: BOQ Plan --}}
-            <div x-show="tab==='plan'" x-transition class="space-y-5">
-                <div x-show="planLoading" class="space-y-2">
-                    <div class="h-4 w-32 animate-pulse rounded bg-ink-100 dark:bg-ink-800"></div>
-                    <div class="space-y-2">
-                        <template x-for="i in 3"><div class="h-20 animate-pulse rounded-xl bg-ink-50 dark:bg-ink-800/50"></div></template>
-                    </div>
-                </div>
 
-                <div x-show="!planLoading && planError" x-cloak class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-                    <p class="font-bold">Gagal memuat BOQ Plan</p>
-                    <p class="mt-1" x-text="planError"></p>
-                    <button type="button" @click="retryPlan()" class="mt-3 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-red-700 border border-red-200 hover:bg-red-50">Coba lagi</button>
-                </div>
-
-                <div x-show="!planLoading && !planError && planLines.length===0" x-cloak class="rounded-2xl border border-dashed border-ink-200 bg-ink-50/60 p-6 text-center dark:border-ink-700 dark:bg-ink-800/30">
-                    <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-ink-700">
-                        <svg class="h-5 w-5 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    </div>
-                    <p class="mt-3 text-sm font-bold text-ink-900 dark:text-white">Belum ada BOQ Plan</p>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Import Excel BOQ untuk membuat plan.</p>
-                </div>
-
-                <div x-show="!planLoading && !planError && planLines.length>0" x-cloak class="space-y-3">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
-                            <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500">Item Material</p>
-                            <p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white" x-text="planGrand.materialCount + ' item'"></p>
-                        </div>
-                        <div class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
-                            <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500">Item Jasa</p>
-                            <p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white" x-text="planGrand.serviceCount + ' item'"></p>
-                        </div>
-                        <div class="rounded-xl border border-ink-100 bg-ink-50/60 p-3 dark:border-ink-800 dark:bg-ink-800/30">
-                            <p class="text-[11px] font-bold uppercase tracking-wide text-ink-500">Total Plan</p>
-                            <p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white" x-text="formatMoney(planGrand.totalPrice)"></p>
-                        </div>
-                    </div>
-
-                    <div x-show="!planLoading && !planError && planLines.length>0" x-cloak class="space-y-2.5">
-                        <template x-for="line in planLines" :key="line.designator_id">
-                            <div class="rounded-xl border border-ink-100 bg-white p-3 dark:border-ink-700 dark:bg-ink-900">
-                                <div class="flex gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <p class="font-mono text-xs font-bold text-ink-900 dark:text-white" x-text="line.designator_code"></p>
-                                        <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-ink-600 dark:text-ink-300" x-text="line.item_name || '—'"></p>
-                                        <p class="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600 dark:bg-ink-800 dark:text-ink-300" x-text="line.unit || '—'"></p>
-                                    </div>
-                                    <div class="shrink-0 text-right tabular-nums">
-                                        <p class="text-xs"><span class="text-ink-400">Qty </span><span class="font-bold text-ink-900 dark:text-white" x-text="formatNumber(line.qty)"></span></p>
-                                        <p class="text-xs mt-0.5"><span class="text-ink-400">Harga </span><span class="font-bold text-ink-900 dark:text-white" x-text="formatMoney(line.unit_price)"></span></p>
-                                        <p class="text-xs mt-0.5 font-bold text-brand-600 dark:text-brand-400" x-text="formatMoney(line.total_price)"></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
 
             {{-- Tab: Material & Laporan (tanpa scroll horizontal, view only) --}}
             @if ($canViewReport)
@@ -186,6 +127,8 @@
                     {{-- Sub-toggle BOQ / Sisa --}}
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex rounded-full bg-ink-100 p-1 dark:bg-ink-800">
+                            <button type="button" @click="switchType('plan')" :class="type==='plan' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
+                                    class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Plan</button>
                             <button type="button" @click="switchType('boq')" :class="type==='boq' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
                                     class="rounded-full px-3.5 py-1.5 text-xs font-bold transition">BOQ Actual</button>
                             <button type="button" @click="switchType('sisa')" :class="type==='sisa' ? 'bg-white shadow-sm text-ink-900 dark:bg-ink-700 dark:text-white' : 'text-ink-500 dark:text-ink-400'"
