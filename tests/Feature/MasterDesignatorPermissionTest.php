@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Designator;
+use App\Models\DesignatorPackagePrice;
 use App\Models\DesignatorType;
 use App\Models\Package;
 use App\Models\User;
@@ -79,5 +80,55 @@ class MasterDesignatorPermissionTest extends TestCase
             $this->actingAs($user)->get(route('packages.index'))->assertForbidden();
             $this->actingAs($user)->get(route('designator-prices.index'))->assertForbidden();
         }
+    }
+
+    public function test_khs_search_matches_code_or_item_name_and_combines_with_package_filter(): void
+    {
+        $super = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $package = Package::create(['code' => 'SEARCH-5', 'name' => 'Paket 5']);
+        $otherPackage = Package::create(['code' => 'SEARCH-10', 'name' => 'Paket 10']);
+        $cable = Designator::create(['code' => 'M-SEARCH-CABLE', 'item_name' => 'Kabel Fiber Optik', 'unit' => 'meter']);
+        $box = Designator::create(['code' => 'M-SEARCH-BOX', 'item_name' => 'Box ODP', 'unit' => 'pcs']);
+        $target = DesignatorPackagePrice::create(['designator_id' => $cable->getKey(), 'package_id' => $package->getKey(), 'price' => 5000]);
+        DesignatorPackagePrice::create(['designator_id' => $cable->getKey(), 'package_id' => $otherPackage->getKey(), 'price' => 10000]);
+        DesignatorPackagePrice::create(['designator_id' => $box->getKey(), 'package_id' => $package->getKey(), 'price' => 20000]);
+        $this->actingAs($super)->get(route('designator-prices.index', ['q' => 'SEARCH-CABLE']))
+            ->assertOk()->assertViewHas('prices', fn ($prices) => $prices->total() === 2)->assertDontSee('Box ODP');
+        $this->get(route('designator-prices.index', ['q' => '  Fiber  ', 'package' => $package->getKey()]))
+            ->assertOk()->assertViewHas('q', 'Fiber')
+            ->assertViewHas('prices', fn ($prices) => $prices->total() === 1 && $prices->first()->is($target))
+            ->assertSee('Reset')->assertSee('M-SEARCH-CABLE')->assertDontSee('M-SEARCH-BOX');
+        $this->get(route('designator-prices.index', ['q' => 'tidak-ditemukan']))
+            ->assertOk()->assertViewHas('prices', fn ($prices) => $prices->total() === 0)
+            ->assertSee('Tidak ada KHS sesuai pencarian');
+        $this->get(route('designator-prices.index'))
+            ->assertOk()->assertViewHas('prices', fn ($prices) => $prices->total() === 3);
+    }
+
+    public function test_khs_pagination_preserves_search_and_package_filter(): void
+    {
+        $super = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $package = Package::create(['code' => 'SEARCH', 'name' => 'Paket Search']);
+        for ($i = 0; $i < 21; $i++) {
+            $designator = Designator::create(['code' => "M-PAGE-{$i}", 'item_name' => 'Kabel Search', 'unit' => 'meter']);
+            DesignatorPackagePrice::create(['designator_id' => $designator->getKey(), 'package_id' => $package->getKey(), 'price' => 5000]);
+        }
+        $this->actingAs($super)->get(route('designator-prices.index', ['q' => 'Kabel', 'package' => $package->getKey()]))
+            ->assertOk()->assertViewHas('prices', fn ($prices) => $prices->total() === 21 && $prices->count() === 20
+                && str_contains($prices->nextPageUrl(), 'q=Kabel')
+                && str_contains($prices->nextPageUrl(), 'package='.$package->getKey()));
+        $this->get(route('designator-prices.index', ['q' => 'Kabel', 'package' => $package->getKey(), 'page' => 2]))
+            ->assertOk()->assertViewHas('prices', fn ($prices) => $prices->count() === 1 && $prices->total() === 21);
+    }
+
+    public function test_khs_search_validates_input_and_keeps_existing_authorization(): void
+    {
+        $super = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $this->actingAs($super)->getJson(route('designator-prices.index', ['q' => ['invalid']]))
+            ->assertUnprocessable()->assertJsonValidationErrors('q');
+        $this->getJson(route('designator-prices.index', ['q' => str_repeat('a', 151)]))
+            ->assertUnprocessable()->assertJsonValidationErrors('q');
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $this->actingAs($admin)->get(route('designator-prices.index', ['q' => 'Kabel']))->assertForbidden();
     }
 }

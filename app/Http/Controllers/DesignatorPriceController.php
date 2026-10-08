@@ -24,7 +24,15 @@ class DesignatorPriceController extends Controller
     {
         $this->authorize('manage-master-data');
 
+        $request->validate(['q' => ['nullable', 'string', 'max:150']]);
+        $search = trim((string) $request->input('q', ''));
         $query = DesignatorPackagePrice::query()->with(['designator', 'package']);
+
+        if ($search !== '') {
+            $query->whereHas('designator', fn ($designator) => $designator
+                ->where(fn ($match) => $match->where('code', 'like', "%{$search}%")
+                    ->orWhere('item_name', 'like', "%{$search}%")));
+        }
 
         if ($packageId = $request->integer('package')) {
             $query->where('package_id', $packageId);
@@ -34,6 +42,7 @@ class DesignatorPriceController extends Controller
             'prices' => $query->latest()->paginate(20)->withQueryString(),
             'packages' => Package::orderBy('name')->get(),
             'packageFilter' => $packageId,
+            'q' => $search,
         ]);
     }
 
