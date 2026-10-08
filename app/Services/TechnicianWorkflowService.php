@@ -268,6 +268,14 @@ class TechnicianWorkflowService
         $lop->loadMissing(['materialReservation.items.designator', 'survey', 'evidences.designator', 'evidences.uploader.role']);
         $items = $lop->materialReservation?->items ?? collect();
         $validEvidence = $lop->evidences->filter(fn ($evidence) => $evidence->status !== EvidenceStatus::REJECTED);
+        $rejectedSteps = $lop->evidences->filter(fn ($evidence) => $evidence->status === EvidenceStatus::REJECTED)
+            ->map(fn ($evidence) => match ($evidence->category?->value) {
+                'material_arrival' => 2,
+                'pre', 'insera', 'before' => 3,
+                'progress' => 4,
+                'after', 'slot_port' => 5,
+                default => null,
+            })->filter()->countBy()->sortKeys();
         $reservedIds = $items->pluck('designator_id')->unique();
         $progressIds = $validEvidence->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
         $afterIds = $validEvidence->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
@@ -296,6 +304,7 @@ class TechnicianWorkflowService
             'items' => $items,
             'survey' => $lop->survey,
             'evidences' => $lop->evidences,
+            'rejectedSteps' => $rejectedSteps,
             'step1Complete' => $step1,
             'step2Complete' => $step2,
             'step3Complete' => $step3,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\LopStatus;
 use App\Models\Designator;
 use App\Models\QeLop;
+use App\Services\LopBoqProjectionService;
 use App\Services\TechnicianDashboardService;
 use App\Services\TechnicianWorkflowService;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class TechnicianController extends Controller
     public function __construct(
         private readonly TechnicianDashboardService $dashboardService,
         private readonly TechnicianWorkflowService $workflowService,
+        private readonly LopBoqProjectionService $boqProjection,
     ) {}
 
     public function dashboard(Request $request): View
@@ -63,23 +65,52 @@ class TechnicianController extends Controller
 
         // Step terkunci: hanya boleh membuka step yang <= step pertama yang
         // belum lengkap (currentStep). Step yang sudah selesai tetap boleh
-        // dibuka untuk review; step di depannya dikunci.
-        $maxStep = $state['currentStep'];
-        $requestedStep = max(1, min(5, $request->integer('step', $maxStep)));
+        // dibuka untuk review; step di depannya dikunci. Setelah submit/selesai
+        // atau reject, kelima tahap terbuka untuk peninjauan tanpa form pekerjaan.
+        $readOnly = in_array($qe_lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::COMPLETED, LopStatus::REJECTED], true);
+        $maxStep = $readOnly ? 5 : $state['currentStep'];
+        $rejectedStep = $state['rejectedSteps']->keys()->min();
+        $requestedStep = max(1, min(5, $request->integer('step', $rejectedStep ?? $state['currentStep'])));
 
         if ($requestedStep > $maxStep) {
             return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $maxStep]);
         }
+
+        $showBoqReview = $state['materialUsageComplete'];
+        $qe_lop->loadMissing(['branchRef', 'serviceArea']);
 
         return view('technician.project', [
             'lop' => $qe_lop,
             'state' => $state,
             'step' => $requestedStep,
             'maxStep' => $maxStep,
+            'readOnly' => $readOnly,
+            'showBoqReview' => $showBoqReview,
             'reservationPackage' => $this->workflowService->reservationPackage($qe_lop),
-            'designators' => Designator::query()
+            'designators' => ! $readOnly && $requestedStep === 1 ? Designator::query()
                 ->whereRelation('type', 'code', 'MATERIAL')
-                ->orderBy('code')->get(),
+                ->orderBy('code')->get() : collect(),
+        ]);
+    }
+
+    public function boqReview(Request $request, QeLop $qe_lop): View|RedirectResponse
+    {
+        $this->authorize('view', $qe_lop);
+        $state = $this->workflowService->state($qe_lop);
+        $returnStep = max(1, min(5, $request->integer('step', 5)));
+
+        if (! $state['materialUsageComplete']) {
+            return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $returnStep])
+                ->withErrors(['workflow' => 'Review BOQ tersedia setelah seluruh quantity actual disimpan pada Step After.']);
+        }
+
+        $qe_lop->loadMissing(['branchRef', 'serviceArea']);
+
+        return view('technician.boq-review', [
+            'lop' => $qe_lop,
+            'returnStep' => $returnStep,
+            'boqPlan' => $qe_lop->program_type->usesProjectStatus() ? $this->boqProjection->report($qe_lop, 'plan') : null,
+            'boqActual' => $this->boqProjection->report($qe_lop, 'actual'),
         ]);
     }
 

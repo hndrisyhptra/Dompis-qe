@@ -3,7 +3,7 @@
 Terakhir diaudit: **8 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `c4cf256` (`feat: Reservasi material include jasa`)
+HEAD dasar saat audit terbaru: `d307b4b` (`feat: search on sub menu KHS`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat implementasi dashboard terbaru berada di commit `c4cf256`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat implementasi review teknisi terbaru berada di commit `d307b4b`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ Plan/Actual/Sisa dan pasangan jasa Recovery sudah masuk commit `c4cf256`. Perubahan kerja terbaru menambahkan tab dashboard dan monitoring harian per branch; tidak ada perubahan schema.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`. Perubahan kerja terbaru mempertahankan stepper review teknisi dan menambahkan halaman khusus Review BOQ dari tombol pada halaman pekerjaan; tidak ada perubahan schema.
 
 ### 2.3 Status migration lokal
 
@@ -162,6 +162,8 @@ Workflow mobile teknisi aktual terdiri dari lima langkah:
 
 LOP baru dapat diajukan bila semua checklist wajib lengkap. Rejected evidence dapat diganti pada record yang sama, bukan membuat evidence baru.
 
+Saat Waiting Approval, Completed, atau Rejected, seluruh lima tahap tetap dapat dibuka dalam mode review. Form reservasi/lokasi/rekap tidak ditampilkan; evidence tetap dikelompokkan menurut tahap dan item. Tahap dengan reject memiliki penanda merah, dan default halaman membuka reject pertama. Penggantian evidence tetap tersedia pada project Rejected melalui policy existing.
+
 ### 4.5 BOQ dan reservasi material
 
 - BOQ satu per LOP di `qe_boqs`, memiliki paket dan item snapshot di `qe_boq_items`.
@@ -256,6 +258,8 @@ Pemilihan paket reservasi otomatis:
 - `app/Http/Controllers/TechnicianWorkflowController.php`
 - `resources/views/layouts/technician.blade.php`
 - `resources/views/technician/project.blade.php`
+- `resources/views/technician/boq-review.blade.php`
+- `resources/views/technician/partials/boq-review.blade.php`
 - `resources/views/components/technician-evidence-uploader.blade.php`
 - `resources/js/app.js`
 
@@ -406,6 +410,19 @@ Pemilihan paket reservasi otomatis:
 - Matrix dan filter branch memprioritaskan FK lokasi, tetap mendukung fallback nama branch legacy. Query prioritas dan agregat approval lama dihapus karena card tidak dipakai lagi.
 - Tidak ada migration, perubahan data operasional, atau tes browser. Regression test: `DashboardMonitoringTest` dan `AdminDashboardTest`.
 
+### 7.12 Stepper review dan BOQ teknisi — 8 Oktober 2026
+
+- Card gabungan Review Evidence Pekerjaan dihapus. Review per tahap tetap tersedia saat Waiting Approval/Completed/Rejected tanpa membuka kembali form pekerjaan.
+- `TechnicianWorkflowService::state()` menyediakan `rejectedSteps` sebagai pemetaan tunggal kategori ke tahap untuk controller dan stepper. Penguncian tahap saat workflow aktif tetap dipertahankan.
+- Dokumen request_letter tidak masuk penanda reject workflow. Evidence lama/global di luar item reservasi saat ini tetap terlihat pada tahap sesuai kategori.
+- Stepper ditempatkan paling atas tanpa sticky/freeze, mengikuti scroll normal. Nama LOP, Branch, dan STO tetap diringkas dalam satu card di bawah stepper; lokasi memakai FK dengan fallback legacy. Desain mobile kembali ke gaya awal: card identitas gelap, sudut rounded-2xl/3xl, tombol brand besar, dan spacing yang nyaman. Perubahan ini hanya presentasi, bukan workflow/perhitungan.
+- Tombol Review BOQ hanya tersedia setelah seluruh qty_actual reservasi disimpan pada Step After (`materialUsageComplete`); qty 0 valid, qty null menyembunyikan tombol. Proyeksi BOQ hanya dimuat saat membuka halaman review, bukan pada halaman workflow.
+- Tombol membuka halaman khusus `technician.projects.boq-review` (bukan modal), berisi tabel perbandingan Plan vs Actual untuk Preventive/Relok dan hanya BOQ Actual untuk Recovery, termasuk jasa pasangan. Total nilai berada di footer tabel; tabel dapat digeser horizontal pada mobile.
+- Tombol Kembali menuju LOP dan step asal melalui parameter step yang dibatasi 1–5 (default After). Route baru memakai middleware login/role TEKNISI serta policy view LOP; akses langsung saat actual belum lengkap diarahkan kembali ke pekerjaan dengan pesan validasi.
+- Proyeksi mengambil `LopBoqProjectionService`; qty/nilai Plan selalu dari snapshot import, bukan qty reservasi yang sudah diubah. Nilai Actual dari qty_actual, dengan peringatan bila belum direkap atau harga belum tersedia.
+- Form pekerjaan dinonaktifkan pada mode review; Completed/Waiting Approval tidak menampilkan upload baru atau penggantian evidence. Tidak ada perubahan lifecycle, schema, migration, atau data operasional.
+- Regression test: `TechnicianProjectReviewTest`, `TechnicianMobileWorkflowTest`, `LopBoqProjectionTest`.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -438,8 +455,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-240 tests passed
-1263 assertions
+250 tests passed
+1458 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -448,7 +465,7 @@ Pemetaan test utama:
 
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Scope admin/project status: `AdminScopeAndProjectStatusTest`.
-- Teknisi mobile: `TechnicianMobileWorkflowTest`.
+- Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
 - Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.

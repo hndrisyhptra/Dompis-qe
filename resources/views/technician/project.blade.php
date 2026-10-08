@@ -19,25 +19,35 @@
     ));
 @endphp
 
-    <a href="{{ route('technician.inbox') }}"
-    class="inline-flex items-center gap-2 rounded-lg bg-ink-100 px-3 py-2 text-sm font-bold text-ink-600 transition hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"> 
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back
-    </a>
+@if ($lop->status_lop !== \App\Enums\LopStatus::ASSIGNED)
+    <section id="technician-workflow-stepper" class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <a href="{{ route('technician.inbox') }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-ink-100 px-3 text-xs font-bold text-ink-600 transition hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700" aria-label="Kembali ke Inbox">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Kembali
+            </a>
+            <div class="text-right"><h2 class="text-sm font-extrabold">Step {{ $step }} dari 5</h2><p class="mt-1 text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete'], $state['step5Complete']])->filter()->count() }}/5 lengkap</p></div>
+        </div>
+        <x-lop-progress-stepper :current="$step" :state="$state" :max-step="$maxStep ?? $state['currentStep']" />
+    </section>
+@else
+    <a href="{{ route('technician.inbox') }}" class="inline-flex min-h-10 items-center rounded-xl bg-ink-100 px-3 text-xs font-bold text-ink-600 transition hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700">← Kembali ke Inbox</a>
+@endif
 
-
-<section class="mt-4 rounded-3xl bg-ink-900 p-5 text-white shadow-xl shadow-ink-900/10">
+<section id="technician-project-summary" class="mt-4 rounded-3xl bg-ink-900 p-4 text-white shadow-xl shadow-ink-900/10">
     <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-[.12em] text-brand-300">{{ $lop->incident }}</p><h1 class="mt-2 wrap-break-word text-lg font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
+        <div class="min-w-0 flex-1"><p class="text-[10px] font-bold uppercase tracking-[.12em] text-brand-300">Nama LOP</p><h1 class="mt-1 wrap-break-word text-sm font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
         <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
     </div>
-    <div class="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <div class="rounded-2xl bg-white/8 p-3"><p class="text-ink-400">STO</p><p class="mt-1 font-bold">{{ $lop->sto ?: '—' }}</p></div>
-        <div class="rounded-2xl bg-white/8 p-3"><p class="text-ink-400">Branch</p><p class="mt-1 font-bold">{{ $lop->branch ?: '—' }}</p></div>
+    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-white/8 px-3 py-2 text-xs">
+        <p><span class="text-ink-300">Branch</span> <span class="ml-1 font-bold">{{ $lop->locationBranchName() }}</span></p>
+        <p><span class="text-ink-300">STO</span> <span class="ml-1 font-bold">{{ $lop->locationServiceAreaName() }}</span></p>
     </div>
 </section>
+
+@if ($showBoqReview)
+    @include('technician.partials.boq-review')
+@endif
 
 @if ($lop->status_lop === \App\Enums\LopStatus::ASSIGNED)
     <section class="mt-5 rounded-3xl border border-brand-100 bg-white p-5 text-center dark:border-brand-900 dark:bg-ink-900">
@@ -53,13 +63,7 @@
 @elseif ($lop->status_lop === \App\Enums\LopStatus::REJECTED)
     <section class="mt-5 rounded-3xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-900/10">
         <h2 class="text-base font-extrabold text-brand-700 dark:text-brand-300">Project perlu diperbaiki</h2>
-        <p class="mt-2 text-xs leading-5 text-brand-700/80 dark:text-brand-300/80">Review alasan penolakan di bawah, upload file pengganti, lalu buka kembali workflow.</p>
-
-        <div class="mt-4">
-            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Review evidence pekerjaan"
-                description="Tap setiap file untuk melihat foto dan status review terkini."
-                :existing="$state['evidences']" :allow-upload="false" />
-        </div>
+        <p class="mt-2 text-xs leading-5 text-brand-700/80 dark:text-brand-300/80">Buka step bertanda reject untuk melihat alasan penolakan dan mengganti evidence. Gunakan Mulai perbaikan untuk melanjutkan workflow.</p>
 
         <form method="POST" action="{{ route('technician.projects.resume', $lop) }}" class="mt-4">@csrf<button class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white">Mulai perbaikan</button></form>
     </section>
@@ -72,17 +76,13 @@
         <p class="mt-2 text-xs leading-5 text-ink-500">{{ $lop->status_lop === \App\Enums\LopStatus::COMPLETED ? 'Seluruh workflow dan approval telah selesai.' : 'Evidence sedang diperiksa. Anda akan menerima notifikasi hasil review.' }}</p>
         <div class="mt-5 grid grid-cols-2 gap-3"><div class="rounded-xl bg-ink-50 p-3 dark:bg-ink-800"><p class="text-lg font-extrabold">{{ $state['items']->count() }}</p><p class="text-[10px] text-ink-500">Material</p></div><div class="rounded-xl bg-ink-50 p-3 dark:bg-ink-800"><p class="text-lg font-extrabold">{{ $state['evidences']->count() }}</p><p class="text-[10px] text-ink-500">Evidence</p></div></div>
     </section>
-    <section class="mt-5">
-        <x-technician-evidence-uploader :lop="$lop" category="pre" title="Review evidence pekerjaan"
-            description="Tap setiap file untuk melihat foto dan status review terkini."
-            :existing="$state['evidences']" :allow-upload="false" />
-    </section>
-@else
-    <section class="mt-5 rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
-        <div class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Field workflow</p><h2 class="mt-1 text-sm font-extrabold">Step {{ $step }} dari 5</h2></div><span class="text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete'], $state['step5Complete']])->filter()->count() }}/5 lengkap</span></div>
-        <x-lop-progress-stepper :current="$step" :state="$state" :max-step="$maxStep ?? $state['currentStep']" />
-    </section>
+@endif
 
+@if ($lop->status_lop !== \App\Enums\LopStatus::ASSIGNED)
+    @if ($readOnly)
+        <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Mode review: pilih tahap untuk melihat evidence dan statusnya. Reservasi, lokasi, dan rekap material hanya dapat ditinjau.</p>
+        @include('technician.partials.step-review')
+    @else
     @if ($step === 1)
         @php
             $materialRows = $state['items']->values()->map(fn ($item, $index) => ['designator_id' => (string) $item->designator_id, 'qty' => (int) round((float) $item->qty), 'open' => $index === 0]);
@@ -287,6 +287,7 @@
                     :action="route('technician.projects.submit', $lop)" />
             </div>
         </section>
+    @endif
     @endif
 @endif
 @endsection

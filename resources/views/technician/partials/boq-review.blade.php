@@ -1,0 +1,5 @@
+<a id="technician-boq-review-trigger" href="{{ route('technician.projects.boq-review', [$lop, 'step' => $step]) }}"
+   class="mt-4 inline-flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 active:scale-[.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+    <span class="inline-flex items-center gap-2"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9h18M9 3v18M3 3h18v18H3z"/></svg>Review BOQ</span>
+    <span class="inline-flex items-center gap-2 text-[10px] font-medium">{{ $lop->program_type->usesProjectStatus() ? 'Plan vs Actual' : 'Actual' }}<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></span>
+</a>

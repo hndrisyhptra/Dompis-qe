@@ -1,4 +1,4 @@
-@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'type' => 'PHOTO', 'showStatus' => true])
+@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'allowReplace' => true, 'type' => 'PHOTO', 'showStatus' => true])
 
 @php
     $startsExpanded = $existing->isEmpty();
@@ -91,7 +91,7 @@
                     </button>
                     <p class="mt-1.5 truncate px-0.5 text-[9px] font-bold text-ink-700 dark:text-ink-200" title="{{ $fileName }}">{{ $fileName }}</p>
 
-                    @if ($evidence->status->value === 'rejected')
+                    @if ($allowReplace && $evidence->status->value === 'rejected')
                         @can('replace', $evidence)
                             <button type="button" onclick="document.getElementById('technician-replace-{{ $evidence->id_evidence }}').showModal()"
                                     class="mt-1.5 min-h-7 w-full rounded-lg bg-brand-600 px-1 text-[9px] font-extrabold text-white">Reupload</button>

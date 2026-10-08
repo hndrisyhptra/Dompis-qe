@@ -39,6 +39,7 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
     Route::get('/', [TechnicianController::class, 'dashboard'])->name('dashboard');
     Route::get('/inbox', [TechnicianController::class, 'inbox'])->name('inbox');
     Route::get('/projects/{qe_lop}', [TechnicianController::class, 'project'])->name('projects.show');
+    Route::get('/projects/{qe_lop}/boq-review', [TechnicianController::class, 'boqReview'])->name('projects.boq-review');
     Route::post('/projects/{qe_lop}/pickup', [TechnicianWorkflowController::class, 'pickup'])->name('projects.pickup');
     Route::post('/projects/{qe_lop}/resume', [TechnicianWorkflowController::class, 'resume'])->name('projects.resume');
     Route::put('/projects/{qe_lop}/materials', [TechnicianWorkflowController::class, 'materials'])->name('projects.materials');
