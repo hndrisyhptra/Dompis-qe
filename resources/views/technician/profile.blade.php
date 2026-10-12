@@ -15,7 +15,8 @@
         <div class="border-b border-ink-100 px-4 py-3.5 last:border-0 dark:border-ink-800"><p class="text-[10px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p><p class="mt-1 text-sm font-semibold">{{ $value }}</p></div>
     @endforeach
 </section>
-<form method="POST" action="{{ route('logout') }}" class="mt-5">@csrf
+<form method="POST" action="{{ route('logout', [], false) }}" data-auth-session="logout" data-auth-user-id="{{ auth()->id() }}" data-auth-session-url="{{ route('auth.session', [], false) }}" class="mt-5">@csrf
+    <p data-auth-session-error hidden role="alert" class="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"></p>
     <button class="min-h-12 w-full rounded-2xl border border-brand-200 bg-white text-sm font-bold text-brand-600 dark:border-brand-900 dark:bg-ink-900 dark:text-brand-400">Keluar dari akun</button>
 </form>
 @endsection

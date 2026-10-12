@@ -3,7 +3,7 @@
 Terakhir diaudit: **12 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `4cc8cf4` (`feat: bulk import user`)
+HEAD dasar saat audit terbaru: `87470d3` (`feat: new template bulk import LOP`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat perbaikan wrapper Android berada di commit `4cc8cf4`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat audit login/logout berada di commit `87470d3`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker sekarang masuk commit `4cc8cf4`. Worktree bersih saat memulai perbaikan MainActivity. Perubahan Android `Claude outputs/MainActivity-fixed.kt` tetap dipertahankan; source attachment dan contoh MainActivity lama tidak ditimpa. Perubahan web terbaru yang belum di-commit meliputi lima segmen untuk semua program, template Bulk LOP Excel/CSV beserta panduan/referensi, dan hasil INCIDENT duplikat dengan identitas LOP sesuai scope.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity kini masuk commit `87470d3`. Worktree bersih saat memulai task login/logout. Perubahan terbaru yang belum di-commit adalah guard form autentikasi, penanganan 419, serta regression test terkait; file Android tidak diubah pada task ini.
 
 ### 2.3 Status migration lokal
 
@@ -114,6 +114,7 @@ Aturan bisnis lintas halaman seharusnya berada di service, bukan diduplikasi di 
 ### 4.1 Authentication, RBAC, dan user management
 
 - Login memakai NIK/username dan password Laravel Hash.
+- Form login/logout memeriksa context session same-origin sebelum satu POST asli, mengambil token terbaru khusus form tersebut, dan menolak logout dari tab yang membawa identitas akun lain. Halaman cache back/forward dimuat ulang. 419 HTML pada autentikasi menuju halaman segar dengan peringatan; form operasional/JSON tetap ditolak tanpa replay otomatis.
 - Akun inactive ditolak; login throttling, session regeneration, dan logout tersedia.
 - Role aktif: `SUPER_ADMIN`, `ADMIN`, `TEKNISI`, `MANAGER`, `APPROVER`.
 - Permission granular tersimpan di database.
@@ -502,6 +503,17 @@ Pemilihan paket reservasi otomatis:
 - Verifikasi akhir: 273 test Laravel/1942 assertions dan 5 test frontend lulus; build Vite, kompilasi Blade, dan diff check lulus. Pint pada seluruh file PHP task lulus. Pint global masih melaporkan format existing pada 14 file di luar task (termasuk ProgramController, migration lama, User, dan config Excel); file-file itu tidak direformat agar perubahan tetap terarah.
 - Setelah deploy, build asset, clear/rebuild view cache sesuai prosedur, dan **restart worker** agar kode import terbaru dipakai. Worker lokal/produksi tidak direstart pada task ini; batch lama tidak diulang. MySQL produksi, worker nyata, dan browser belum diverifikasi.
 
+### 7.19 Login/logout dan pemulihan session 419 — 12 Oktober 2026
+
+- Audit code: session ID diregenerate setelah login; logout menginvalidate session dan meregenerate CSRF token. Alur keamanan existing sudah benar, tetapi form dari halaman lama/tab lain dapat membawa token sebelum rotasi. Browser back/forward cache tidak ditangani frontend dan 419 hanya menjadi error default. Pemicu stale token direproduksi lewat regression dengan CSRF benar-benar aktif; ini bukan bukti bahwa seluruh kejadian server produksi disebabkan faktor yang sama.
+- `AuthenticatedSessionController::context()` dan GET `auth/session` memberikan token, ID akun saat ini, dan tujuan role, tanpa detail profil/credential. Respons no-store, Vary Cookie, throttle 120/min, dan Sec-Fetch-Site cross-site ditolak; tidak menambahkan CORS/JSONP. `resources/js/auth-session.js` memeriksa context hanya saat submit login/logout, dengan batas waktu 15 detik dan pencegahan klik ganda. Token hanya diperbarui pada form autentikasi, bukan form pekerjaan atau global header XHR.
+- Form login/logout memakai URL relative same-origin, menghindari perpindahan host/protokol dari action URL. Jika akun aktif berbeda dengan ID pada halaman logout, tidak mengirim POST logout dan membuka workspace akun saat ini; halaman login lama juga tidak menimpa session akun yang sudah aktif. Gangguan jaringan menampilkan pesan, memulihkan tombol, dan mempertahankan input di DOM saja. Password tidak disimpan di browser storage/server untuk replay.
+- Listener pageshow persisted memuat ulang halaman dari back/forward cache, bukan setiap pageshow normal. Tidak ada polling/keepalive, perubahan lifetime, APP_KEY, cookie, driver session, atau pengecualian CSRF.
+- `SessionExpiredResponse` diregistrasikan melalui render callback HttpException 419 (Laravel sudah mengonversi TokenMismatchException). HTML login/logout diarahkan ke login/workspace segar dengan auth_warning; hanya username boleh di-flash untuk login guest. Permintaan JSON tetap 419 dengan code session_expired dan URL pemulihan. Form pekerjaan HTML mendapat halaman 419 ringkas; tindakan/file tidak pernah dikirim ulang otomatis atau ditampilkan dalam error.
+- Test backend `SessionExpiryTest` memakai subclass ValidateCsrfToken dengan bypass test dimatikan: stale login/logout, password tidak diflash, JSON 419, context/cross-site/cache, tiga siklus login–logout antar role memakai cookie aktual, rotasi session ID/token, dan blocking form pekerjaan. Frontend auth-session.test.mjs menguji sepuluh skenario dengan DOM/fetch stub, termasuk akun berubah, offline, origin, cache, dan klik ganda; bukan browser E2E.
+- Audit konfigurasi lokal hanya membaca whitelist: session database, lifetime 120 menit, cookie dompis-qe-session, path /, domain null, HttpOnly true, SameSite lax, konfigurasi tidak dicache. Tidak menampilkan token/cookie value/credential, mengubah .env, menjalankan migration, menghapus session, atau login akun nyata. Status cookie HTTPS/proxy/cache/session storage server aaPanel belum diverifikasi; jika 419 masih muncul, minta environment, urutan kejadian, host/protokol, serta bukti aman tanpa password/cookie/token.
+- Setelah deploy: build asset baru dan clear/rebuild view/route/config cache sesuai prosedur. Jangan jalankan key:generate atau hapus seluruh session sebagai perbaikan default. Session/driver/lifetime existing dipertahankan. Scope, workflow, import, BOQ, dan Revenue tidak berubah.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -535,8 +547,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-273 tests passed
-1942 assertions
+280 tests passed
+2029 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -544,6 +556,7 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
+- Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression); frontend auth-session.test.mjs (10 passed), seluruh frontend (15 passed).
 - Scope admin/project status: `AdminScopeAndProjectStatusTest`.
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.

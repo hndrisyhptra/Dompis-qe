@@ -2,9 +2,12 @@
 
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\PreventBackHistory;
+use App\Support\SessionExpiredResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,5 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Laravel mengubah TokenMismatchException menjadi HttpException 419.
+        $exceptions->render(function (HttpException $exception, Request $request) {
+            return $exception->getStatusCode() === 419 ? SessionExpiredResponse::make($request) : null;
+        });
     })->create();

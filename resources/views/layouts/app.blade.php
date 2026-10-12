@@ -386,8 +386,9 @@
                         <p class="text-sm font-medium text-ink-900 dark:text-ink-50 leading-none">{{ auth()->user()?->name }}</p>
                         <p class="text-xs text-ink-500 dark:text-ink-400 mt-1">{{ auth()->user()?->role?->name ?? '—' }}</p>
                     </div>
-                    <form method="POST" action="{{ route('logout') }}">
+                    <form method="POST" action="{{ route('logout', [], false) }}" data-auth-session="logout" data-auth-user-id="{{ auth()->id() }}" data-auth-session-url="{{ route('auth.session', [], false) }}" class="relative">
                         @csrf
+                        <p data-auth-session-error hidden role="alert" class="absolute right-0 top-full z-50 mt-2 w-64 rounded-md border border-red-200 bg-white p-3 text-xs leading-5 text-red-700 shadow-sm dark:border-red-900 dark:bg-ink-900 dark:text-red-200"></p>
                         <button type="submit" title="Logout dari aplikasi" class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 text-xs font-bold text-ink-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:bg-brand-950/30 dark:hover:text-brand-300">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12"/></svg>
                             Logout
@@ -400,6 +401,7 @@
         <x-toast />
 
         <main class="p-4 sm:p-6">
+            <x-auth-session-warning />
             @yield('content')
         </main>
     </div>

@@ -64,7 +64,7 @@
             </div>
         @endif
 
-        <main class="px-4 pb-32 pt-5">@yield('content')</main>
+        <main class="px-4 pb-32 pt-5"><x-auth-session-warning />@yield('content')</main>
 
         <nav class="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg border-t border-ink-100 bg-white/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur dark:border-ink-800 dark:bg-ink-900/95">
             <div class="grid grid-cols-5 items-end">

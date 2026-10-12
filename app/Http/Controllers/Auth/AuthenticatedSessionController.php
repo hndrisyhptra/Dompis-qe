@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,21 @@ class AuthenticatedSessionController extends Controller
     public function create(): View
     {
         return view('auth.login');
+    }
+
+    public function context(Request $request): JsonResponse
+    {
+        // Endpoint same-origin untuk form autentikasi; tidak membuka CORS/JSONP.
+        abort_if($request->header('Sec-Fetch-Site') === 'cross-site', 403);
+
+        return response()->json([
+            'csrf_token' => $request->session()->token(),
+            'user_id' => $request->user()?->getKey(),
+            'redirect_url' => route($request->user()?->postLoginRouteName() ?? 'login', [], false),
+        ])->withHeaders([
+            'Cache-Control' => 'private, no-store, no-cache, max-age=0, must-revalidate',
+            'Vary' => 'Cookie',
+        ]);
     }
 
     public function store(LoginRequest $request): RedirectResponse

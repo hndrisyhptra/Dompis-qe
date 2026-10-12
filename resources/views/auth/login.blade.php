@@ -48,6 +48,8 @@
                     Gunakan NIK dan kata sandi yang terdaftar.
                 </p>
 
+                <div class="mt-4"><x-auth-session-warning /></div>
+
                 @if ($errors->any())
                     <div class="mt-5 rounded-lg bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 px-4 py-3">
                         <p class="text-sm text-brand-700 dark:text-brand-300 font-medium">
@@ -64,8 +66,9 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('login') }}" class="mt-6 space-y-5">
+                <form method="POST" action="{{ route('login', [], false) }}" data-auth-session="login" data-auth-session-url="{{ route('auth.session', [], false) }}" class="mt-6 space-y-5">
                     @csrf
+                    <p data-auth-session-error hidden role="alert" class="rounded-md border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"></p>
 
                     <x-input
                         name="username"

@@ -1,4 +1,7 @@
 import './bootstrap';
+import { installAuthSessionGuard } from './auth-session';
+
+installAuthSessionGuard();
 
 import Alpine from 'alpinejs';
 import imageCompression from 'browser-image-compression';
