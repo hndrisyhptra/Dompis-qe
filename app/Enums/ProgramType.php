@@ -46,7 +46,7 @@ enum ProgramType: string
 
     public function supportsMultipleSegments(): bool
     {
-        return in_array($this, [self::RELOK_UTILITAS, self::RELOK_TIANG], true);
+        return true;
     }
 
     public function budgetType(): LopBudgetType

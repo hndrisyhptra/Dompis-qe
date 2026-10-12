@@ -11,6 +11,7 @@ use App\Models\QeImportBatch;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -34,7 +35,8 @@ class BulkLopImportService
 
         $table = $this->reader->table(
             Storage::disk($batch->disk)->path($batch->file_path),
-            ['sto', 'program_type', 'segment', 'job_description']
+            ['sto', 'program_type', 'segment', 'job_description'],
+            sheetName: 'LOP',
         );
 
         $batch->update(['total_rows' => count($table['rows'])]);
@@ -58,11 +60,16 @@ class BulkLopImportService
             ->whereIn('code', collect($rows)->pluck('payload.package_code')->filter()->unique())
             ->get()
             ->keyBy(fn (Package $package): string => mb_strtoupper($package->code));
-        $usedIncidents = QeLop::withTrashed()
-            ->whereIn('incident', collect($rows)->pluck('payload.incident')->filter()->unique())
-            ->pluck('incident')
-            ->mapWithKeys(fn (string $incident): array => [mb_strtoupper($incident) => true])
-            ->all();
+        $incidentQuery = QeLop::withTrashed()
+            ->whereIn('incident', collect($rows)->pluck('payload.incident')->filter()->unique());
+        $visibleIds = $actor->hasRole(UserRole::ADMIN)
+            ? array_fill_keys($this->visibility->apply(clone $incidentQuery, $actor)->pluck('id_qe_lops')->all(), true)
+            : null;
+        $usedIncidents = $incidentQuery->get(['id_qe_lops', 'incident', 'nama_lop', 'deleted_at'])
+            ->mapWithKeys(fn (QeLop $lop): array => [mb_strtoupper($lop->incident) => [
+                'name' => $visibleIds === null || isset($visibleIds[$lop->id_qe_lops]) ? $lop->nama_lop : null,
+                'deleted' => $lop->trashed(),
+            ]])->all();
 
         // Scope lokasi dihitung satu kali. Sebelumnya pengecekan ini menjalankan
         // beberapa query lagi untuk setiap baris file.
@@ -90,7 +97,7 @@ class BulkLopImportService
                     $allowedServiceAreaIds,
                     $usedIncidents,
                 );
-                $usedIncidents[mb_strtoupper($lop->incident)] = true;
+                $usedIncidents[mb_strtoupper($lop->incident)] = ['name' => $lop->nama_lop, 'deleted' => false, 'row_number' => $row['row_number']];
                 $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
@@ -141,7 +148,7 @@ class BulkLopImportService
      * @param  Collection<string, Package>  $packages
      * @param  Collection<int, int|string>  $allowedBranchIds
      * @param  Collection<int, int|string>  $allowedServiceAreaIds
-     * @param  array<string, bool>  $usedIncidents
+     * @param  array<string, array>  $usedIncidents
      */
     private function createLop(
         array $data,
@@ -170,9 +177,10 @@ class BulkLopImportService
         }
 
         $area = $data['area'] !== '' ? $data['area'] : (string) ($branch->regionRef?->area?->code ?? '3');
-        $segments = collect(preg_split('/[|,;]+/', $data['segment']) ?: [])
-            ->map(fn ($segment) => strtolower(trim($segment)))
-            ->filter()->unique()->values()->all();
+        if ((string) $area !== (string) ($branch->regionRef?->area?->code ?? '3')) {
+            throw new \InvalidArgumentException('Area tidak sesuai dengan Branch/STO.');
+        }
+        $segments = LopSegment::normalizeInput($data['segment']);
 
         $validator = Validator::make([
             ...$data,
@@ -185,13 +193,18 @@ class BulkLopImportService
             'branch' => ['required', 'string', 'max:100'],
             'area' => ['required', 'string', 'max:10'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
-            'segment' => ['required', 'array', 'min:1', 'max:'.(ProgramType::tryFrom($data['program_type'])?->supportsMultipleSegments() ? 3 : 1)],
+            'segment' => ['required', 'array', 'min:1', 'max:'.LopSegment::MAX_SELECTIONS],
             'segment.*' => [Rule::enum(LopSegment::class)],
             'budget_type' => ['required', Rule::enum(LopBudgetType::class)],
             'job_description' => ['required', 'string', 'max:2000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'package_code' => ['nullable', 'string'],
+        ], [
+            'segment.max' => 'Maksimal 5 segmen untuk setiap program.',
+            'segment.required' => 'Pilih minimal 1 segmen.',
+            'segment.*.Illuminate\\Validation\\Rules\\Enum' => 'Segmen tidak dikenal. Gunakan referensi segmen pada template.',
+            'program_type.Illuminate\\Validation\\Rules\\Enum' => 'Program tidak dikenal atau ambigu. Gunakan salah satu dari empat program pada template.',
         ]);
         $validator->validate();
 
@@ -201,7 +214,7 @@ class BulkLopImportService
         }
 
         if (isset($usedIncidents[mb_strtoupper($incident)])) {
-            throw new \InvalidArgumentException("Incident {$incident} sudah digunakan.");
+            throw new \InvalidArgumentException($this->duplicateMessage($incident, $usedIncidents[mb_strtoupper($incident)]));
         }
 
         $package = $data['package_code'] !== '' ? $packages->get($data['package_code']) : null;
@@ -209,21 +222,45 @@ class BulkLopImportService
             throw new \InvalidArgumentException("Paket {$data['package_code']} belum terdaftar.");
         }
 
-        return $this->lopService->create([
-            'incident' => $incident,
-            'nama_lop' => $data['nama_lop'],
-            'program_type' => $data['program_type'],
-            'sto' => $data['sto'],
-            'branch' => $branch->name,
-            'branch_id' => $branch->id_branch,
-            'service_area_id' => $serviceArea->id_service_area,
-            'area' => $area,
-            'segment' => $segments,
-            'budget_type' => $data['budget_type'] ?: null,
-            'job_description' => $data['job_description'],
-            'ihld_id' => $data['ihld_id'] ?: null,
-            'package_id' => $package?->id_package,
-        ], $actor, $branch, $serviceArea);
+        try {
+            return $this->lopService->create([
+                'incident' => $incident,
+                'nama_lop' => $data['nama_lop'],
+                'program_type' => $data['program_type'],
+                'sto' => $data['sto'],
+                'branch' => $branch->name,
+                'branch_id' => $branch->id_branch,
+                'service_area_id' => $serviceArea->id_service_area,
+                'area' => $area,
+                'segment' => $segments,
+                'budget_type' => $data['budget_type'] ?: null,
+                'job_description' => $data['job_description'],
+                'ihld_id' => $data['ihld_id'] ?: null,
+                'package_id' => $package?->id_package,
+            ], $actor, $branch, $serviceArea);
+        } catch (UniqueConstraintViolationException $e) {
+            // Batch lain dapat membuat INCIDENT setelah prefetch; jangan tampilkan SQL.
+            $existing = QeLop::withTrashed()->where('incident', $incident)->first();
+            if ($existing !== null) {
+                $visible = $this->visibility->apply(QeLop::withTrashed()->whereKey($existing->getKey()), $actor)->exists();
+                throw new \InvalidArgumentException($this->duplicateMessage($incident, [
+                    'name' => $visible ? $existing->nama_lop : null,
+                    'deleted' => $existing->trashed(),
+                ]));
+            }
+            throw $e;
+        }
+    }
+
+    private function duplicateMessage(string $incident, array $existing): string
+    {
+        $lop = $existing['name'] !== null ? 'LOP "'.$existing['name'].'"' : 'LOP di luar scope Anda';
+        $note = isset($existing['row_number']) ? ' (dibuat pada baris '.$existing['row_number'].' file ini)' : '';
+        if ($existing['deleted']) {
+            $note .= ' (LOP sudah dihapus/arsip; INCIDENT tetap tidak boleh digunakan ulang)';
+        }
+
+        return "INCIDENT {$incident} sudah digunakan pada {$lop}{$note}.";
     }
 
     private function normalizeRow(array $row): array

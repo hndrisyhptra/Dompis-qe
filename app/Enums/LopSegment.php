@@ -4,6 +4,8 @@ namespace App\Enums;
 
 enum LopSegment: string
 {
+    public const MAX_SELECTIONS = 5;
+
     case FEEDER = 'feeder';
     case DISTRIBUSI = 'distribusi';
     case ODC = 'odc';
@@ -13,6 +15,31 @@ enum LopSegment: string
     case OTB = 'otb';
     case GPON = 'gpon';
     case MINI_OLT = 'mini_olt';
+
+    /** Normalisasi segmen tanpa memotong pilihan agar batas tetap divalidasi. */
+    public static function normalizeInput(mixed $input): array
+    {
+        $values = is_array($input) ? $input : (is_string($input) ? preg_split('/[|,;]+/', $input) : []);
+        $aliases = [];
+        foreach (self::cases() as $segment) {
+            $aliases[mb_strtolower($segment->label())] = $segment->value;
+        }
+
+        $normalized = [];
+        foreach ($values ?: [] as $value) {
+            if (! is_string($value)) {
+                $normalized[] = $value;
+
+                continue;
+            }
+            $value = mb_strtolower(trim($value));
+            if ($value !== '') {
+                $normalized[] = $aliases[$value] ?? $value;
+            }
+        }
+
+        return array_values(array_unique($normalized, SORT_REGULAR));
+    }
 
     public function label(): string
     {

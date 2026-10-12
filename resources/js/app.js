@@ -343,6 +343,7 @@ window.lopForm = (options = {}) => ({
     template: options.template ?? '{area}{sto}_{program_code}_{incident}_{segment}',
     programCodes: options.programCodes ?? {},
     segmentLabels: options.segmentLabels ?? {},
+    maxSegments: options.maxSegments ?? 5,
     segmentOpen: false,
     segmentQuery: '',
     segmentDropdownPos: { top: 0, left: 0, width: 0 },
@@ -383,7 +384,7 @@ window.lopForm = (options = {}) => ({
             this.form.segments = [init.segments.toLowerCase().trim()];
         }
 
-        // Sync single segment dari multi jika program bukan relok
+        // Pertahankan kompatibilitas data segmen lama.
         if (this.form.segments.length && !this.form.segment) {
             this.form.segment = this.form.segments[0];
         }
@@ -420,7 +421,7 @@ window.lopForm = (options = {}) => ({
     },
 
     supportsMultipleSegments() {
-        return ['relok_utilitas', 'relok_tiang'].includes(this.form.program_type);
+        return true;
     },
 
     syncProgramRules(regenerate = true) {
@@ -438,7 +439,7 @@ window.lopForm = (options = {}) => ({
     regenerateName(force = false) {
         if (this.nameManuallyEdited && !force) return;
 
-        // Gabungan segmen: untuk relok pakai array segments join _, else single segment
+        // Semua segmen terpilih ikut menjadi token nama LOP.
         let segmentToken = '';
         if (this.supportsMultipleSegments()) {
             const segs = Array.isArray(this.form.segments) ? this.form.segments : [];
@@ -534,7 +535,7 @@ window.lopForm = (options = {}) => ({
                 if (this.supportsMultipleSegments()) {
                     // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
                     const seg = String(json.segment).toLowerCase().trim();
-                    if (seg && !this.form.segments.includes(seg) && this.form.segments.length < 3) {
+                    if (seg && !this.form.segments.includes(seg) && this.form.segments.length < this.maxSegments) {
                         this.form.segments.push(seg);
                     }
                     // Sync single juga untuk kompatibilitas
@@ -562,7 +563,7 @@ window.lopForm = (options = {}) => ({
     async generateManualIncident() {
         if (!this.form.program_type || this.manualGen.loading) return;
 
-        if (this.supportsMultipleSegments() && !this.form.branch) {
+        if (['relok_utilitas', 'relok_tiang'].includes(this.form.program_type) && !this.form.branch) {
             this.manualGen.message = 'Pilih Area → Branch → STO terlebih dahulu sebelum generate INP.';
             return;
         }
@@ -672,7 +673,7 @@ window.lopForm = (options = {}) => ({
         }
     },
 
-    // --- Segment combobox helpers (Relok Utilitas dan Relok Tiang) ---
+    // --- Segment combobox helpers ---
     segmentOptions() {
         return Object.entries(this.segmentLabels).map(([value, label]) => ({ value, label }));
     },
@@ -695,7 +696,7 @@ window.lopForm = (options = {}) => ({
         if (idx >= 0) {
             this.form.segments.splice(idx, 1);
         } else {
-            if (this.form.segments.length >= 3) return;
+            if (this.form.segments.length >= this.maxSegments) return;
             this.form.segments.push(val);
             // keep single sync for fallback
             if (!this.form.segment) this.form.segment = val;

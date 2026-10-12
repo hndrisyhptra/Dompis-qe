@@ -1,5 +1,5 @@
 <form method="POST" action="{{ $formAction }}"
-      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
+      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }}, programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
       class="space-y-5">
     @csrf
     @if ($formMethod !== 'POST') @method($formMethod) @endif
@@ -144,19 +144,13 @@
                 <p x-show="form.branch && filteredServiceAreas.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada STO untuk branch ini.</p>
             </div>
 
-            {{-- Segmen multi (max 3) untuk Relok Utilitas dan Relok Tiang. --}}
-            <div x-show="!supportsMultipleSegments()" class="order-5">
-                <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment" x-bind:disabled="supportsMultipleSegments()">
-                    @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
-                </x-select>
-            </div>
-
-            <div x-show="supportsMultipleSegments()" x-cloak class="order-5">
-                <label class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen <span class="font-normal text-ink-400">(maks 3, nama LOP akan menyesuaikan)</span></label>
+            {{-- Segmen multi untuk semua program. --}}
+            <div class="order-5">
+                <label class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen <span class="font-normal text-ink-400">(maks 5, nama LOP akan menyesuaikan)</span></label>
                 <div class="relative" x-ref="segmentTrigger" @click.outside="segmentOpen = false">
-                    {{-- Hidden inputs untuk submit array segment[] — disabled saat bukan relok agar tidak ikut ter-submit --}}
+                    {{-- Hidden inputs untuk submit array segment[] — mengikuti pilihan segmen aktif --}}
                     <template x-for="seg in form.segments" :key="seg">
-                        <input type="hidden" name="segment[]" :value="seg" x-bind:disabled="!supportsMultipleSegments()">
+                        <input type="hidden" name="segment[]" :value="seg">
                     </template>
 
                     {{-- Trigger --}}
@@ -165,7 +159,7 @@
                             :class="segmentOpen ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-ink-100 dark:border-ink-700'">
                         <span class="flex flex-1 flex-wrap gap-1.5">
                             <template x-if="form.segments.length === 0">
-                                <span class="text-ink-400">Pilih segmen (maks 3)</span>
+                                <span class="text-ink-400">Pilih segmen (maks 5)</span>
                             </template>
                             <template x-for="seg in form.segments" :key="seg">
                                 <span class="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
@@ -179,16 +173,16 @@
 
                     {{-- Dropdown — teleported ke body agar tidak terpotong overflow section (Opsi B) --}}
                     <template x-teleport="body">
-                        <div x-show="segmentOpen && supportsMultipleSegments()" x-transition
+                        <div x-show="segmentOpen" x-cloak x-transition
                              @click.outside="segmentOpen = false"
                              class="fixed z-50 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-2xl dark:border-ink-700 dark:bg-ink-800"
                              :style="`top:${segmentDropdownPos.top}px; left:${segmentDropdownPos.left}px; width:${segmentDropdownPos.width}px`">
                             <div class="border-b border-ink-100 p-2 dark:border-ink-700">
                                 <input type="text" x-model="segmentQuery" placeholder="Cari segmen..."
                                        class="w-full rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm placeholder:text-ink-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
-                                <p class="mt-1.5 text-xs" :class="form.segments.length >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-ink-400'">
-                                    <span x-text="`${form.segments.length}/3 terpilih`"></span>
-                                    <span x-show="form.segments.length >= 3"> — maksimal tercapai</span>
+                                <p class="mt-1.5 text-xs" :class="form.segments.length >= maxSegments ? 'text-amber-600 dark:text-amber-400' : 'text-ink-400'">
+                                    <span x-text="`${form.segments.length}/${maxSegments} terpilih`"></span>
+                                    <span x-show="form.segments.length >= maxSegments"> — maksimal tercapai</span>
                                 </p>
                             </div>
                             <div class="max-h-56 overflow-y-auto p-1.5">
@@ -197,7 +191,7 @@
                                            :class="isSegmentSelected(opt.value) ? 'bg-brand-50 dark:bg-brand-950/30' : ''">
                                         <input type="checkbox" :checked="isSegmentSelected(opt.value)"
                                                @change="toggleSegment(opt.value)"
-                                               :disabled="!isSegmentSelected(opt.value) && form.segments.length >= 3"
+                                               :disabled="!isSegmentSelected(opt.value) && form.segments.length >= maxSegments"
                                                class="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30 disabled:opacity-40">
                                         <span class="flex-1 font-medium text-ink-900 dark:text-white" x-text="opt.label"></span>
                                         <span x-show="isSegmentSelected(opt.value)" class="text-xs font-bold text-brand-600 dark:text-brand-400">#<span x-text="form.segments.indexOf(opt.value)+1"></span></span>

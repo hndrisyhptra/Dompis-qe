@@ -22,12 +22,6 @@ class StoreLopRequest extends FormRequest
 
     public function rules(): array
     {
-        $isRelok = ProgramType::tryFrom((string) $this->input('program_type'))?->supportsMultipleSegments() ?? false;
-
-        $segmentRules = $isRelok
-            ? ['required', 'array', 'min:1', 'max:3']
-            : ['required', Rule::enum(LopSegment::class)];
-
         $rules = [
             'incident' => ['required', 'string', 'max:100', 'unique:qe_lops,incident'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
@@ -35,7 +29,8 @@ class StoreLopRequest extends FormRequest
             'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],
             'area' => ['required', 'string', 'max:10', Rule::exists('areas', 'code')],
-            'segment' => $segmentRules,
+            'segment' => ['required', 'array', 'min:1', 'max:'.LopSegment::MAX_SELECTIONS],
+            'segment.*' => ['required', 'string', Rule::enum(LopSegment::class)],
             'budget_type' => [
                 'nullable',
                 'required',
@@ -47,17 +42,13 @@ class StoreLopRequest extends FormRequest
             ...DatekRules::rules(),
         ];
 
-        if ($isRelok) {
-            $rules['segment.*'] = ['required', 'string', Rule::enum(LopSegment::class)];
-        }
-
         return $rules;
     }
 
     public function messages(): array
     {
         return [
-            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas atau Relok Tiang.',
+            'segment.max' => 'Maksimal 5 segmen untuk setiap program.',
             'segment.min' => 'Pilih minimal 1 segmen.',
             'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
             'branch.exists' => 'Branch tidak ditemukan.',
@@ -99,36 +90,7 @@ class StoreLopRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $program = $this->input('program_type');
-        $segmentInput = $this->input('segment');
-
-        if (ProgramType::tryFrom((string) $program)?->supportsMultipleSegments()) {
-            // Normalisasi ke array string lowercase, preserve order, unique
-            if (is_string($segmentInput)) {
-                $segmentInput = $segmentInput !== '' ? [trim($segmentInput)] : [];
-            } elseif (! is_array($segmentInput)) {
-                $segmentInput = $segmentInput !== null ? [(string) $segmentInput] : [];
-            }
-
-            $normalized = [];
-            $seen = [];
-            foreach ((array) $segmentInput as $v) {
-                $val = strtolower(trim((string) $v));
-                if ($val === '' || isset($seen[$val])) {
-                    continue;
-                }
-                $seen[$val] = true;
-                $normalized[] = $val;
-            }
-            $segmentNormalized = $normalized;
-        } else {
-            // Program lain: single string
-            if (is_array($segmentInput)) {
-                $segmentInput = $segmentInput[0] ?? null;
-            }
-            $segmentNormalized = $segmentInput !== null && $segmentInput !== ''
-                ? strtolower(trim((string) $segmentInput))
-                : $segmentInput;
-        }
+        $segmentNormalized = LopSegment::normalizeInput($this->input('segment'));
 
         $this->merge([
             'incident' => mb_strtoupper(trim((string) $this->input('incident'))),

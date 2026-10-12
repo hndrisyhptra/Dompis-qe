@@ -7,12 +7,15 @@ use App\Http\Requests\StoreBulkImportRequest;
 use App\Jobs\ProcessBulkLopImport;
 use App\Models\QeImportBatch;
 use App\Models\QeLop;
+use App\Services\BulkLopTemplateService;
 use App\Services\ImportBatchService;
 use App\Services\LopVisibilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BulkLopImportController extends Controller
@@ -58,27 +61,33 @@ class BulkLopImportController extends Controller
             ->with('status', 'File Bulk LOP masuk antrean dan sedang diproses.');
     }
 
-    public function template(): StreamedResponse
+    public function template(Request $request, BulkLopTemplateService $templates): StreamedResponse
     {
         $this->authorize('create', QeLop::class);
+        $format = $request->validate(['format' => ['sometimes', Rule::in(['xlsx', 'csv'])]])['format'] ?? 'xlsx';
+        $actor = $request->user();
 
-        $headers = ['incident', 'sto', 'branch', 'area', 'program_type', 'segment', 'budget_type', 'job_description', 'ihld_id', 'nama_lop', 'package_code'];
-        $samples = [
-            ['INC123456', 'SDA', 'SIDOARJO', '3', 'QE Recovery', 'odp', 'OPEX', 'Penggantian box ODP', '', '', ''],
-            ['INC123457', 'SDA', 'SIDOARJO', '3', 'qe_preventive', 'feeder', 'OPEX', 'Preventive feeder', '', '', ''],
-            ['INC123458', 'SDA', 'SIDOARJO', '3', 'QE RELOK UTILITAS', 'tiang|odp', 'CAPEX', 'Relokasi utilitas', '', '', ''],
-            ['INC123459', 'SDA', 'SIDOARJO', '3', 'QE Relok Tiang', 'tiang|odp', 'OPEX', 'Relokasi tiang dan ODP', '', '', ''],
-        ];
+        return response()->streamDownload(function () use ($format, $templates, $actor) {
+            if ($format === 'xlsx') {
+                $book = $templates->workbook($actor);
+                try {
+                    (new Xlsx($book))->save('php://output');
+                } finally {
+                    $book->disconnectWorksheets();
+                }
 
-        return response()->streamDownload(function () use ($headers, $samples) {
+                return;
+            }
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, $headers);
-            foreach ($samples as $sample) {
-                fputcsv($out, $sample);
+            foreach ([BulkLopTemplateService::HEADERS, ...$templates->samples($actor)] as $row) {
+                fputcsv($out, array_map(fn ($value) => preg_match('/^[=+@\-]/', (string) $value) ? "'".$value : $value, $row), ',', '"', '');
             }
             fclose($out);
-        }, 'template-bulk-lop.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, "template-bulk-lop.{$format}", [
+            'Content-Type' => $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     private function batchesFor(Request $request)

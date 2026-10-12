@@ -9,6 +9,8 @@
         area: @js(old('area', $preview['lop']['area'])),
         branch: @js(old('branch', $preview['lop']['branch'])),
         sto: @js(old('sto', $preview['lop']['sto'])),
+        selectedSegments: @js(\App\Enums\LopSegment::normalizeInput(old('segment', $preview['lop']['segment'] ?? []))),
+        maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }},
         areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])),
         branches: @js($branches->map(fn($b) => ['name' => $b->name, 'area_code' => $b->regionRef?->area?->code])),
         serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name])),
@@ -118,17 +120,12 @@
                         @foreach ($programTypes as $type)<option value="{{ $type->value }}">{{ $type->label() }}</option>@endforeach
                     </x-select>
                 </div>
-                <div x-show="!['relok_utilitas', 'relok_tiang'].includes(program_type)">
-                    <x-select name="segment" label="Segmen" placeholder="Pilih segmen" x-bind:disabled="['relok_utilitas', 'relok_tiang'].includes(program_type)">
-                        @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
-                    </x-select>
-                </div>
-                <div x-show="['relok_utilitas', 'relok_tiang'].includes(program_type)" x-cloak>
-                    <span class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen (maks 3)</span>
+                <div>
+                    <span class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen (maks 5, semua program)</span>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($segments as $segment)
                             <label class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-3 py-1.5 text-xs font-semibold cursor-pointer dark:border-ink-700">
-                                <input type="checkbox" name="segment[]" value="{{ $segment->value }}" x-bind:disabled="!['relok_utilitas', 'relok_tiang'].includes(program_type)" class="h-3.5 w-3.5 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30">
+                                <input type="checkbox" name="segment[]" value="{{ $segment->value }}" x-model="selectedSegments" :disabled="selectedSegments.length >= maxSegments && !selectedSegments.includes('{{ $segment->value }}')" class="h-3.5 w-3.5 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30 disabled:opacity-40">
                                 {{ $segment->label() }}
                             </label>
                         @endforeach

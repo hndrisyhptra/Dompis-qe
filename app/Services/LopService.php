@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AssignmentStatus;
+use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
 use App\Enums\ProjectStatus;
@@ -31,30 +32,16 @@ class LopService
     ) {}
 
     /**
-     * Normalisasi segment: untuk kedua Relok simpan array (preserve order, unique, max 5),
-     * untuk program lain simpan array dengan 1 elemen agar konsisten dengan cast array di Model.
+     * Semua program menyimpan maksimal lima segmen unik dengan urutan pilihan.
      */
-    private function normalizeSegment(mixed $segment, string $programType): array
+    private function normalizeSegment(mixed $segment): array
     {
-        if (is_array($segment)) {
-            $list = array_values(array_filter(array_map(fn ($v) => strtolower(trim((string) $v)), $segment)));
-            // unique preserve order
-            $seen = [];
-            $unique = [];
-            foreach ($list as $v) {
-                if (isset($seen[$v])) {
-                    continue;
-                }
-                $seen[$v] = true;
-                $unique[] = $v;
-            }
-
-            return ProgramType::from($programType)->supportsMultipleSegments() ? array_slice($unique, 0, 5) : array_slice($unique, 0, 1);
+        $segments = LopSegment::normalizeInput($segment);
+        if (count($segments) > LopSegment::MAX_SELECTIONS) {
+            throw new InvalidArgumentException('Maksimal 5 segmen untuk setiap program.');
         }
 
-        $val = strtolower(trim((string) $segment));
-
-        return $val !== '' ? [$val] : [];
+        return $segments;
     }
 
     /**
@@ -67,7 +54,7 @@ class LopService
         ?ServiceArea $resolvedServiceArea = null,
     ): QeLop {
         return DB::transaction(function () use ($data, $creator, $resolvedBranch, $resolvedServiceArea) {
-            $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
+            $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null);
             if ($resolvedBranch !== null && $resolvedServiceArea !== null) {
                 $branch = $resolvedBranch;
                 $serviceArea = $resolvedServiceArea;
@@ -112,7 +99,7 @@ class LopService
     public function update(QeLop $lop, array $data): QeLop
     {
         $data['budget_type'] = ProgramType::from((string) $data['program_type'])->budgetType()->value;
-        $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
+        $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null);
         $namingData = array_merge($data, ['segment' => $normalizedSegment]);
         [$branch, $serviceArea] = $this->resolveLocation($data);
         $program = ProgramType::from((string) $data['program_type']);

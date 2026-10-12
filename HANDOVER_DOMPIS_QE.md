@@ -3,7 +3,7 @@
 Terakhir diaudit: **12 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `ed123e0` (`feat: new review BOQ`)
+HEAD dasar saat audit terbaru: `4cc8cf4` (`feat: bulk import user`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat audit review teknisi terbaru berada di commit `ed123e0`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat perbaikan wrapper Android berada di commit `4cc8cf4`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Perubahan lokal Review BOQ mobile, QE Relok Tiang, budget otomatis, dan normalisasi program Bulk LOP tetap dipertahankan. Perubahan terbaru menambahkan Bulk Import User, template Excel/CSV sesuai scope, antrean, hasil per baris, dan lima history upload terakhir. Semua perubahan tersebut masih lokal; periksa Git sebelum commit/push.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker sekarang masuk commit `4cc8cf4`. Worktree bersih saat memulai perbaikan MainActivity. Perubahan Android `Claude outputs/MainActivity-fixed.kt` tetap dipertahankan; source attachment dan contoh MainActivity lama tidak ditimpa. Perubahan web terbaru yang belum di-commit meliputi lima segmen untuk semua program, template Bulk LOP Excel/CSV beserta panduan/referensi, dan hasil INCIDENT duplikat dengan identitas LOP sesuai scope.
 
 ### 2.3 Status migration lokal
 
@@ -145,7 +145,7 @@ Dashboard, program, master LOP/BOQ, revenue, dan approval harus memakai scope ya
 - Nama LOP dapat digenerate dari template dan formatnya dapat diatur.
 - Segment mendukung multi-select JSON.
 - Program: QE Recovery, QE Preventive, QE Relok Utilitas, QE Relok Tiang. Kode nama LOP masing-masing `QEREC`, `QEPREV`, `QEREL`, `QERELTIANG`.
-- Form manual dan Bulk LOP mendukung maksimal tiga segmen untuk kedua Relok, termasuk kombinasi Tiang dan ODP; Recovery/Preventive satu segmen. Normalisasi internal service tetap mempertahankan batas legacy lima segmen untuk metadata BOQ.
+- Semua program mendukung 1–5 segmen pada input manual, edit, Bulk LOP, dan preview import legacy. `LopSegment::MAX_SELECTIONS` menjadi batas backend; `normalizeInput()` menerima string legacy/array serta pemisah `|`, koma, titik koma, dan label Mini OLT. Duplikasi segmen dibuang dengan urutan tetap; pilihan keenam ditolak, bukan dipotong diam-diam.
 - Budget ditentukan `ProgramType::budgetType()`: Relok Utilitas CAPEX, semua program lainnya OPEX. Request/service mengabaikan budget kiriman yang bertentangan. Rule berlaku saat create/update/import LOP; record lama tidak diubah massal.
 - Bulk LOP memakai `ProgramType::fromInput()` untuk variasi huruf, spasi, underscore, hyphen, kode program, dan teks yang mengandung satu nama program. Nama tidak dikenal atau mengandung beberapa program berbeda tetap ditolak per baris.
 - `status_project`: Preventive dan kedua Relok memakai `usulan` lalu `on_going` saat assignment; Recovery menggunakan `null`.
@@ -199,6 +199,8 @@ Pemilihan paket reservasi otomatis:
 - Upload berjalan melalui queue job database.
 - UI menampilkan upload progress, progress job, hasil sukses/gagal, dan lima histori terakhir.
 - Bulk LOP menerima CSV/XLSX dan menggenerate nama LOP bila kosong.
+- Unduh Template LOP memakai Excel dengan sheet LOP, Panduan, Referensi Program, Segmen, Lokasi, dan Paket. CSV tetap tersedia. Referensi STO/Branch/Area mengikuti scope akun; nama/header sheet LOP dipertahankan dan dibaca meskipun pengguna menyimpan file saat sheet Panduan aktif.
+- Budget tetap otomatis: Relok Utilitas CAPEX, program lain OPEX. STO wajib; Branch/Area kosong mengikuti master STO, tetapi jika diisi harus sesuai. INCIDENT duplikat melaporkan nama LOP existing/arsip, atau baris pembuatnya untuk duplikasi dalam file; identitas LOP di luar scope admin tidak ditampilkan.
 - BOQ membaca nama project/LOP, header Paket-5/Paket-10, harga material/jasa, serta volume.
 - Hanya item dengan volume lebih dari nol yang disimpan/ditampilkan.
 - Import BOQ dapat membuat master designator yang belum tersedia jika data wajib lengkap.
@@ -288,6 +290,7 @@ Pemilihan paket reservasi otomatis:
 
 - `app/Services/BoqImportService.php`
 - `app/Services/BulkLopImportService.php`
+- `app/Services/BulkLopTemplateService.php`
 - `app/Services/BoqService.php`
 - `app/Services/SpreadsheetReader.php`
 - `app/Services/ImportBatchService.php`
@@ -478,6 +481,27 @@ Pemilihan paket reservasi otomatis:
 - Worker baru aktif dalam sesi terminal Codex lokal; jalankan worker melalui terminal/Supervisor yang tetap hidup bila sesi ini ditutup. Restart worker setelah perubahan script; optimize:clear saja tidak memuat ulang class pada worker long-running.
 - Regression tambahan mensimulasikan signature worker lama dan memastikan error parser spesifik tanpa membocorkan password. Full suite lulus; hasil import file nyata melalui worker baru masih menunggu percobaan ulang oleh user.
 
+### 7.17 File chooser Android WebView — 12 Oktober 2026
+
+- Source MainActivity dari attachment user memakai package `com.area3.dompisqe` dan URL Dompis QE; keduanya dipertahankan, walaupun pembahasan awal menyebut APK Dompis Cons. File lengkap hasil perbaikan tersedia di `Claude outputs/MainActivity-fixed.kt`; gunakan untuk mengganti isi MainActivity.kt pada proyek Android, bukan menambahkan class MainActivity kedua.
+- Bug: acceptTypes digabung dengan comma lalu dipasang pada Intent.type. Ini bukan satu MIME valid, sehingga sebagian pemilih file Android menonaktifkan foto. Normalisasi kini mendukung array MIME, daftar comma, huruf besar/kecil, wildcard, serta ekstensi seperti .jpg/.png/.pdf/.xlsx; beberapa tipe memakai Intent.EXTRA_MIME_TYPES.
+- Pilihan satu/banyak file tetap mengikuti mode WebView. Kamera hanya ditawarkan jika input menerima JPEG; capture langsung memakai intent kamera jika tersedia. Kamera/FileProvider yang gagal tidak menghalangi picker galeri. URI kamera mendapat ClipData serta grant read/write.
+- Hasil upload dibatasi URI content yang dapat dibaca; picker pihak ketiga tidak dapat menunjuk URI privat aplikasi kecuali URI kamera yang sedang disiapkan. Callback dibatalkan/ditutup dengan aman. File kamera kosong tidak diteruskan, file sementara yang tidak dipilih dibersihkan, dan foto yang dipilih tetap disimpan agar WebView sempat membacanya saat upload.
+- Fitur login/cookie, geolocation/GPS/native bridge, download, navigasi/back, dan konfigurasi URL tidak direfactor. Tidak ada perubahan Laravel/database/migration/permission storage baru. Konfigurasi Manifest/FileProvider dan resource layout existing tetap dibutuhkan.
+- Verifikasi: type-check seluruh source memakai Kotlin 2.2.20, Android SDK 35, dependency AndroidX cached, dan stub nama resource R; berhasil dengan warning deprecated existing. Helper actual diuji di JVM dengan stub Android: 16 skenario MIME dan 32 konfigurasi single/multiple berhasil. Ini bukan build APK lengkap, instrumented test, atau verifikasi device OEM.
+- Setelah mengganti source, build/reinstall APK dan uji perangkat bermasalah (foto Telegram/galeri, kamera, multi-select, cancel, serta PDF jika diterima input). Perubahan server saja tidak memperbarui wrapper APK.
+
+### 7.18 Bulk LOP terbaru dan lima segmen semua program — 12 Oktober 2026
+
+- `LopSegment` menjadi sumber batas lima pilihan dan normalisasi segmen. Request tambah/edit, `LopService`, Bulk LOP, serta preview import legacy memakai aturan tersebut; input satu segmen lama tetap diterima. Form manual/edit memakai combobox multi-pilih untuk semua program, pencarian segmen dan penghitung 0/5, blok pilihan keenam, serta nama LOP berdasarkan seluruh pilihan. Pergantian program mempertahankan pilihan.
+- `BulkLopTemplateService` menghasilkan workbook enam sheet dengan empat contoh program, budget otomatis, contoh lima segmen, panduan kolom opsional/wajib, serta referensi scope lokasi dan paket. Header existing dipertahankan. Endpoint template default XLSX dan opsi `?format=csv`; sheet LOP diprioritaskan saat parsing. Contoh harus diganti/dihapus sebelum upload. Identifier ditulis sebagai Text dan CSV memakai BOM UTF-8.
+- Duplikasi INCIDENT diprefetch tanpa query tambahan per baris normal, termasuk soft-deleted. Nama LOP hanya ditampilkan bila masuk scope admin; SUPER_ADMIN dapat melihat seluruh identitas. Duplikat dalam file menyebut nama hasil dan nomor baris pertama yang berhasil dibuat. Unique constraint saat batch lain mendahului ditangani dengan pesan identitas aman, bukan SQL.
+- Menu Program QE Relok Tiang sudah dibentuk dari `ProgramType::cases()`, jadi tidak ditambahkan menu hardcoded/duplikat. Regression memverifikasi filter program dan scope, serta tab Usulan/On Going existing. Tidak ada perubahan scope, workflow approval, snapshot BOQ, atau perhitungan Revenue.
+- Audit MySQL lokal read-only memastikan enum empat program dan kolom segment JSON/longtext tersedia; tidak perlu migration baru. Referensi Paket memakai record non-soft-deleted, **bukan is_active**: kolom tersebut tidak ada di tabel packages canonical. Export template melalui service aplikasi dengan master lokal berhasil (392 STO untuk scope SUPER_ADMIN), lalu workbook diperiksa dan seluruh sheet dirender untuk QA. Tidak ada import nyata atau write database operasional.
+- Test baru: `BulkLopLatestRulesTest` (batas lima/enam, budget/nama/status, duplikasi aktif/arsip/file/race, referensi scope, unduh Excel/CSV, sheet Panduan aktif, permission, dan menu program); frontend `node --test tests/Frontend/lop-form.test.mjs` mencakup lima skenario combobox. Update regression lama agar batas keenam ditolak dan request template CSV eksplisit.
+- Verifikasi akhir: 273 test Laravel/1942 assertions dan 5 test frontend lulus; build Vite, kompilasi Blade, dan diff check lulus. Pint pada seluruh file PHP task lulus. Pint global masih melaporkan format existing pada 14 file di luar task (termasuk ProgramController, migration lama, User, dan config Excel); file-file itu tidak direformat agar perubahan tetap terarah.
+- Setelah deploy, build asset, clear/rebuild view cache sesuai prosedur, dan **restart worker** agar kode import terbaru dipakai. Worker lokal/produksi tidak direstart pada task ini; batch lama tidak diulang. MySQL produksi, worker nyata, dan browser belum diverifikasi.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -511,8 +535,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-267 tests passed
-1794 assertions
+273 tests passed
+1942 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -524,6 +548,7 @@ Pemetaan test utama:
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
+- Bulk LOP terbaru: `BulkLopLatestRulesTest`, `LopProgramRulesTest`; frontend `node --test tests/Frontend/lop-form.test.mjs` (5 passed).
 - Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
 - Revenue: `RevenueDashboardTest`.
 - Reporting: `MaterialReportTest`.

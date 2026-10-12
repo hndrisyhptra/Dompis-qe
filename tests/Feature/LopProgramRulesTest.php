@@ -71,7 +71,7 @@ class LopProgramRulesTest extends TestCase
                 $this->assertSame(LopBudgetType::OPEX, $lop->refresh()->budget_type);
             }
         }
-        $this->post(route('lop.store'), [...$this->payload('INC-TOO-MANY', ProgramType::RELOK_TIANG), 'segment' => ['tiang', 'odp', 'odc', 'feeder']])
+        $this->post(route('lop.store'), [...$this->payload('INC-TOO-MANY', ProgramType::RELOK_TIANG), 'segment' => ['tiang', 'odp', 'odc', 'feeder', 'otb', 'gpon']])
             ->assertSessionHasErrors('segment');
     }
 
@@ -105,8 +105,8 @@ class LopProgramRulesTest extends TestCase
         }
         $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-INVALID']);
         $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-AMBIGUOUS']);
-        $this->get(route('bulk-import.lop.template'))->assertOk()->assertDownload('template-bulk-lop.csv');
-        $template = $this->get(route('bulk-import.lop.template'))->streamedContent();
+        $this->get(route('bulk-import.lop.template', ['format' => 'csv']))->assertOk()->assertDownload('template-bulk-lop.csv');
+        $template = $this->get(route('bulk-import.lop.template', ['format' => 'csv']))->streamedContent();
         $this->assertStringContainsString('QE Relok Tiang', $template);
         $this->assertStringContainsString('tiang|odp', $template);
         $this->assertStringContainsString('CAPEX', $template);
