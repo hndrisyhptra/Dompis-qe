@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
@@ -577,12 +576,7 @@ class BoqImportService
             ProgramType::from($lopMeta['program_type'])
         );
 
-        // Calculate budget type for relok_utilitas
-        $budgetType = $lopMeta['budget_type'] ?? null;
-        if ($lopMeta['program_type'] === ProgramType::RELOK_UTILITAS->value) {
-            $grandTotal = $this->calculateGrandTotalFromParsed($parsedRows);
-            $budgetType = $grandTotal > 25000000 ? LopBudgetType::CAPEX : LopBudgetType::OPEX;
-        }
+        $budgetType = ProgramType::from($lopMeta['program_type'])->budgetType();
 
         // Prepare LOP data (as draft)
         $lopData = [
@@ -678,6 +672,9 @@ class BoqImportService
      */
     private function detectProgramType(string $project): string
     {
+        if (($program = ProgramType::fromInput($project)) !== null) {
+            return $program->value;
+        }
         $lowerProject = mb_strtolower($project);
 
         if (mb_stripos($lowerProject, 'qerel') !== false || mb_stripos($lowerProject, 'relok') !== false) {
@@ -728,7 +725,7 @@ class BoqImportService
         }
 
         // Map program keyword to ProgramType value
-        $programType = ProgramType::RECOVERY->value; // default
+        $programType = ProgramType::fromInput($programKeyword)?->value ?? ProgramType::RECOVERY->value;
         $lowerKw = mb_strtolower($programKeyword);
         if (in_array($lowerKw, ['qerel', 'relok'], true)) {
             $programType = ProgramType::RELOK_UTILITAS->value;

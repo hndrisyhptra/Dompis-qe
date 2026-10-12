@@ -69,7 +69,7 @@
             <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Revenue per Program</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Setiap program memiliki ringkasan dan grafik nilainya sendiri.</p></div>
             <div class="flex gap-3 text-[10px] font-bold text-ink-500"><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-sm bg-blue-500"></i>Plan</span><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-sm bg-emerald-500"></i>Realisasi</span></div>
         </div>
-        <div class="grid gap-4 lg:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             @foreach ($programRows as $row)
                 <article class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
                     <div class="flex items-start justify-between gap-3 border-b border-ink-100 p-5 dark:border-ink-800">

@@ -164,8 +164,40 @@ class TechnicianProjectReviewTest extends TestCase
             ->assertSee('id="technician-project-summary" class="mt-4 rounded-3xl bg-ink-900', false)
             ->assertSee(route('technician.projects.boq-review', [$lop, 'step' => 5]), false);
         $this->get(route('technician.projects.boq-review', [$lop, 'step' => 5]))
-            ->assertOk()->assertSee('rounded-3xl bg-ink-900 p-5 text-white', false)
+            ->assertOk()->assertSee('rounded-3xl bg-ink-900 p-4 text-white', false)
             ->assertSee('Kembali ke pekerjaan · Step 5')->assertDontSee('<dialog', false);
+    }
+
+    public function test_boq_review_fits_mobile_and_collapses_long_designator_descriptions(): void
+    {
+        [$technician, $lop, $material] = $this->project('COMPACT-MOBILE', 'preventive');
+        $material->update(['item_name' => str_repeat('Uraian material panjang ', 30)]);
+
+        $this->actingAs($technician)->get(route('technician.projects.boq-review', $lop))
+            ->assertOk()->assertSee('id="technician-boq-review-table" class="w-full table-fixed', false)
+            ->assertDontSee('min-w-[540px]', false)->assertDontSee('min-w-[360px]', false)
+            ->assertSee('<details', false)->assertSee('Lihat uraian')->assertSee($material->item_name)
+            ->assertSee('BOQ Plan')->assertSee('Qty Actual')->assertSee('Rp 700')
+            ->assertSee('Tidak ada di Plan')->assertDontSee('Geser tabel ke samping');
+    }
+
+    public function test_unavailable_prices_are_explained_and_not_displayed_as_a_zero_total(): void
+    {
+        [$technician, $lop, $material, , $package] = $this->project('MISSING-PRICES', 'recovery');
+        DesignatorPackagePrice::where('package_id', $package->getKey())->delete();
+
+        $response = $this->actingAs($technician)->get(route('technician.projects.boq-review', $lop))
+            ->assertOk()->assertSee('Harga belum tersedia')->assertSee('Total tersedia')
+            ->assertViewHas('boqActual', fn ($report) => $report['grand']['price_missing_count'] === 2)
+            ->assertDontSee('Rp 0');
+        $this->assertMatchesRegularExpression('/data-testid="boq-review-total-actual"[^>]*>—<\/td>/u', $response->getContent());
+
+        DesignatorPackagePrice::withTrashed()->where('package_id', $package->getKey())
+            ->where('designator_id', $material->getKey())->firstOrFail()->restore();
+        $this->get(route('technician.projects.boq-review', $lop))
+            ->assertOk()->assertSee('Harga belum tersedia')->assertSee('Rp 700')
+            ->assertSee('Total tersedia hanya mencakup item yang sudah direkap dan memiliki harga.')
+            ->assertViewHas('boqActual', fn ($report) => $report['grand']['total_actual'] === 700.0);
     }
 
     private function project(string $code, string $program): array

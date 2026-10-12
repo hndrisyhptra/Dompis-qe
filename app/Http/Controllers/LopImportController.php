@@ -81,6 +81,8 @@ class LopImportController extends Controller
                 ->withErrors(['file' => 'Sesi preview kedaluwarsa — upload ulang file Excel.']);
         }
 
+        $request->merge(['budget_type' => ProgramType::tryFrom((string) $request->input('program_type'))?->budgetType()->value]);
+        $multipleSegments = ProgramType::tryFrom((string) $request->input('program_type'))?->supportsMultipleSegments() ?? false;
         $data = $request->validate([
             'nama_lop' => ['required', 'string', 'max:255'],
             'incident' => ['nullable', 'string', 'max:100', 'regex:/^INP\d+$/', Rule::unique('qe_lops', 'incident')],
@@ -88,12 +90,12 @@ class LopImportController extends Controller
             'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],
             'area' => ['required', 'string', 'max:10', Rule::exists('areas', 'code')],
-            'segment' => $request->input('program_type') === ProgramType::RELOK_UTILITAS->value
+            'segment' => $multipleSegments
                 ? ['required', 'array', 'min:1', 'max:3']
                 : ['required', Rule::enum(LopSegment::class)],
             'budget_type' => [
                 'nullable',
-                'required_if:program_type,'.ProgramType::RELOK_UTILITAS->value,
+                'required',
                 Rule::enum(LopBudgetType::class),
             ],
             'package_code' => ['nullable', 'string', Rule::exists('packages', 'code')],
@@ -101,10 +103,10 @@ class LopImportController extends Controller
         ], [
             'incident.regex' => 'Incident manual harus format INP diikuti angka (atau kosongkan untuk generate otomatis).',
             'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
-            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas.',
+            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas atau Relok Tiang.',
         ]);
 
-        if ($request->input('program_type') === ProgramType::RELOK_UTILITAS->value) {
+        if ($multipleSegments) {
             Validator::make($request->all(), [
                 'segment.*' => ['required', 'string', Rule::enum(LopSegment::class)],
             ])->validate();

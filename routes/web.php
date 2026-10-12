@@ -31,6 +31,7 @@ use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\TechnicianWorkflowController;
 use App\Http\Controllers\TicketSegmentMapController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserImportController;
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/auth.php';
@@ -164,6 +165,10 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
     Route::get('/', [UserController::class, 'index'])->name('index');
     Route::get('/create', [UserController::class, 'create'])->name('create');
     Route::post('/', [UserController::class, 'store'])->name('store');
+    Route::post('/bulk-import', [UserImportController::class, 'store'])->name('imports.store');
+    Route::get('/bulk-import/template', [UserImportController::class, 'template'])->name('imports.template');
+    Route::get('/bulk-import/{batch}', [UserImportController::class, 'show'])->name('imports.show');
+    Route::get('/bulk-import/{batch}/status', [UserImportController::class, 'status'])->name('imports.status');
     Route::post('/{id_user}/restore', [UserController::class, 'restore'])->name('restore');
     Route::get('/{user}', [UserController::class, 'show'])->name('show');
     Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');

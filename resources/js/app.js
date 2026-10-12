@@ -388,12 +388,14 @@ window.lopForm = (options = {}) => ({
             this.form.segment = this.form.segments[0];
         }
 
+        this.syncProgramRules(false);
         ['incident', 'sto', 'branch', 'area', 'segment', 'segments', 'program_type', 'budget_type', 'job_description']
             .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
         // watcher khusus segments array deep
         this.$watch('form.segments', () => this.regenerateName(), { deep: true });
         this.$watch('form.area', () => this.onAreaChange());
         this.$watch('form.branch', () => this.onBranchChange());
+        this.$watch('form.program_type', () => this.syncProgramRules());
         this.$watch('segmentOpen', (v) => { if (v) this.$nextTick(() => this.updateSegmentPos()); });
         // update posisi dropdown saat resize/scroll (untuk teleport fixed)
         window.addEventListener('resize', () => { if (this.segmentOpen) this.updateSegmentPos(); });
@@ -417,13 +419,28 @@ window.lopForm = (options = {}) => ({
         }
     },
 
+    supportsMultipleSegments() {
+        return ['relok_utilitas', 'relok_tiang'].includes(this.form.program_type);
+    },
+
+    syncProgramRules(regenerate = true) {
+        this.form.budget_type = this.form.program_type ? (this.form.program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX') : '';
+        if (this.supportsMultipleSegments() && this.form.segments.length === 0) {
+            this.form.segments = [this.form.segment || (this.form.program_type === 'relok_tiang' ? 'tiang' : '')].filter(Boolean);
+        }
+        if (!this.supportsMultipleSegments() && this.form.segments.length) {
+            this.form.segment = this.form.segments[0];
+        }
+        this.segmentOpen = false;
+        if (regenerate) this.regenerateName();
+    },
+
     regenerateName(force = false) {
         if (this.nameManuallyEdited && !force) return;
-        if (this.form.program_type !== 'relok_utilitas') this.form.budget_type = '';
 
         // Gabungan segmen: untuk relok pakai array segments join _, else single segment
         let segmentToken = '';
-        if (this.form.program_type === 'relok_utilitas') {
+        if (this.supportsMultipleSegments()) {
             const segs = Array.isArray(this.form.segments) ? this.form.segments : [];
             const tokens = [];
             const seen = new Set();
@@ -514,7 +531,7 @@ window.lopForm = (options = {}) => ({
                 this.form.sto = json.sto;
             }
             if (json.segment) {
-                if (this.form.program_type === 'relok_utilitas') {
+                if (this.supportsMultipleSegments()) {
                     // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
                     const seg = String(json.segment).toLowerCase().trim();
                     if (seg && !this.form.segments.includes(seg) && this.form.segments.length < 3) {
@@ -545,7 +562,7 @@ window.lopForm = (options = {}) => ({
     async generateManualIncident() {
         if (!this.form.program_type || this.manualGen.loading) return;
 
-        if (this.form.program_type === 'relok_utilitas' && !this.form.branch) {
+        if (this.supportsMultipleSegments() && !this.form.branch) {
             this.manualGen.message = 'Pilih Area → Branch → STO terlebih dahulu sebelum generate INP.';
             return;
         }
@@ -655,7 +672,7 @@ window.lopForm = (options = {}) => ({
         }
     },
 
-    // --- Segment combobox helpers (khusus relok_utilitas multi) ---
+    // --- Segment combobox helpers (Relok Utilitas dan Relok Tiang) ---
     segmentOptions() {
         return Object.entries(this.segmentLabels).map(([value, label]) => ({ value, label }));
     },
@@ -716,7 +733,7 @@ window.lopForm = (options = {}) => ({
     },
 
     programLabel(value) {
-        return { recovery: 'QE Recovery', preventive: 'QE Preventive', relok_utilitas: 'QE Relok Utilitas' }[value] ?? '';
+        return { recovery: 'QE Recovery', preventive: 'QE Preventive', relok_utilitas: 'QE Relok Utilitas', relok_tiang: 'QE Relok Tiang' }[value] ?? '';
     },
 });
 

@@ -185,9 +185,9 @@ class BulkLopImportService
             'branch' => ['required', 'string', 'max:100'],
             'area' => ['required', 'string', 'max:10'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
-            'segment' => ['required', 'array', 'min:1', 'max:3'],
+            'segment' => ['required', 'array', 'min:1', 'max:'.(ProgramType::tryFrom($data['program_type'])?->supportsMultipleSegments() ? 3 : 1)],
             'segment.*' => [Rule::enum(LopSegment::class)],
-            'budget_type' => ['nullable', 'required_if:program_type,relok_utilitas', Rule::enum(LopBudgetType::class)],
+            'budget_type' => ['required', Rule::enum(LopBudgetType::class)],
             'job_description' => ['required', 'string', 'max:2000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
@@ -228,22 +228,17 @@ class BulkLopImportService
 
     private function normalizeRow(array $row): array
     {
-        $program = strtolower(trim((string) ($row['program_type'] ?? '')));
-        $program = match ($program) {
-            'qe recovery', 'qerec', 'recovery' => 'recovery',
-            'qe preventive', 'qeprev', 'preventive' => 'preventive',
-            'qe relok utilitas', 'qerelok', 'relok', 'relok utilitas', 'relok_utilitas' => 'relok_utilitas',
-            default => $program,
-        };
+        $inputProgram = trim((string) ($row['program_type'] ?? $row['program'] ?? ''));
+        $program = ProgramType::fromInput($inputProgram);
 
         return [
             'incident' => strtoupper(trim((string) ($row['incident'] ?? ''))),
             'sto' => strtoupper(trim((string) ($row['sto'] ?? ''))),
             'branch' => strtoupper(trim((string) ($row['branch'] ?? ''))),
             'area' => trim((string) ($row['area'] ?? '')),
-            'program_type' => $program,
+            'program_type' => $program?->value ?? $inputProgram,
             'segment' => strtolower(trim((string) ($row['segment'] ?? ''))),
-            'budget_type' => strtoupper(trim((string) ($row['budget_type'] ?? ''))),
+            'budget_type' => $program?->budgetType()->value ?? '',
             'job_description' => trim((string) ($row['job_description'] ?? '')),
             'ihld_id' => trim((string) ($row['ihld_id'] ?? '')),
             'nama_lop' => trim((string) ($row['nama_lop'] ?? '')),

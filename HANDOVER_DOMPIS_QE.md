@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **8 Oktober 2026**
+Terakhir diaudit: **12 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `d307b4b` (`feat: search on sub menu KHS`)
+HEAD dasar saat audit terbaru: `ed123e0` (`feat: new review BOQ`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,16 +41,20 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat implementasi review teknisi terbaru berada di commit `d307b4b`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat audit review teknisi terbaru berada di commit `ed123e0`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`. Perubahan kerja terbaru mempertahankan stepper review teknisi dan menambahkan halaman khusus Review BOQ dari tombol pada halaman pekerjaan; tidak ada perubahan schema.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Perubahan lokal Review BOQ mobile, QE Relok Tiang, budget otomatis, dan normalisasi program Bulk LOP tetap dipertahankan. Perubahan terbaru menambahkan Bulk Import User, template Excel/CSV sesuai scope, antrean, hasil per baris, dan lima history upload terakhir. Semua perubahan tersebut masih lokal; periksa Git sebelum commit/push.
 
 ### 2.3 Status migration lokal
 
-Migration redundan untuk tabel `qe_boq_plans`, relasi `boq_plan_id`, dan kolom `file_hash` sudah dikeluarkan dari perubahan kerja. Runtime kembali memakai schema existing tanpa migration baru. Migration `2026_10_02_000001_expand_boq_item_name_columns.php` tetap penting untuk uraian BOQ panjang.
+Migration redundan untuk tabel `qe_boq_plans`, relasi `boq_plan_id`, dan kolom `file_hash` sudah dikeluarkan dari perubahan kerja. Migration `2026_10_02_000001_expand_boq_item_name_columns.php` tetap penting untuk uraian BOQ panjang.
+
+Audit read-only 8 Oktober 2026 (`migrate:status`, `db:table qe_lops`) memastikan MySQL lokal masih memakai enum tiga program. Migration baru `2026_10_08_000001_add_relok_tiang_program_to_qe_lops.php` berstatus **Pending**, belum dijalankan. QE Relok Tiang memerlukan migration tersebut sebelum disimpan pada MySQL. Tidak ada backfill budget atau perubahan data operasional yang dijalankan.
+
+Pembaruan audit read-only 12 Oktober 2026: migration Relok Tiang kini tercatat **Ran batch 17** dan `qe_lops.program_type` sudah memuat empat nilai. Eksekusi migration tersebut dilakukan di luar sesi Bulk Import User ini. Struktur `users` beserta empat level scope dan `qe_import_batches.type` (varchar) tersedia; Bulk Import User tidak membutuhkan migration tambahan. Sesi ini tidak mengimport akun nyata atau mengubah database operasional.
 
 Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap server produksi sama; periksa `migrate:status` di server setelah pull.
 
@@ -115,6 +119,8 @@ Aturan bisnis lintas halaman seharusnya berada di service, bukan diduplikasi di 
 - Permission granular tersimpan di database.
 - User management mendukung tambah, edit, detail, aktif/nonaktif, soft delete, restore, dan histori.
 - Admin dapat memiliki scope `area`, `region`, `branch`, atau satu/banyak `service_area`.
+- Bulk Import User menerima XLSX/XLS/CSV melalui permission `manage_users`, sama dengan input manual. Template Excel/CSV dapat dipilih berdasarkan scope dan didownload dari sebelah Tambah User. Template Excel menyertakan panduan dan referensi lokasi aktif.
+- Baris valid dibuat lewat `UserService`, termasuk hashing password, normalisasi FK/pivot scope, dan histori. Duplikasi username/NIK/email (termasuk soft-deleted) tidak ditimpa; hasil dan alasan gagal tersedia per baris.
 
 Catatan: redirect khusus `MANAGER` dan `APPROVER` belum dibuat; keduanya masih menuju `lop.index` melalui TODO di `app/Enums/UserRole.php`.
 
@@ -138,8 +144,11 @@ Dashboard, program, master LOP/BOQ, revenue, dan approval harus memakai scope ya
 - Incident manual terformat otomatis.
 - Nama LOP dapat digenerate dari template dan formatnya dapat diatur.
 - Segment mendukung multi-select JSON.
-- Program: QE Recovery, QE Preventive, QE Relok Utilitas.
-- `status_project`: Preventive/Relok memakai `usulan` lalu `on_going` saat assignment; Recovery menggunakan `null`.
+- Program: QE Recovery, QE Preventive, QE Relok Utilitas, QE Relok Tiang. Kode nama LOP masing-masing `QEREC`, `QEPREV`, `QEREL`, `QERELTIANG`.
+- Form manual dan Bulk LOP mendukung maksimal tiga segmen untuk kedua Relok, termasuk kombinasi Tiang dan ODP; Recovery/Preventive satu segmen. Normalisasi internal service tetap mempertahankan batas legacy lima segmen untuk metadata BOQ.
+- Budget ditentukan `ProgramType::budgetType()`: Relok Utilitas CAPEX, semua program lainnya OPEX. Request/service mengabaikan budget kiriman yang bertentangan. Rule berlaku saat create/update/import LOP; record lama tidak diubah massal.
+- Bulk LOP memakai `ProgramType::fromInput()` untuk variasi huruf, spasi, underscore, hyphen, kode program, dan teks yang mengandung satu nama program. Nama tidak dikenal atau mengandung beberapa program berbeda tetap ditolak per baris.
+- `status_project`: Preventive dan kedua Relok memakai `usulan` lalu `on_going` saat assignment; Recovery menggunakan `null`.
 - Data LOP mendukung detail, edit, delete terkonfirmasi, tracking, assignment/reassignment, dan laporan.
 
 ### 4.4 Assignment dan workflow teknisi
@@ -308,10 +317,16 @@ Pemilihan paket reservasi otomatis:
 - `app/Models/User.php`
 - `app/Enums/AdminScopeType.php`
 - `app/Services/UserService.php`
+- `app/Services/UserImportService.php`
+- `app/Services/UserImportTemplateService.php`
+- `app/Jobs/ProcessUserImport.php`
+- `app/Http/Controllers/UserImportController.php`
+- `app/Http/Requests/StoreUserImportRequest.php`
 - `app/Http/Controllers/UserController.php`
 - `app/Policies/UserPolicy.php`
 - `resources/views/users/_access-scope.blade.php`
 - `resources/views/users/_edit-modal.blade.php`
+- `resources/views/users/_bulk-import.blade.php`
 
 ## 6. Invariant Bisnis yang Tidak Boleh Dilanggar
 
@@ -417,17 +432,58 @@ Pemilihan paket reservasi otomatis:
 - Dokumen request_letter tidak masuk penanda reject workflow. Evidence lama/global di luar item reservasi saat ini tetap terlihat pada tahap sesuai kategori.
 - Stepper ditempatkan paling atas tanpa sticky/freeze, mengikuti scroll normal. Nama LOP, Branch, dan STO tetap diringkas dalam satu card di bawah stepper; lokasi memakai FK dengan fallback legacy. Desain mobile kembali ke gaya awal: card identitas gelap, sudut rounded-2xl/3xl, tombol brand besar, dan spacing yang nyaman. Perubahan ini hanya presentasi, bukan workflow/perhitungan.
 - Tombol Review BOQ hanya tersedia setelah seluruh qty_actual reservasi disimpan pada Step After (`materialUsageComplete`); qty 0 valid, qty null menyembunyikan tombol. Proyeksi BOQ hanya dimuat saat membuka halaman review, bukan pada halaman workflow.
-- Tombol membuka halaman khusus `technician.projects.boq-review` (bukan modal), berisi tabel perbandingan Plan vs Actual untuk Preventive/Relok dan hanya BOQ Actual untuk Recovery, termasuk jasa pasangan. Total nilai berada di footer tabel; tabel dapat digeser horizontal pada mobile.
+- Tombol membuka halaman khusus `technician.projects.boq-review` (bukan modal), berisi tabel perbandingan Plan vs Actual untuk Preventive/Relok dan hanya BOQ Actual untuk Recovery, termasuk jasa pasangan. Total nilai berada di footer tabel. Tabel mobile memakai kolom Item/Plan/Actual dengan qty dan nilai ditumpuk, tanpa minimum lebar/horizontal scroll; uraian panjang disembunyikan dalam details per item.
 - Tombol Kembali menuju LOP dan step asal melalui parameter step yang dibatasi 1–5 (default After). Route baru memakai middleware login/role TEKNISI serta policy view LOP; akses langsung saat actual belum lengkap diarahkan kembali ke pekerjaan dengan pesan validasi.
 - Proyeksi mengambil `LopBoqProjectionService`; qty/nilai Plan selalu dari snapshot import, bukan qty reservasi yang sudah diubah. Nilai Actual dari qty_actual, dengan peringatan bila belum direkap atau harga belum tersedia.
 - Form pekerjaan dinonaktifkan pada mode review; Completed/Waiting Approval tidak menampilkan upload baru atau penggantian evidence. Tidak ada perubahan lifecycle, schema, migration, atau data operasional.
 - Regression test: `TechnicianProjectReviewTest`, `TechnicianMobileWorkflowTest`, `LopBoqProjectionTest`.
+
+### 7.13 Review BOQ ringkas dan penjelasan data kosong — 8 Oktober 2026
+
+- User memastikan tanda — di server disebabkan harga yang belum tersedia dan meminta hanya revisi UI. Tidak ada perubahan service/perhitungan, migration, atau write database operasional.
+- Item tanpa Plan diberi keterangan Tidak ada di Plan; Actual tanpa harga diberi Harga belum tersedia; quantity null diberi Belum direkap. Qty/harga 0 yang valid tetap ditampilkan sebagai angka, bukan data kosong.
+- Footer memakai Total tersedia bila harga/rekap belum lengkap. Bila tidak satu pun item memiliki nilai actual, footer menampilkan —, bukan Rp 0. Nilai subtotal yang ada tetap memakai hasil service existing.
+- Audit database lokal read-only: kolom BOQ/reservasi tersedia; contoh Recovery memiliki quantity actual dan harga material, tetapi dua harga jasa belum tersedia. Ini bukan verifikasi database atau cache server produksi.
+- Regression test tambahan mencakup layout mobile, uraian panjang, harga kosong seluruh/sebagian, serta nilai 0 existing. Pengujian tidak melalui browser.
+
+### 7.14 Program Relok Tiang dan budget otomatis — 8 Oktober 2026
+
+- `ProgramType` menjadi sumber empat program, budget otomatis, dukungan multi-segmen, serta normalisasi label import. Menu/filter/matrix/dashboard/revenue memakai enum yang sama; layout chart Revenue menyesuaikan empat program.
+- Form tambah/edit LOP menampilkan budget otomatis tanpa radio CAPEX/OPEX. Kedua Relok dapat memakai multi-select segmen. Nama dan Incident otomatis mendukung kode/urutan program baru (Relok Tiang urutan 4).
+- Template Bulk LOP mempertahankan header existing, dengan empat contoh program dan kombinasi `tiang|odp`. `budget_type` boleh kosong dan selalu mengikuti program. Variasi seperti `qe recovery`, `qe_recovery`, `QE RECOVERY`, dan label dengan kata tambahan diterima jika tidak ambigu.
+- Parser nama project BOQ dan preview import legacy mengenali Relok Tiang, bukan salah memetakannya ke Relok Utilitas. Auto-create LOP dari BOQ mengikuti budget program, bukan threshold nominal lama.
+- Migration additive memperluas `qe_lops.program_type` menjadi empat nilai. Rollback ditolak bila ada LOP Relok Tiang, termasuk soft-deleted, agar tidak menghilangkan data. **Belum ada izin/eksekusi migration MySQL lokal atau produksi.**
+- Regression `LopProgramRulesTest` mencakup normalisasi/ambiguity, input manual/edit, bulk import, budget otomatis, multi-segmen, assignment/usulan/on_going, dashboard/revenue, deteksi project BOQ, dan guard rollback. Scope/approval/evidence serta snapshot harga tidak diubah.
+
+### 7.15 Bulk Import User sesuai scope — 12 Oktober 2026
+
+- Tombol Bulk Import User dan Download Template berada di sebelah Tambah User. Upload memakai modal dengan panduan kolom scope, loading state, dan error bag `userImport` terpisah dari form manual/edit.
+- Header template: `name,username,nik,email,phone,password,role,status,admin_scope_type,area,region,branch,service_areas`. Wajib: `name,username,password,role`; Admin juga wajib scope dan kolom lokasi sesuai levelnya. Password minimal delapan karakter, NIK/email/phone opsional, status kosong berarti active.
+- Area/Region/Branch memakai kode atau nama master aktif, Service Area memakai `workzone`/kode STO. Role/scope/lokasi menerima variasi huruf besar-kecil; parent yang diisi harus konsisten. Kolom level di bawah scope Area/Region/Branch wajib dikosongkan agar tidak ada akses yang menyesatkan.
+- Admin Service Area dapat memakai banyak kode STO dipisah `|` (juga menerima comma/semicolon), maksimal 100, termasuk lintas branch. Parent opsional harus cocok dengan semua STO. Role non-Admin hanya memakai branch opsional, mengikuti `UserService` existing.
+- Template dapat dipilih all/area/region/branch/service_area/non_admin dan format XLSX/CSV. Baris CONTOH memakai password kosong dan status inactive; user wajib mengganti contoh dan mengisi password sebelum import. XLSX menyimpan identifier sebagai text dan menyertakan sheet Panduan/Referensi Lokasi; sheet Users tetap dibaca walaupun sheet lain aktif saat file disimpan.
+- `ProcessUserImport` memakai queue existing, satu attempt, timeout 600 detik, `failOnTimeout`, dan lock per batch. Pengunggah harus tetap aktif serta berizin saat worker mulai. Batas upload 5 MB/1000 user; file kosong, rusak, atau terlalu besar ditolak sebelum membuat akun.
+- Batch type `users` memakai `qe_import_batches/qe_import_rows` existing. Setiap create user + hasil success satu transaction; baris gagal tidak membatalkan baris valid. Hasil tersimpan secara durable per baris, progress agregat diperbarui setiap 25 baris/akhir file, dan batch finished tidak diproses ulang.
+- File berisi password disimpan terenkripsi pada local private disk. Saat parsing, salinan sementara privat dibuat lalu dihapus bersama file sumber pada completion/failure callback. Payload hasil memakai whitelist tanpa password/NIK/email/phone, serta exception SQL tidak ditampilkan. Bila worker dibunuh paksa sehingga failure callback tidak berjalan, periksa batch processing yang stale dan cleanup salinan `.working.*` privat; jangan mengekspos isi file/log.
+- Hasil/status tersedia pada `users.imports.show/status` dan dibatasi UserPolicy. Jalur import-results generic juga memeriksa permission user untuk batch jenis users. UI menampilkan lima upload terakhir dengan pengunggah, waktu WIB, status, dan tautan hasil.
+- `SpreadsheetReader::table()` mendapat opsi sheetName/maxRows khusus fitur baru, dengan default existing tetap sama untuk LOP/BOQ. Tidak ada migration baru atau akun nyata yang diimport. Worker produksi dan limit server belum diuji; restart worker setelah deploy dan pastikan retry_after lebih besar dari timeout job.
+- Regression: `UserBulkImportTest` (scope/permission/hashing/leading zero/duplikasi/XLSX/CSV/template/queue/security/cleanup), ditambah full suite existing. Tanpa tes browser.
+
+### 7.16 Diagnosis import user dan restart worker lokal — 12 Oktober 2026
+
+- File user yang dilaporkan gagal diperiksa read-only memakai reader aplikasi terbaru serta validator/master lokal: 16 baris role TEKNISI valid, tanpa kesalahan header, scope, lokasi, atau field wajib. Tidak ada akun nyata yang dibuat, tidak ada nilai password yang ditampilkan, dan file sumber user tidak diubah.
+- Tiga batch terakhir gagal sebelum total_rows terisi. Worker dompis-qe masih berjalan sejak 7 Oktober, sebelum penambahan argumen sheetName/maxRows pada SpreadsheetReader. Worker lama dapat melempar Unknown named parameter, yang sebelumnya tertutup pesan template generik. Pemeriksaan ulang permission folder upload memastikan pemiliknya sama dengan worker lokal; file sumber batch gagal memang sudah dihapus.
+- `SpreadsheetReadException` membawa alasan parser yang aman (headers_missing, too_many_rows, file_unreadable), tetap merupakan RuntimeException untuk kompatibilitas import existing. UserImportService membedakan worker_outdated, dekripsi, storage, pembacaan master, dan kegagalan umum, serta mencatat error_code/error_stage tanpa pesan SQL atau nilai credential.
+- Sesudah persetujuan user dan verifikasi antrean kosong, queue:restart dijalankan dan worker dompis-qe lama dipastikan berhenti. Worker baru dijalankan dengan queue:work --tries=1 --timeout=600. Worker proyek dompis-cons tidak dihentikan. Batch lama tidak diretry/reimport; user harus upload ulang lewat UI.
+- Worker baru aktif dalam sesi terminal Codex lokal; jalankan worker melalui terminal/Supervisor yang tetap hidup bila sesi ini ditutup. Restart worker setelah perubahan script; optimize:clear saja tidak memuat ulang class pada worker long-running.
+- Regression tambahan mensimulasikan signature worker lama dan memastikan error parser spesifik tanpa membocorkan password. Full suite lulus; hasil import file nyata melalui worker baru masih menunggu percobaan ulang oleh user.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
 
 - Pastikan migration perluasan panjang uraian sudah dijalankan pada tiap environment setelah mendapat izin dan backup/tag siap.
+- Migration Relok Tiang sudah terverifikasi pada lokal (batch 17, enum empat nilai); status server produksi belum diverifikasi.
 - Jangan menambahkan kembali tabel `qe_boq_plans` atau kolom `file_hash`; keduanya tidak diperlukan oleh alur Import BOQ canonical.
 - Pastikan worker queue produksi hidup. Batch berhenti di `queued` bila worker tidak berjalan.
 
@@ -455,8 +511,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-250 tests passed
-1458 assertions
+267 tests passed
+1794 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -471,7 +527,7 @@ Pemetaan test utama:
 - Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
 - Revenue: `RevenueDashboardTest`.
 - Reporting: `MaterialReportTest`.
-- User management: `UserManagementWorkflowTest`, `UserPermissionTest`.
+- User management: `UserManagementWorkflowTest`, `UserPermissionTest`, `UserBulkImportTest`.
 
 ## 10. Panduan Audit Sebelum Memperbaiki atau Menambah Fitur
 

@@ -8,6 +8,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\QeImportBatch;
 use App\Models\Region;
 use App\Models\Role;
 use App\Models\ServiceArea;
@@ -54,6 +55,7 @@ class UserController extends Controller
             'users' => $users,
             'q' => $search,
             'roleFilter' => $roleId,
+            'userImportBatches' => QeImportBatch::with('uploader')->where('type', 'users')->latest()->limit(5)->get(),
             ...$this->formOptions(),
         ]);
     }

@@ -5,8 +5,10 @@ namespace App\Http\Requests;
 use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\ProgramType;
-use App\Support\DatekRules;
+use App\Models\Branch;
+use App\Models\ServiceArea;
 use App\Services\LopVisibilityService;
+use App\Support\DatekRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +29,7 @@ class UpdateLopRequest extends FormRequest
         // jadi rule regex hanya relevan saat LOP memang bernomor manual.
         $incidentIsManual = $lop === null || $lop->usesManualIncident();
 
-        $isRelok = $this->input('program_type') === ProgramType::RELOK_UTILITAS->value;
+        $isRelok = ProgramType::tryFrom((string) $this->input('program_type'))?->supportsMultipleSegments() ?? false;
 
         $segmentRules = $isRelok
             ? ['required', 'array', 'min:1', 'max:3']
@@ -47,7 +49,7 @@ class UpdateLopRequest extends FormRequest
             'segment' => $segmentRules,
             'budget_type' => [
                 'nullable',
-                'required_if:program_type,'.ProgramType::RELOK_UTILITAS->value,
+                'required',
                 Rule::enum(LopBudgetType::class),
             ],
             'job_description' => ['required', 'string', 'max:2000'],
@@ -67,7 +69,7 @@ class UpdateLopRequest extends FormRequest
     {
         return [
             'incident.regex' => 'Nomor tiket manual harus memakai format INP diikuti angka (contoh: INP3102092601).',
-            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas.',
+            'segment.max' => 'Maksimal 3 segmen untuk program Relok Utilitas atau Relok Tiang.',
             'segment.min' => 'Pilih minimal 1 segmen.',
             'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
             'branch.exists' => 'Branch tidak ditemukan.',
@@ -86,14 +88,14 @@ class UpdateLopRequest extends FormRequest
                 return;
             }
 
-            $branch = \App\Models\Branch::with('regionRef.area')->where('name', $branchName)->first();
+            $branch = Branch::with('regionRef.area')->where('name', $branchName)->first();
             if ($branch && $branch->regionRef && $branch->regionRef->area) {
                 if ((string) $branch->regionRef->area->code !== (string) $area) {
                     $v->errors()->add('branch', 'Branch tidak termasuk dalam Area terpilih.');
                 }
             }
 
-            $sa = \App\Models\ServiceArea::where('workzone', $sto)->first();
+            $sa = ServiceArea::where('workzone', $sto)->first();
             if ($sa && $sa->branch && $sa->branch->name !== $branchName) {
                 $v->errors()->add('sto', 'STO tidak termasuk dalam Branch terpilih.');
             }
@@ -116,7 +118,7 @@ class UpdateLopRequest extends FormRequest
         $program = $this->input('program_type');
         $segmentInput = $this->input('segment');
 
-        if ($program === ProgramType::RELOK_UTILITAS->value) {
+        if (ProgramType::tryFrom((string) $program)?->supportsMultipleSegments()) {
             if (is_string($segmentInput)) {
                 $segmentInput = $segmentInput !== '' ? [trim($segmentInput)] : [];
             } elseif (! is_array($segmentInput)) {
@@ -149,6 +151,7 @@ class UpdateLopRequest extends FormRequest
             'branch' => trim((string) $this->input('branch')),
             'area' => trim((string) $this->input('area')),
             'segment' => $segmentNormalized,
+            'budget_type' => ProgramType::tryFrom((string) $program)?->budgetType()->value,
             'ihld_id' => filled($this->input('ihld_id'))
                 ? trim((string) $this->input('ihld_id'))
                 : null,

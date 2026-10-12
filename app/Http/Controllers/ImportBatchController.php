@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Models\QeImportBatch;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -46,6 +47,9 @@ class ImportBatchController extends Controller
 
     private function assertAccess(Request $request, QeImportBatch $batch): void
     {
+        if ($batch->type === 'users') {
+            $this->authorize('create', User::class);
+        }
         abort_unless(
             $request->user()->hasRole(UserRole::SUPER_ADMIN)
             || $batch->uploaded_by === $request->user()->id_user,

@@ -9,11 +9,23 @@
             <h1 class="text-xl font-bold text-ink-900 dark:text-ink-50">User Management</h1>
             <p class="text-sm text-ink-500 dark:text-ink-400 mt-1">Kelola akun, role, dan scope akses lokasi.</p>
         </div>
+        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+        <button type="button" onclick="document.getElementById('user-template-modal').showModal()" title="Download template user sesuai scope"
+                class="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-ink-200 bg-white px-3 text-sm font-semibold text-ink-700 transition hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg>
+            Download Template
+        </button>
+        <button type="button" onclick="document.getElementById('bulk-user-modal').showModal()" title="Bulk import user dari Excel atau CSV"
+                class="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 dark:border-brand-900 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/60">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m-4 4 4-4 4 4M5 16v4h14v-4" /></svg>
+            Bulk Import User
+        </button>
         <button type="button" onclick="document.getElementById('create-user-modal').showModal()"
                 class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             Tambah User
         </button>
+        </div>
     </div>
 
     <form method="GET" action="{{ route('users.index') }}" class="flex flex-col sm:flex-row gap-3 mb-4">
@@ -89,6 +101,8 @@
     <div class="mt-4">
         {{ $users->links() }}
     </div>
+
+    @include('users._bulk-import')
 
     @foreach ($users as $user)
         @include('users._edit-modal', ['user' => $user])

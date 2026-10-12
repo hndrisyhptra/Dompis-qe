@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
 use App\Models\Role;
 use Illuminate\Foundation\Http\FormRequest;
@@ -37,7 +38,7 @@ class AssignLopRequest extends FormRequest
             ],
             'return_to' => ['nullable', Rule::in([
                 'index', 'show',
-                'program:recovery', 'program:preventive', 'program:relok_utilitas',
+                ...array_map(fn (ProgramType $type) => 'program:'.$type->value, ProgramType::cases()),
             ])],
         ];
     }

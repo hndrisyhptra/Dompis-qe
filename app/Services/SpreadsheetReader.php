@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\SpreadsheetReadException;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use RuntimeException;
 use SplFileObject;
 use Throwable;
 
@@ -14,15 +14,15 @@ class SpreadsheetReader
     /**
      * @return array{header_row:int, headers:array<string,string>, rows:array<int,array{row_number:int,data:array<string,mixed>}>}
      */
-    public function table(string $path, array $requiredHeaders, int $scanRows = 20): array
+    public function table(string $path, array $requiredHeaders, int $scanRows = 20, ?string $sheetName = null, ?int $maxRows = null): array
     {
         if (mb_strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'csv') {
-            return $this->csvTable($path, $requiredHeaders, $scanRows);
+            return $this->csvTable($path, $requiredHeaders, $scanRows, $maxRows);
         }
 
         $spreadsheet = $this->load($path);
 
-        $sheet = $spreadsheet->getActiveSheet();
+        $sheet = ($sheetName ? $spreadsheet->getSheetByName($sheetName) : null) ?? $spreadsheet->getActiveSheet();
         // HighestData* mengabaikan baris/kolom yang hanya memiliki formatting.
         // Template Excel sering memformat ribuan baris kosong dan sebelumnya
         // seluruh baris tersebut tetap dipindai.
@@ -50,7 +50,7 @@ class SpreadsheetReader
 
         if ($headerRow === null) {
             $spreadsheet->disconnectWorksheets();
-            throw new RuntimeException('Header wajib tidak ditemukan: '.implode(', ', $requiredHeaders).'.');
+            throw new SpreadsheetReadException('Header wajib tidak ditemukan: '.implode(', ', $requiredHeaders).'. Jangan ubah nama kolom template.', 'headers_missing');
         }
 
         $rows = [];
@@ -65,6 +65,10 @@ class SpreadsheetReader
             }
 
             $rows[] = ['row_number' => $row, 'data' => $data];
+            if ($maxRows !== null && count($rows) > $maxRows) {
+                $spreadsheet->disconnectWorksheets();
+                throw new SpreadsheetReadException("Maksimal {$maxRows} baris data per file. Pecah file menjadi beberapa upload.", 'too_many_rows');
+            }
         }
 
         $spreadsheet->disconnectWorksheets();
@@ -78,7 +82,7 @@ class SpreadsheetReader
      *
      * @return array{header_row:int, headers:array<string,string>, rows:array<int,array{row_number:int,data:array<string,mixed>}>}
      */
-    private function csvTable(string $path, array $requiredHeaders, int $scanRows): array
+    private function csvTable(string $path, array $requiredHeaders, int $scanRows, ?int $maxRows): array
     {
         $headerRow = null;
         $headerIndexes = [];
@@ -118,7 +122,7 @@ class SpreadsheetReader
         }
 
         if ($headerRow === null) {
-            throw new RuntimeException('Header wajib tidak ditemukan: '.implode(', ', $requiredHeaders).'.');
+            throw new SpreadsheetReadException('Header wajib tidak ditemukan: '.implode(', ', $requiredHeaders).'. Jangan ubah nama kolom template.', 'headers_missing');
         }
 
         $headers = collect($headerIndexes)
@@ -144,6 +148,9 @@ class SpreadsheetReader
             }
 
             $rows[] = ['row_number' => $rowNumber, 'data' => $data];
+            if ($maxRows !== null && count($rows) > $maxRows) {
+                throw new SpreadsheetReadException("Maksimal {$maxRows} baris data per file. Pecah file menjadi beberapa upload.", 'too_many_rows');
+            }
         }
 
         return ['header_row' => $headerRow, 'headers' => $headers, 'rows' => $rows];
@@ -157,7 +164,7 @@ class SpreadsheetReader
 
             return $reader->load($path);
         } catch (Throwable $e) {
-            throw new RuntimeException('File tidak dapat dibaca sebagai XLSX, XLS, atau CSV.', previous: $e);
+            throw new SpreadsheetReadException('File tidak dapat dibaca sebagai XLSX, XLS, atau CSV. Simpan ulang file tanpa proteksi password.', 'file_unreadable', $e);
         }
     }
 

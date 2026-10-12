@@ -79,7 +79,7 @@ class LopManualInputTest extends TestCase
             'incident' => 'INC123456',
             'nama_lop' => '3SDA_QEREC_INC123456_ODP',
             'segment' => json_encode(['odp']),
-            'budget_type' => null,
+            'budget_type' => 'OPEX',
             'ticket_summary' => "Incident: INC123456\nWorkzone: SDA\nStatus: OPEN",
             'ihld_id' => null,
         ]);
@@ -90,7 +90,7 @@ class LopManualInputTest extends TestCase
         $this->assertSame(['1/4'], $lop->datek['gpon'][0]['ports']);
     }
 
-    public function test_relok_utilitas_requires_budget_type(): void
+    public function test_relok_utilitas_automatically_uses_capex_without_budget_input(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
@@ -101,7 +101,8 @@ class LopManualInputTest extends TestCase
             'incident' => 'INC900', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
             'area' => '3', 'segment' => 'feeder', 'program_type' => 'relok_utilitas',
             'job_description' => 'Relokasi utilitas',
-        ])->assertRedirect(route('lop.create'))->assertSessionHasErrors('budget_type');
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC900', 'budget_type' => 'CAPEX']);
     }
 
     public function test_ihld_id_can_be_added_later_through_update(): void

@@ -63,13 +63,20 @@ class BulkLopImportController extends Controller
         $this->authorize('create', QeLop::class);
 
         $headers = ['incident', 'sto', 'branch', 'area', 'program_type', 'segment', 'budget_type', 'job_description', 'ihld_id', 'nama_lop', 'package_code'];
-        $sample = ['INC123456', 'SDA', 'SIDOARJO', '3', 'recovery', 'odp', '', 'Penggantian box ODP', '', '', '5'];
+        $samples = [
+            ['INC123456', 'SDA', 'SIDOARJO', '3', 'QE Recovery', 'odp', 'OPEX', 'Penggantian box ODP', '', '', ''],
+            ['INC123457', 'SDA', 'SIDOARJO', '3', 'qe_preventive', 'feeder', 'OPEX', 'Preventive feeder', '', '', ''],
+            ['INC123458', 'SDA', 'SIDOARJO', '3', 'QE RELOK UTILITAS', 'tiang|odp', 'CAPEX', 'Relokasi utilitas', '', '', ''],
+            ['INC123459', 'SDA', 'SIDOARJO', '3', 'QE Relok Tiang', 'tiang|odp', 'OPEX', 'Relokasi tiang dan ODP', '', '', ''],
+        ];
 
-        return response()->streamDownload(function () use ($headers, $sample) {
+        return response()->streamDownload(function () use ($headers, $samples) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, $headers);
-            fputcsv($out, $sample);
+            foreach ($samples as $sample) {
+                fputcsv($out, $sample);
+            }
             fclose($out);
         }, 'template-bulk-lop.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }

@@ -212,7 +212,8 @@ class LopExcelImportService
         }
 
         // Program default: RELOK bila nama mengandung RELOK
-        $program = $overrides['program_type'] ?? (stripos($project, 'RELOK') !== false ? ProgramType::RELOK_UTILITAS->value : ProgramType::RECOVERY->value);
+        $program = $overrides['program_type'] ?? ProgramType::fromInput($project)?->value
+            ?? (stripos($project, 'RELOK') !== false ? ProgramType::RELOK_UTILITAS->value : ProgramType::RECOVERY->value);
 
         // Paket: deteksi header vs existing
         $detected = $parsed['meta']['package_detected'];

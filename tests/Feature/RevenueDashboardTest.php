@@ -62,7 +62,7 @@ class RevenueDashboardTest extends TestCase
                 && $stats['recovery_actual_value'] === 100_000.0
                 && $stats['gap_value'] === 200_000.0
                 && $stats['realization_percentage'] === 67)
-            ->assertViewHas('programRows', fn ($rows) => $rows->count() === 3
+            ->assertViewHas('programRows', fn ($rows) => $rows->count() === 4
                 && $rows->firstWhere('program', 'recovery')['plan_value'] === 0.0
                 && $rows->firstWhere('program', 'recovery')['actual_value'] === 100_000.0
                 && $rows->firstWhere('program', 'preventive')['plan_value'] === 200_000.0
@@ -70,7 +70,7 @@ class RevenueDashboardTest extends TestCase
             ->assertViewHas('branchRows', fn ($rows) => $rows->count() === 3
                 && $rows->firstWhere('branch', 'SIDOARJO REV')['actual_value'] === 100_000.0
                 && $rows->firstWhere('branch', 'SIDOARJO REV')['plan_value'] === 0.0
-                && $rows->firstWhere('branch', 'SIDOARJO REV')['programs']->count() === 3
+                && $rows->firstWhere('branch', 'SIDOARJO REV')['programs']->count() === 4
                 && $rows->firstWhere('branch', 'SURABAYA REV')['actual_value'] === 0.0)
             ->assertViewHas('segmentRows', fn ($rows) => $rows->first()['label'] === 'ODP'
                 && $rows->first()['plan_value'] === 400_000.0
@@ -128,7 +128,7 @@ class RevenueDashboardTest extends TestCase
                     && $empty['total_lops'] === 0
                     && $empty['plan_value'] === 0.0
                     && $empty['actual_value'] === 0.0
-                    && $empty['programs']->count() === 3
+                    && $empty['programs']->count() === 4
                     && $sidoarjo['programs']->firstWhere('program', 'preventive')['plan_value'] === 150_000.0
                     && $sidoarjo['programs']->firstWhere('program', 'preventive')['actual_value'] === 150_000.0;
             });

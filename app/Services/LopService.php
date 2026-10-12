@@ -31,7 +31,7 @@ class LopService
     ) {}
 
     /**
-     * Normalisasi segment: untuk relok_utilitas simpan array (preserve order, unique, max 5),
+     * Normalisasi segment: untuk kedua Relok simpan array (preserve order, unique, max 5),
      * untuk program lain simpan array dengan 1 elemen agar konsisten dengan cast array di Model.
      */
     private function normalizeSegment(mixed $segment, string $programType): array
@@ -49,7 +49,7 @@ class LopService
                 $unique[] = $v;
             }
 
-            return $programType === 'relok_utilitas' ? array_slice($unique, 0, 5) : array_slice($unique, 0, 1);
+            return ProgramType::from($programType)->supportsMultipleSegments() ? array_slice($unique, 0, 5) : array_slice($unique, 0, 1);
         }
 
         $val = strtolower(trim((string) $segment));
@@ -75,6 +75,7 @@ class LopService
                 [$branch, $serviceArea] = $this->resolveLocation($data);
             }
             $program = ProgramType::from((string) $data['program_type']);
+            $data['budget_type'] = $program->budgetType()->value;
 
             // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)
             $namingData = array_merge($data, ['segment' => $normalizedSegment]);
@@ -92,7 +93,7 @@ class LopService
                 'service_area_id' => $serviceArea->id_service_area,
                 'area' => $data['area'],
                 'segment' => $normalizedSegment,
-                'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+                'budget_type' => $data['budget_type'],
                 'job_description' => $data['job_description'],
                 'ticket_summary' => $data['ticket_summary'] ?? null,
                 'datek' => $data['datek'] ?? null,
@@ -110,6 +111,7 @@ class LopService
 
     public function update(QeLop $lop, array $data): QeLop
     {
+        $data['budget_type'] = ProgramType::from((string) $data['program_type'])->budgetType()->value;
         $normalizedSegment = $this->normalizeSegment($data['segment'] ?? null, (string) ($data['program_type'] ?? ''));
         $namingData = array_merge($data, ['segment' => $normalizedSegment]);
         [$branch, $serviceArea] = $this->resolveLocation($data);
@@ -130,7 +132,7 @@ class LopService
             'service_area_id' => $serviceArea->id_service_area,
             'area' => $data['area'],
             'segment' => $normalizedSegment,
-            'budget_type' => $data['program_type'] === 'relok_utilitas' ? ($data['budget_type'] ?? null) : null,
+            'budget_type' => $data['budget_type'],
             'job_description' => $data['job_description'],
             'ticket_summary' => $data['ticket_summary'] ?? null,
             'datek' => $data['datek'] ?? null,

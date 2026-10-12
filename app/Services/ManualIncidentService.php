@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  *
  * Format: INP{id_branch}{no_program}{DDMMYY}{urut2digit}
  *   - id_branch : PK branches milik user yang login (bukan dari form)
- *   - no_program    : 1=recovery, 2=preventive, 3=relok_utilitas (ProgramType::order())
+ *   - no_program    : 1=recovery, 2=preventive, 3=relok_utilitas, 4=relok_tiang (ProgramType::order())
  *   - DDMMYY    : tanggal pembuatan
  *   - urut      : nomor urut, di-reset ke 01 tiap hari per kombinasi branch+program
  *

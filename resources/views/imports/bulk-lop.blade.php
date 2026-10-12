@@ -36,8 +36,9 @@
                 <p><strong class="text-ink-700 dark:text-ink-200">Wajib:</strong> STO, program_type, segment, dan job_description.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Nama LOP:</strong> boleh kosong, sistem membuat nama berdasarkan format aktif.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Incident:</strong> boleh kosong untuk membuat nomor INP otomatis.</p>
-                <p><strong class="text-ink-700 dark:text-ink-200">Multi segmen:</strong> pisahkan dengan tanda <code>|</code>, maksimal tiga segmen.</p>
-                <p><strong class="text-ink-700 dark:text-ink-200">Relok Utilitas:</strong> budget_type wajib CAPEX atau OPEX.</p>
+                <p><strong class="text-ink-700 dark:text-ink-200">Program:</strong> QE Recovery, QE Preventive, QE Relok Utilitas, QE Relok Tiang. Huruf besar/kecil, spasi, underscore, dan tanda hubung diterima (contoh: qe_recovery, QE RELOK TIANG).</p>
+                <p><strong class="text-ink-700 dark:text-ink-200">Anggaran otomatis:</strong> Relok Utilitas = CAPEX; program lainnya = OPEX. Kolom budget_type boleh kosong dan inputnya akan disesuaikan dengan program.</p>
+                <p><strong class="text-ink-700 dark:text-ink-200">Segmen Relok:</strong> maksimal 3, pisahkan dengan | (contoh: tiang|odp). Recovery/Preventive satu segmen.</p>
             </div>
         </aside>
     </div>

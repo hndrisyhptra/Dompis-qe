@@ -118,32 +118,29 @@
                         @foreach ($programTypes as $type)<option value="{{ $type->value }}">{{ $type->label() }}</option>@endforeach
                     </x-select>
                 </div>
-                <div x-show="program_type !== 'relok_utilitas'">
-                    <x-select name="segment" label="Segmen" placeholder="Pilih segmen" x-bind:disabled="program_type === 'relok_utilitas'">
+                <div x-show="!['relok_utilitas', 'relok_tiang'].includes(program_type)">
+                    <x-select name="segment" label="Segmen" placeholder="Pilih segmen" x-bind:disabled="['relok_utilitas', 'relok_tiang'].includes(program_type)">
                         @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
                     </x-select>
                 </div>
-                <div x-show="program_type === 'relok_utilitas'" x-cloak>
+                <div x-show="['relok_utilitas', 'relok_tiang'].includes(program_type)" x-cloak>
                     <span class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen (maks 3)</span>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($segments as $segment)
                             <label class="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-3 py-1.5 text-xs font-semibold cursor-pointer dark:border-ink-700">
-                                <input type="checkbox" name="segment[]" value="{{ $segment->value }}" x-bind:disabled="program_type !== 'relok_utilitas'" class="h-3.5 w-3.5 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30">
+                                <input type="checkbox" name="segment[]" value="{{ $segment->value }}" x-bind:disabled="!['relok_utilitas', 'relok_tiang'].includes(program_type)" class="h-3.5 w-3.5 rounded border-ink-300 text-brand-600 focus:ring-brand-500/30">
                                 {{ $segment->label() }}
                             </label>
                         @endforeach
                     </div>
                     @error('segment')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
                 </div>
-                <div x-show="program_type === 'relok_utilitas'" x-cloak>
+                <div>
                     <span class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Jenis Anggaran</span>
-                    <div class="flex gap-4">
-                        @foreach ($budgetTypes as $budgetType)
-                            <label class="inline-flex items-center gap-1.5 text-sm cursor-pointer">
-                                <input type="radio" name="budget_type" value="{{ $budgetType->value }}" class="h-4 w-4 text-brand-600 focus:ring-brand-500/30">
-                                {{ $budgetType->label() }}
-                            </label>
-                        @endforeach
+                    <input type="hidden" name="budget_type" :value="program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX'">
+                    <div class="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-800">
+                        <span class="font-semibold" x-text="program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX'"></span>
+                        <span class="text-xs text-ink-500">· Otomatis sesuai program</span>
                     </div>
                     @error('budget_type')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
                 </div>

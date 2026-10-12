@@ -7,7 +7,7 @@
 <div class="mx-auto max-w-6xl space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Import Result</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $batch->original_name }}</h1><p class="mt-2 text-sm text-ink-500">ID batch {{ $batch->uuid }}</p></div>
-        <a href="{{ $batch->type === 'boq' ? route('bulk-import.boq.index') : route('bulk-import.lop.index') }}" class="inline-flex min-h-11 items-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">Kembali</a>
+        <a href="{{ $backUrl ?? ($batch->type === 'boq' ? route('bulk-import.boq.index') : route('bulk-import.lop.index')) }}" class="inline-flex min-h-11 items-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">Kembali</a>
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -32,6 +32,9 @@
     @endif
 
     @include('imports._live-progress')
+    @if ($batch->type === 'users')
+        <div class="rounded-md border border-ink-200 bg-ink-50 p-3 text-xs leading-5 text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">Akun yang berhasil sudah tersimpan. Untuk perbaikan, upload ulang hanya baris yang gagal; akun existing tidak akan ditimpa. Password tidak ditampilkan pada hasil ini.</div>
+    @endif
     @if($batch->error_message)<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ $batch->error_message }}</div>@endif
 
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">

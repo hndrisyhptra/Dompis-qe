@@ -144,19 +144,19 @@
                 <p x-show="form.branch && filteredServiceAreas.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada STO untuk branch ini.</p>
             </div>
 
-            {{-- Segmen: single untuk recovery/preventive, combobox multi (max 3) khusus relok_utilitas --}}
-            <div x-show="form.program_type !== 'relok_utilitas'" class="order-5">
-                <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment" x-bind:disabled="form.program_type === 'relok_utilitas'">
+            {{-- Segmen multi (max 3) untuk Relok Utilitas dan Relok Tiang. --}}
+            <div x-show="!supportsMultipleSegments()" class="order-5">
+                <x-select name="segment" label="Segmen" placeholder="Pilih segmen jaringan" x-model="form.segment" x-bind:disabled="supportsMultipleSegments()">
                     @foreach ($segments as $segment)<option value="{{ $segment->value }}">{{ $segment->label() }}</option>@endforeach
                 </x-select>
             </div>
 
-            <div x-show="form.program_type === 'relok_utilitas'" x-cloak class="order-5">
+            <div x-show="supportsMultipleSegments()" x-cloak class="order-5">
                 <label class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Segmen <span class="font-normal text-ink-400">(maks 3, nama LOP akan menyesuaikan)</span></label>
                 <div class="relative" x-ref="segmentTrigger" @click.outside="segmentOpen = false">
                     {{-- Hidden inputs untuk submit array segment[] — disabled saat bukan relok agar tidak ikut ter-submit --}}
                     <template x-for="seg in form.segments" :key="seg">
-                        <input type="hidden" name="segment[]" :value="seg" x-bind:disabled="form.program_type !== 'relok_utilitas'">
+                        <input type="hidden" name="segment[]" :value="seg" x-bind:disabled="!supportsMultipleSegments()">
                     </template>
 
                     {{-- Trigger --}}
@@ -179,7 +179,7 @@
 
                     {{-- Dropdown — teleported ke body agar tidak terpotong overflow section (Opsi B) --}}
                     <template x-teleport="body">
-                        <div x-show="segmentOpen && form.program_type === 'relok_utilitas'" x-transition
+                        <div x-show="segmentOpen && supportsMultipleSegments()" x-transition
                              @click.outside="segmentOpen = false"
                              class="fixed z-50 overflow-hidden rounded-xl border border-ink-200 bg-white shadow-2xl dark:border-ink-700 dark:bg-ink-800"
                              :style="`top:${segmentDropdownPos.top}px; left:${segmentDropdownPos.left}px; width:${segmentDropdownPos.width}px`">
@@ -226,16 +226,12 @@
                 <p class="mt-1.5 text-xs text-ink-400">Kode Program akan ikut digunakan pada nama LOP.</p>
             </div>
 
-            <div x-show="form.program_type === 'relok_utilitas'" x-transition class="order-7 sm:col-span-2">
+            <div class="order-7 sm:col-span-2">
                 <label class="mb-2 block text-sm font-medium text-ink-700 dark:text-ink-300">Jenis Anggaran</label>
-                <div class="grid grid-cols-2 gap-3">
-                    @foreach ($budgetTypes as $budgetType)
-                        <label class="cursor-pointer rounded-xl border p-4 transition" :class="form.budget_type === '{{ $budgetType->value }}' ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/15 dark:bg-brand-950/30' : 'border-ink-200 hover:border-ink-300 dark:border-ink-700'">
-                            <input type="radio" name="budget_type" value="{{ $budgetType->value }}" x-model="form.budget_type" class="sr-only">
-                            <span class="block text-sm font-bold text-ink-900 dark:text-white">{{ $budgetType->label() }}</span>
-                            <span class="mt-1 block text-xs text-ink-500">{{ $budgetType->description() }}</span>
-                        </label>
-                    @endforeach
+                <input type="hidden" name="budget_type" :value="form.budget_type">
+                <div class="flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 dark:border-ink-700 dark:bg-ink-800">
+                    <span class="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-ink-900 dark:bg-ink-900 dark:text-white" x-text="form.budget_type || 'Pilih program'"></span>
+                    <p class="text-xs leading-5 text-ink-500 dark:text-ink-400">Otomatis: QE Relok Utilitas menggunakan CAPEX, program lainnya OPEX.</p>
                 </div>
                 @error('budget_type')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
             </div>
