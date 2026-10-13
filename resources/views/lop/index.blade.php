@@ -95,7 +95,7 @@
                                 @endcan
                             @endif
                             @can('reviewEvidence', $lop)
-                                <x-table-action label="Review Evidence" tone="success" :href="$summary['evidence_count'] ? route('evidence-approval.lop.review', $lop) : null" :disabled="! $summary['evidence_count']">
+                                <x-table-action label="Review Evidence" tone="success" :href="$summary['evidence_count'] ? route('evidence-approval.lop.review', [$lop, 'return_url' => request()->fullUrl()]) : null" :disabled="! $summary['evidence_count']">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>
                                 </x-table-action>
                             @else

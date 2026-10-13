@@ -48,8 +48,10 @@ enum LopStatus: string
             self::PICKED_UP->value => [self::SURVEY->value, self::REJECTED->value],
             self::SURVEY->value => [self::PROGRESS->value, self::REJECTED->value],
             self::PROGRESS->value => [self::WAITING_APPROVAL->value, self::REJECTED->value],
-            self::WAITING_APPROVAL->value => [self::COMPLETED->value, self::REJECTED->value],
-            self::COMPLETED->value => [],
+            // Koreksi BOQ dengan material tambahan membuka kembali pekerjaan.
+            self::WAITING_APPROVAL->value => [self::COMPLETED->value, self::REJECTED->value, self::PROGRESS->value],
+            // Reset Completed hanya untuk admin dalam scope, melalui LopService.
+            self::COMPLETED->value => [self::PROGRESS->value],
             // Dari rejected, pekerjaan dapat dikembalikan ke progress untuk
             // perbaikan atau ke waiting approval saat reviewer membatalkan
             // keputusan reject terakhir untuk memeriksa ulang evidence.

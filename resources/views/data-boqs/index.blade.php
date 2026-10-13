@@ -51,8 +51,10 @@
                         @foreach($reservationBoqs as $lop)
                             @php
                                 $summary = $lop->effective_boq;
+                                $reservationEditable = $lop->reservation_editable;
+                                $reservationItems = $lop->reservation_editor_items;
                             @endphp
-                            <tr x-data="{ detail: false }" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                            <tr x-data="boqEditor('{{ base64_encode($reservationItems->toJson()) }}', null, { materialOnly: true, maxItems: 100 })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                                 <td class="px-5 py-4"><p class="font-bold">{{ $lop->incident }}</p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
                                 <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $summary['package_label'] }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $summary['item_count'] }} item aktual</p></td>
                                 <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
@@ -60,6 +62,12 @@
                                 <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($summary['grand_total'], 0, ',', '.') }}@if($summary['missing_price_count'])<span class="mt-1 block text-[9px] font-bold text-amber-600">{{ $summary['missing_price_count'] }} harga belum tersedia</span>@endif</td>
                                 <td class="px-5 py-4 text-right">
                                     <x-table-action label="Detail BOQ aktual" @click="detail = true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></x-table-action>
+                                    @if ($reservationEditable)
+                                        <x-table-action label="Edit BOQ Aktual" tone="primary" @click="openEdit()"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.75 3.75 3.75M4.5 19.5l4.5-1.125L20.25 7.125a2.652 2.652 0 0 0-3.75-3.75L5.25 14.625 4.5 19.5Z"/></svg></x-table-action>
+                                        @include('data-boqs._reservation-editor')
+                                    @else
+                                        @include('data-boqs._completed-actions', ['resetLop' => $lop])
+                                    @endif
                                     <div x-show="detail" x-cloak @keydown.escape.window="detail=false" class="fixed inset-0 z-[100] flex items-end justify-center bg-ink-950/70 p-4 text-left sm:items-center" @click.self="detail=false">
                                         <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-ink-900">
                                             <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-wider text-blue-600">BOQ Aktual · Reservasi Teknisi</p><h3 class="mt-1 text-xl font-extrabold">{{ $lop->incident }}</h3><p class="mt-1 text-xs text-ink-500">{{ $summary['package_label'] }} · {{ $summary['item_count'] }} item</p></div><button type="button" @click="detail=false" class="grid h-9 w-9 place-items-center rounded-full border border-ink-200 dark:border-ink-700">×</button></div>
@@ -89,7 +97,7 @@
                     @forelse ($boqs as $boq)
                         @php
                             $status = $boq->lop->status_lop->value;
-                            $editable = in_array($status, ['draft', 'assigned', 'picked_up', 'survey', 'progress', 'rejected'], true);
+                            $editable = \App\Support\MaterialReservationRules::editable($boq->lop);
                             $deletable = in_array($status, ['draft', 'assigned'], true);
                             $initialItems = $boq->items->map(fn ($item) => [
                                 'designator_id' => (string) $item->designator_id,
@@ -126,7 +134,7 @@
                                         </x-table-action>
                                     @endif
                                     @unless ($editable)
-                                        <x-table-action label="BOQ terkunci saat menunggu approval atau selesai" disabled><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></x-table-action>
+                                        @include('data-boqs._completed-actions', ['resetLop' => $boq->lop])
                                     @endunless
                                 </div>
 
@@ -193,6 +201,10 @@
                                                 <div class="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"><span class="font-extrabold">Tips:</span> gunakan kotak pencarian pada setiap item untuk menemukan designator berdasarkan kode, nama, satuan, atau tipe.</div>
                                                 </div>
 
+                                                @if ($boq->lop->status_lop === \App\Enums\LopStatus::WAITING_APPROVAL)
+                                                    <p class="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Penambahan material baru membuka LOP ke Progress agar teknisi melengkapi evidence dan rekap aktual, lalu mengajukan kembali.</p>
+                                                @endif
+
                                                 <div class="mt-5 space-y-3">
                                                     <template x-for="(item, index) in items" :key="index">
                                                         <div class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:hover:border-ink-600">
@@ -204,32 +216,7 @@
                                                             </div>
                                                             <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_120px_180px]">
                                                                 <div>
-                                                                    <p class="text-[10px] font-bold uppercase text-ink-500">Designator</p>
-                                                                    <input type="hidden" :name="'items[' + index + '][designator_id]'" :value="item.designator_id" required>
-                                                                    <div class="relative mt-1.5" @click.outside="item.open = false; item.search = ''">
-                                                                        <button type="button" @click="toggleOptions(item)" :aria-expanded="item.open" class="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-3 text-left text-sm shadow-sm outline-none transition hover:border-ink-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
-                                                                            <span class="min-w-0 flex-1 truncate" :class="item.designator_id ? 'font-semibold text-ink-800 dark:text-ink-100' : 'text-ink-400'" x-text="selectedOptionLabel(item.designator_id)"></span>
-                                                                            <svg class="h-4 w-4 shrink-0 text-ink-400 transition" :class="item.open && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-                                                                        </button>
-
-                                                                        <template x-if="item.open">
-                                                                            <div class="relative z-20 mt-2 w-full overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-xl dark:border-ink-700 dark:bg-ink-900">
-                                                                                <div class="border-b border-ink-100 p-3 dark:border-ink-800">
-                                                                                    <div class="relative"><svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" x-model.debounce.150ms="item.search" placeholder="Cari kode atau nama designator..." class="min-h-11 w-full rounded-xl border border-ink-200 bg-ink-50 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></div>
-                                                                                    <p class="mt-2 text-[10px] normal-case tracking-normal text-ink-400" x-text="searchHint(item.search, item.designator_id)"></p>
-                                                                                </div>
-                                                                                <div class="max-h-64 overflow-y-auto p-2">
-                                                                                    <template x-for="option in filteredOptions(item.search, item.designator_id)" :key="option.id">
-                                                                                        <button type="button" @click="selectOption(item, option)" :disabled="optionUsedByOther(option.id, index)" class="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-brand-950/30">
-                                                                                            <span class="min-w-0"><span class="block text-xs font-extrabold text-ink-900 dark:text-white" x-text="option.code"></span><span class="mt-0.5 block text-[11px] leading-4 text-ink-500" x-text="option.name"></span></span>
-                                                                                            <span class="shrink-0 rounded-lg bg-ink-100 px-2 py-1 text-[9px] font-bold text-ink-500 dark:bg-ink-800" x-text="option.unit"></span>
-                                                                                        </button>
-                                                                                    </template>
-                                                                                    <div x-show="filteredOptions(item.search, item.designator_id).length === 0" class="px-3 py-8 text-center"><p class="text-xs font-bold text-ink-500">Designator tidak ditemukan</p><p class="mt-1 text-[10px] text-ink-400">Coba gunakan kode atau kata kunci yang berbeda.</p></div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </template>
-                                                                    </div>
+                                                                    @include('data-boqs._designator-picker')
                                                                 </div>
                                                                 <label class="text-[10px] font-bold uppercase text-ink-400">
                                                                     Qty

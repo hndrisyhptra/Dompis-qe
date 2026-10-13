@@ -3,14 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Http\Requests\ResetBoqRequest;
 use App\Http\Requests\UpdateBoqRequest;
+use App\Http\Requests\UpdateReservationBoqRequest;
 use App\Models\Designator;
 use App\Models\Package;
 use App\Models\QeBoq;
 use App\Models\QeLop;
 use App\Services\BoqService;
 use App\Services\LopBoqValueService;
+use App\Services\LopService;
 use App\Services\LopVisibilityService;
+use App\Services\ReservationBoqService;
+use App\Support\MaterialReservationRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -40,6 +45,7 @@ class DataBoqController extends Controller
             ->with([
                 'package',
                 'materialReservation.items.designator.type',
+                'evidences:id_evidence,qe_lop_id,designator_id',
             ])
             ->whereDoesntHave('boq')
             ->whereHas('materialReservation.items');
@@ -52,8 +58,21 @@ class DataBoqController extends Controller
         }
 
         $reservationBoqs = $reservationQuery->latest()->paginate(15, ['*'], 'reservation_page')->withQueryString();
-        $reservationBoqs->getCollection()->each(function (QeLop $lop): void {
+        $canEditReservations = $request->user()->hasRole(...UserRole::adminLevel());
+        $reservationBoqs->getCollection()->each(function (QeLop $lop) use ($canEditReservations): void {
             $lop->setAttribute('effective_boq', $this->boqValues->summarize($lop));
+            $lop->setAttribute('reservation_version', ReservationBoqService::version($lop->materialReservation));
+            // Seluruh LOP sudah difilter scope pada query; jangan query policy per baris Blade.
+            $lop->setAttribute('reservation_editable', $canEditReservations && MaterialReservationRules::editable($lop));
+            $lop->setAttribute('reservation_editor_items', $lop->materialReservation->items->map(fn ($item) => [
+                'designator_id' => $item->designator_id,
+                'qty' => (int) $item->qty,
+                'qty_actual' => $item->qty_actual === null ? null : (float) $item->qty_actual,
+                'code' => $item->designator?->code,
+                'name' => $item->designator?->item_name,
+                'existing' => true,
+                'can_delete' => MaterialReservationRules::removable($item, $lop->evidences->contains('designator_id', $item->designator_id)),
+            ])->values());
         });
 
         return view('data-boqs.index', [
@@ -71,6 +90,20 @@ class DataBoqController extends Controller
         $this->boqService->save($boq->lop, $request->validated('items'), $package, $request->user());
 
         return back()->with('status', 'BOQ berhasil diperbarui dan reservasi draft telah disinkronkan.');
+    }
+
+    public function updateReservation(UpdateReservationBoqRequest $request, QeLop $qe_lop, ReservationBoqService $service): RedirectResponse
+    {
+        $service->update($qe_lop, $request->validated('items'), $request->validated('reservation_version'), $request->user());
+
+        return back()->with('status', 'BOQ aktual diperbarui. Item reservasi teknisi sudah disesuaikan tanpa mengubah rekap aktual atau BOQ Plan.');
+    }
+
+    public function reset(ResetBoqRequest $request, QeLop $qe_lop, LopService $service): RedirectResponse
+    {
+        $service->resetCompletedForBoq($qe_lop, $request->user());
+
+        return back()->with('status', 'LOP dibuka kembali ke Progress. BOQ dapat diedit; evidence dan rekap aktual tetap tersimpan. Nilai realisasi kembali dihitung setelah LOP Completed lagi.');
     }
 
     public function destroy(Request $request, QeBoq $boq): RedirectResponse

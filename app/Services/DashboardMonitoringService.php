@@ -214,6 +214,7 @@ class DashboardMonitoringService
             },
             default => match ($event->event_type) {
                 'created' => 'LOP dibuat', 'reassigned' => 'Reassign Teknisi', 'deleted' => 'LOP dihapus',
+                'reservation_updated' => 'Update BOQ Aktual / Reservasi',
                 'status_change', 'status_changed' => 'Status → '.(LopStatus::tryFrom((string) $event->status_key)?->label() ?? 'Diperbarui'),
                 default => 'Aktivitas LOP',
             },

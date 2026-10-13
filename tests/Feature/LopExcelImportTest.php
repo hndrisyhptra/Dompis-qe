@@ -134,7 +134,7 @@ class LopExcelImportTest extends TestCase
             'job_description' => '3DPR_QERELOK_SAU_TEST',
         ]);
 
-        $response->assertRedirect(route('lop.index'));
+        $response->assertRedirect(route('lop.import.form'));
 
         $lop = QeLop::where('nama_lop', '3DPR_QERELOK_SAU_TEST')->firstOrFail();
         $this->assertStringStartsWith('INP', $lop->incident);

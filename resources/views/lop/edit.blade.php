@@ -20,14 +20,14 @@
     $formAction = route('lop.update', $lop);
     $formMethod = 'PUT';
     $submitLabel = 'Simpan Perubahan';
-    $cancelUrl = route('lop.index');
+    $cancelUrl = $returnUrl;
 @endphp
 
 <div class="mx-auto max-w-5xl">
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <a href="{{ route('lop.index') }}" class="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-brand-600 dark:text-ink-400">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg> Kembali ke detail
+            <a href="{{ $returnUrl }}" class="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-brand-600 dark:text-ink-400">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg> Kembali ke halaman asal
             </a>
             <h1 class="text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Edit Data LOP</h1>
             <p class="mt-1.5 text-sm text-ink-500 dark:text-ink-400"><span class="font-semibold text-ink-700 dark:text-ink-200">{{ $lop->incident }}</span> · {{ $lop->nama_lop }}</p>

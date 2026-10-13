@@ -2,6 +2,7 @@
       x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }}, programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
       class="space-y-5">
     @csrf
+    @isset($returnUrl)<input type="hidden" name="return_url" value="{{ old('return_url', $returnUrl) }}">@endisset
     @if ($formMethod !== 'POST') @method($formMethod) @endif
 
     @if ($errors->any())

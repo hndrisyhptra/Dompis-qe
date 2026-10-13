@@ -19,7 +19,7 @@
 
 <div class="mx-auto max-w-7xl space-y-6">
     <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><a href="{{ route('evidence-approval.index') }}" class="text-xs font-bold text-ink-500 hover:text-brand-600">← Kembali ke daftar approval</a><p class="mt-4 text-xs font-extrabold uppercase tracking-[.16em] text-brand-600">{{ $lop->incident }}</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</h1><p class="mt-1 text-sm text-ink-500">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p></div>
+        <div><a href="{{ $returnUrl }}" class="text-xs font-bold text-ink-500 hover:text-brand-600">← Kembali ke halaman asal</a><p class="mt-4 text-xs font-extrabold uppercase tracking-[.16em] text-brand-600">{{ $lop->incident }}</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</h1><p class="mt-1 text-sm text-ink-500">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p></div>
         <div class="min-w-72 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900"><div class="flex items-center justify-between text-xs"><span class="font-bold text-ink-500">Progress Approval</span><strong class="text-lg text-ink-900 dark:text-white">{{ $approvalSummary['approval_percentage'] }}%</strong></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $approvalSummary['rejected'] ? 'bg-brand-600' : ($approvalSummary['approval_percentage'] === 100 ? 'bg-emerald-500' : 'bg-amber-400') }}" style="width: {{ $approvalSummary['approval_percentage'] }}%"></div></div><div class="mt-3 flex gap-1.5"><x-badge variant="warning">{{ $approvalSummary['pending'] }} pending</x-badge><x-badge variant="success">{{ $approvalSummary['approved'] }} approve</x-badge>@if($approvalSummary['rejected'])<x-badge variant="danger">{{ $approvalSummary['rejected'] }} reject</x-badge>@endif</div></div>
     </header>
 
@@ -45,7 +45,7 @@
                     $hasPending = $evidenceItems->contains(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING);
                     $complete = $number === 1 ? ($lop->materialReservation !== null && $lop->survey !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending);
                 @endphp
-                <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
+                <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
                     <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm {{ $currentStep === $number ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/20' : ($complete ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-ink-200 bg-white text-ink-400 dark:border-ink-700 dark:bg-ink-900') }}">{{ $complete && $currentStep !== $number ? '✓' : $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
                 </a>
             @endforeach
@@ -112,13 +112,13 @@
     @endphp
     <div class="flex flex-col gap-3 border-t border-ink-100 pt-5 dark:border-ink-800 sm:flex-row sm:items-center sm:justify-between">
         @if ($currentStep > 1)
-            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep - 1]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">← Step sebelumnya</a>
+            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep - 1, 'return_url' => $returnUrl]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">← Step sebelumnya</a>
         @else
             <span class="hidden sm:block"></span>
         @endif
 
         @if ($currentStep < $lastStep)
-            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep + 1]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Step berikutnya →</a>
+            <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $currentStep + 1, 'return_url' => $returnUrl]) }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-bold text-white">Step berikutnya →</a>
         @elseif ($isCompleted)
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <span class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-4 text-sm font-extrabold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
@@ -131,11 +131,11 @@
             </div>
         @elseif ($isRejected)
             <div class="flex flex-col items-end gap-1 text-right">
-                <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
+                <a href="{{ $returnUrl }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
                 <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Evidence ditolak, menunggu perbaikan teknisi.</p>
             </div>
         @elseif (! $awaitingApproval)
-            <a href="{{ route('evidence-approval.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
+            <a href="{{ $returnUrl }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 px-4 text-sm font-bold dark:border-ink-700">Kembali ke daftar</a>
         @elseif ($allApproved)
             <button type="button" onclick="document.getElementById('complete-review').showModal()" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.25 4.25L19 7"/></svg> Selesai Review
@@ -168,6 +168,7 @@
         </div>
         <form method="POST" action="{{ route('evidence-approval.lop.complete', $lop) }}" class="mt-5 flex gap-2">
             @csrf
+            <input type="hidden" name="return_url" value="{{ $returnUrl }}">
             <button type="button" onclick="document.getElementById('complete-review').close()" class="min-h-11 flex-1 rounded-xl border border-ink-200 text-sm font-bold dark:border-ink-700">Batal</button>
             <button class="min-h-11 flex-1 rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700">Ya, selesaikan</button>
         </form>

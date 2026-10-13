@@ -10,6 +10,7 @@ use App\Models\QeBoqHistory;
 use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\User;
+use App\Support\MaterialReservationRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -20,16 +21,9 @@ class BoqService
      */
     public function save(QeLop $lop, array $items, ?Package $package, User $actor, string $source = 'manual'): QeBoq
     {
-        if (! in_array($lop->status_lop, [
-            LopStatus::DRAFT,
-            LopStatus::ASSIGNED,
-            LopStatus::PICKED_UP,
-            LopStatus::SURVEY,
-            LopStatus::PROGRESS,
-            LopStatus::REJECTED,
-        ], true)) {
+        if (! MaterialReservationRules::editable($lop)) {
             throw ValidationException::withMessages([
-                'boq' => 'BOQ tidak dapat diubah ketika sudah menunggu approval atau selesai.',
+                'boq' => 'BOQ terkunci karena LOP Completed. Reset LOP terlebih dahulu.',
             ]);
         }
 
@@ -40,6 +34,10 @@ class BoqService
         }
 
         return DB::transaction(function () use ($lop, $normalized, $package, $actor, $source) {
+            $lop = QeLop::whereKey($lop->getKey())->lockForUpdate()->firstOrFail();
+            if (! MaterialReservationRules::editable($lop)) {
+                throw ValidationException::withMessages(['boq' => 'BOQ terkunci karena LOP Completed. Reset LOP terlebih dahulu.']);
+            }
             $boq = QeBoq::withTrashed()->firstOrNew(['qe_lop_id' => $lop->id_qe_lops]);
             $before = $boq->exists ? $this->snapshot($boq->load('items')) : null;
 
@@ -93,6 +91,12 @@ class BoqService
                 $this->snapshot($boq),
                 $source === 'import' ? 'BOQ diperbarui melalui import.' : 'BOQ diperbarui melalui Master Data.'
             );
+
+            $newMaterialIds = collect($normalized)->where('type', 'MATERIAL')->pluck('designator_id')
+                ->diff(collect($before['items'] ?? [])->pluck('designator_id'));
+            if ($lop->status_lop === LopStatus::WAITING_APPROVAL && $newMaterialIds->isNotEmpty()) {
+                app(LopService::class)->transitionStatus($lop, LopStatus::PROGRESS, $actor, 'BOQ mendapat material tambahan; teknisi perlu melengkapi evidence dan rekap aktual lalu mengajukan kembali.');
+            }
 
             return $boq->refresh()->load(['items.designator', 'package']);
         });
@@ -216,11 +220,7 @@ class BoqService
 
             if ($target !== null) {
                 $newQty = (int) round((float) $target->qty);
-                if ($reservationItem->qty_actual !== null && (float) $reservationItem->qty_actual > $newQty) {
-                    throw ValidationException::withMessages([
-                        'items' => "Qty {$target->designator_code} tidak boleh lebih kecil dari qty terpakai.",
-                    ]);
-                }
+                MaterialReservationRules::assertQuantity($reservationItem, $newQty);
 
                 $reservationItem->update(['qty' => $newQty]);
                 $targetItems->forget($designatorId);
@@ -233,12 +233,7 @@ class BoqService
                 continue;
             }
 
-            if ($reservationItem->qty_actual !== null || $evidenceDesignatorIds->contains($designatorId)) {
-                $code = $reservationItem->designator?->code ?? (string) $designatorId;
-                throw ValidationException::withMessages([
-                    'items' => "Item {$code} tidak dapat dihapus karena sudah memiliki evidence atau rekap pemakaian.",
-                ]);
-            }
+            MaterialReservationRules::assertRemovable($reservationItem, $evidenceDesignatorIds->contains($designatorId));
 
             $reservationItem->delete();
         }

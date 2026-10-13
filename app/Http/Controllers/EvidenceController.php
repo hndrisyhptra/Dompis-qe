@@ -6,6 +6,7 @@ use App\Http\Requests\StoreEvidenceRequest;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Services\EvidenceService;
+use App\Support\LopReturnDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -27,7 +28,7 @@ class EvidenceController extends Controller
         );
 
         return redirect()
-            ->route('lop.show', $qe_lop)
+            ->to(LopReturnDestination::resolve($request, route('lop.show', $qe_lop)))
             ->with('status', 'Evidence berhasil diupload.');
     }
 
@@ -38,7 +39,7 @@ class EvidenceController extends Controller
         $this->evidenceService->delete($evidence);
 
         return redirect()
-            ->route('lop.show', $qe_lop)
+            ->to(LopReturnDestination::resolve(request(), route('lop.show', $qe_lop)))
             ->with('status', 'Evidence berhasil dihapus.');
     }
 

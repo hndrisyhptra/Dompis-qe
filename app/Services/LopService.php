@@ -15,6 +15,8 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use App\Notifications\TechnicianActivityNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -268,6 +270,12 @@ class LopService
     ): QeLop {
         $current = $lop->status_lop;
 
+        if ($current === LopStatus::COMPLETED) {
+            Gate::forUser($actor)->authorize('resetBoq', $lop);
+        } elseif ($current === LopStatus::WAITING_APPROVAL && $target === LopStatus::PROGRESS) {
+            Gate::forUser($actor)->authorize('update', $lop);
+        }
+
         if (! $current->canTransitionTo($target)) {
             throw new InvalidArgumentException(
                 "Transisi status tidak valid: {$current->value} -> {$target->value}"
@@ -280,6 +288,30 @@ class LopService
             $this->recordHistory($lop, $current, $target, $actor, 'status_change', $note);
 
             return $lop->refresh();
+        });
+    }
+
+    public function recordReservationChange(QeLop $lop, User $actor, array $before, array $after): QeLopHistory
+    {
+        $history = $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, 'reservation_updated', 'Item BOQ aktual / reservasi diperbarui melalui Master Data.');
+        $history->update(['meta' => ['before' => $before, 'after' => $after]]);
+
+        return $history;
+    }
+
+    public function resetCompletedForBoq(QeLop $lop, User $actor): QeLop
+    {
+        return DB::transaction(function () use ($lop, $actor) {
+            $locked = QeLop::whereKey($lop->getKey())->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('update', $locked);
+            if ($locked->status_lop !== LopStatus::COMPLETED) {
+                throw ValidationException::withMessages(['boq' => 'LOP sudah tidak Completed. Muat ulang Data BOQ sebelum melanjutkan.']);
+            }
+
+            $this->transitionStatus($locked, LopStatus::PROGRESS, $actor, 'Reset Completed untuk koreksi BOQ; evidence dan rekap aktual tetap disimpan.');
+            $locked->materialReservation()->update(['status' => 'draft', 'submitted_at' => null]);
+
+            return $locked->refresh();
         });
     }
 

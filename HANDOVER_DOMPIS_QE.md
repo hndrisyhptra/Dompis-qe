@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **12 Oktober 2026**
+Terakhir diaudit: **13 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `87470d3` (`feat: new template bulk import LOP`)
+HEAD dasar saat audit terbaru: `0840dd1` (`fix: fixing 419 expired`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat audit login/logout berada di commit `87470d3`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat task kelola BOQ aktual berada di commit `0840dd1`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity kini masuk commit `87470d3`. Worktree bersih saat memulai task login/logout. Perubahan terbaru yang belum di-commit adalah guard form autentikasi, penanganan 419, serta regression test terkait; file Android tidak diubah pada task ini.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Worktree bersih saat memulai task BOQ aktual. Perubahan terbaru yang belum di-commit menambahkan edit reservasi oleh admin dari card BOQ Aktual, proteksi/audit, dan regression test; file Android/auth tidak diubah pada task ini.
 
 ### 2.3 Status migration lokal
 
@@ -179,6 +179,8 @@ Saat Waiting Approval, Completed, atau Rejected, seluruh lima tahap tetap dapat 
 - BOQ satu per LOP di `qe_boqs`, memiliki paket dan item snapshot di `qe_boq_items`.
 - BOQ dapat dibuat lewat import atau dikelola dari Master Data.
 - Item BOQ dapat dicari, ditambah, diedit, dan dihapus selama aturan status mengizinkan.
+- Card BOQ Aktual dari Reservasi Teknisi mempunyai tombol Edit BOQ Aktual per LOP. Admin sesuai scope/Super Admin dapat menambah material, menghapus item yang belum punya evidence/rekap, dan mengubah qty reservasi melalui modal dengan search designator dan konfirmasi. Qty actual tetap milik rekap teknisi; tidak membuat BOQ Plan palsu atau mengganti harga paket.
+- Waiting Approval boleh diedit oleh admin; jika menambah material baru, LOP kembali Progress agar evidence/rekap item baru dilengkapi dan diajukan ulang. Completed menampilkan ikon gembok ber-tooltip Terkunci serta tombol reset terkonfirmasi. Reset membuka status Progress tanpa menghapus evidence, keputusan review, penugasan, qty_actual, atau snapshot BOQ; nilai realisasi keluar sementara sampai LOP Completed lagi.
 - Saat assign, item material BOQ mengisi `qe_material_reservation_items.qty` sebagai kuantitas rencana.
 - Teknisi mengisi `qe_material_reservation_items.qty_actual` sebagai kuantitas realisasi; tidak ada tabel BOQ Plan terpisah.
 - Jika BOQ tidak ada, reservasi teknisi menjadi fallback Data BOQ dan perhitungan nilai sesuai aturan service.
@@ -293,6 +295,8 @@ Pemilihan paket reservasi otomatis:
 - `app/Services/BulkLopImportService.php`
 - `app/Services/BulkLopTemplateService.php`
 - `app/Services/BoqService.php`
+- `app/Services/ReservationBoqService.php`
+- `app/Support/MaterialReservationRules.php`
 - `app/Services/SpreadsheetReader.php`
 - `app/Services/ImportBatchService.php`
 - `app/Services/ImportRowWriter.php`
@@ -514,6 +518,28 @@ Pemilihan paket reservasi otomatis:
 - Audit konfigurasi lokal hanya membaca whitelist: session database, lifetime 120 menit, cookie dompis-qe-session, path /, domain null, HttpOnly true, SameSite lax, konfigurasi tidak dicache. Tidak menampilkan token/cookie value/credential, mengubah .env, menjalankan migration, menghapus session, atau login akun nyata. Status cookie HTTPS/proxy/cache/session storage server aaPanel belum diverifikasi; jika 419 masih muncul, minta environment, urutan kejadian, host/protokol, serta bukti aman tanpa password/cookie/token.
 - Setelah deploy: build asset baru dan clear/rebuild view/route/config cache sesuai prosedur. Jangan jalankan key:generate atau hapus seluruh session sebagai perbaikan default. Session/driver/lifetime existing dipertahankan. Scope, workflow, import, BOQ, dan Revenue tidak berubah.
 
+### 7.20 Edit BOQ Aktual dari Reservasi Teknisi — 12 Oktober 2026
+
+- Card fallback Data BOQ memakai qe_material_reservations/items, bukan qe_boqs. Aksi edit baru ditempatkan per LOP pada kolom Aksi, memakai modal responsive rounded-md, search di dropdown, tambah/hapus material, qty reservasi integer, qty aktual readonly, serta konfirmasi Ya/Tidak saat hapus dan simpan. Designator existing tetap terikat record; untuk mengganti item yang belum terpakai, hapus lalu tambah item baru. Minimal satu/maksimal 100 item, sama dengan reservasi teknisi.
+- PUT master-data/boqs/reservations/{qe_lop} melalui UpdateReservationBoqRequest dan ReservationBoqService. Role admin-level tetap dikunci middleware; policy update dan LopVisibilityService memeriksa scope di backend, termasuk Area/Region/Branch/multi-Service Area. SUPER_ADMIN dapat mengelola semua LOP. Index menggunakan scope query existing, eager-load ID evidence, dan menyiapkan payload di controller tanpa query policy per baris Blade.
+- Service memakai transaction dan lock LOP/reservasi/items. SHA-256 versi state reservasi mencegah simpan dari editor lama setelah qty/rekap/penugasan berubah. Current ID item dan qty_actual dipertahankan; qty tidak boleh lebih rendah dari pemakaian. Item dengan evidence aktif atau qty_actual terisi (termasuk 0) tidak boleh dihapus. Item baru harus master MATERIAL non-soft-deleted; JASA virtual Recovery tetap dihitung oleh service proyeksi existing, bukan dimasukkan ke reservasi.
+- Aturan awal mengunci Waiting Approval/Completed; aturan ini **direvisi pada 7.21**. LOP yang sudah mempunyai BOQ Plan tetap ditolak oleh jalur reservasi fallback dan harus memakai editor BOQ Plan existing. Status_project, harga/snapshot/paket BOQ, dan qty_actual tidak diubah. Reservasi kembali draft setelah perubahan; teknisi merekap actual item baru sebelum completion.
+- MaterialReservationRules menyatukan batas status, qty minimum pemakaian, dan proteksi hapus untuk jalur BOQ Plan serta BOQ Aktual. Partial picker designator digunakan bersama kedua editor. Opsi material-only/max item dan proteksi UI ditambahkan pada boqEditor tanpa mengubah perilaku pencarian/konfirmasi Plan existing.
+- LopService mencatat event reservation_updated (status sebelum/sesudah tetap sama) dengan actor dan snapshot before/after di qe_lop_histories.meta. Summary dashboard menamai event Update BOQ Aktual / Reservasi; tidak membuat qe_boqs/qe_boq_items atau histori BOQ Plan untuk reservasi fallback.
+- Audit schema MySQL lokal read-only: seluruh migration Ran, qty dan qty_actual decimal(15,3), unique (reservation_id,designator_id) tersedia. Tidak ada migration baru, import, penghapusan item nyata, atau write data operasional. Batas integer aplikasi dipertahankan tanpa mengubah schema.
+- Test baru ReservationBoqManagementTest mencakup tambah/hapus/edit qty tanpa kehilangan actual/ID, rollback item protected (actual 0/nonzero/evidence), konfirmasi/validasi/type/archive, stale version, scope semua level/role, status terkunci, guard BOQ Plan, histori, pasangan jasa Recovery, dan tampilan item baru di teknisi. Frontend boq-editor.test.mjs menambah 4 skenario material-only/search, konfirmasi/proteksi, batas/duplikasi, dan batal/open ulang. Full suite 286 tests/2113 assertions dan 19 test frontend lulus; build, Blade, Pint file task, dan diff check lulus. Browser dan konkurensi worker/teknisi nyata belum diuji.
+
+### 7.21 Edit Waiting Approval, reset Completed, dan navigasi asal — 13 Oktober 2026
+
+- MaterialReservationRules mengizinkan Waiting Approval untuk editor BOQ Plan dan BOQ Aktual. Completed tetap ditolak oleh kedua service walaupun request editor lama dikirim langsung. Card menampilkan tombol ikon gembok dengan tooltip Terkunci dan ikon Reset LOP untuk edit BOQ; modal mempunyai konfirmasi Ya, reset/Tidak, batal serta penjelasan dampak Revenue.
+- POST master-data/boqs/lops/{qe_lop}/reset memakai middleware admin-level, ResetBoqRequest (confirmed accepted), policy scope update/resetBoq, dan LopService::resetCompletedForBoq. Service mengunci record lalu melakukan transisi Completed -> Progress dan mencatat actor/note/status di histori. Reservasi kembali draft tanpa menghapus item atau qty_actual. Evidence, file, keputusan review, assignment aktif, paket, BOQ snapshot, dan status_project tetap utuh. Reset ulang dari halaman stale ditolak. Endpoint transisi umum tidak boleh membuka Completed tanpa aksi reset tersebut.
+- Penambahan designator MATERIAL saat Waiting Approval melalui editor Plan/Actual membuka Waiting Approval -> Progress melalui LopService, tanpa membuat reject palsu atau menghapus persetujuan foto lama. Teknisi perlu mengisi evidence dan qty_actual item baru kemudian submit ulang. Koreksi qty/harga tanpa material baru tidak otomatis mengubah status Waiting Approval. Proteksi hapus item dengan evidence/actual dan minimum qty pemakaian tetap berlaku.
+- Enum transisi diperbarui, dengan authorization khusus admin untuk kedua jalur buka ulang. Save BOQ Plan dan completeReview mengunci serta membaca ulang status LOP dalam transaction agar request lama tidak menimpa reset/penambahan material. SQLite regression memeriksa state stale, tetapi tidak menggantikan uji konkurensi MySQL.
+- Simpan LOP baru kembali ke form Input LOP Baru yang kosong, bukan Inbox/Approval Evidence. Import preview legacy kembali ke form import. Link Inbox/History lama milik Super Admin menuju Master Data LOP (History memakai status Completed), bukan Approval Evidence; menu Inbox Super Admin tetap tidak ditambahkan.
+- LopReturnDestination memvalidasi origin/URL dan whitelist halaman GET internal, menolak URL eksternal, action, halaman tidak dikenal, fragment, dan karakter kontrol. Edit LOP, assign/unassign, transisi, upload/hapus evidence legacy, dan selesai review mempertahankan halaman asal beserta filter. Link edit/assign membawa return_url; stepper review, tombol kembali, dan form selesai review meneruskannya sampai selesai. Masuk langsung dari menu Approval tetap kembali ke daftar Approval/filter asal. Tombol Review Evidence tetap berfungsi dan tidak dihapus.
+- Regression ReservationBoqManagementTest diperluas untuk Waiting Approval, lock/reset Completed, konfirmasi, scope semua level/role, preservasi actual/evidence/Plan/assignment, Revenue sebelum/sesudah reset dan completion, material tambahan, serta stale completion. LopReturnNavigationTest memverifikasi admin/Super Admin, form create, edit/query filters, assign/unassign, review lintas step, dan pencegahan open redirect. Assertion redirect legacy pada LoginTest/LopPermissionTest/LopExcelImportTest diperbarui sesuai perilaku baru.
+- Verifikasi: **295 tests / 2250 assertions** Laravel dan **19 frontend tests** lulus; Vite build, view:cache, Pint file implementasi, dan git diff --check lulus. Tidak ada migration/schema baru, write database operasional, reset LOP nyata, tes browser, commit/push, atau deployment pada sesi ini. Perubahan lokal sebelumnya dipertahankan. Test memakai SQLite memory; server produksi belum diverifikasi.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -547,8 +573,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-280 tests passed
-2029 assertions
+295 tests passed
+2250 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -561,6 +587,8 @@ Pemetaan test utama:
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
+- BOQ aktual dari reservasi: `ReservationBoqManagementTest`, `LopBoqProjectionTest`; frontend boq-editor.test.mjs (4 passed), seluruh frontend (19 passed).
+- Navigasi asal dan reset BOQ: `LopReturnNavigationTest`, `ReservationBoqManagementTest`, serta regression redirect pada `LoginTest`, `LopPermissionTest`, `LopExcelImportTest`.
 - Bulk LOP terbaru: `BulkLopLatestRulesTest`, `LopProgramRulesTest`; frontend `node --test tests/Frontend/lop-form.test.mjs` (5 passed).
 - Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
 - Revenue: `RevenueDashboardTest`.

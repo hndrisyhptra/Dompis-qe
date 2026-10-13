@@ -8,6 +8,7 @@ use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceService;
+use App\Support\LopReturnDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,7 +42,9 @@ class EvidenceApprovalController extends Controller
             ? max(1, min(5, $request->integer('step')))
             : $data['suggestedStep'];
 
-        return view('evidence-approval.lop-review', [...$data, 'currentStep' => $step]);
+        return view('evidence-approval.lop-review', [...$data, 'currentStep' => $step,
+            'returnUrl' => LopReturnDestination::resolve($request, route('evidence-approval.index')),
+        ]);
     }
 
     public function show(QeEvidence $evidence): View
@@ -111,7 +114,7 @@ class EvidenceApprovalController extends Controller
         $this->approvalService->completeReview($qe_lop, $request->user());
 
         return redirect()
-            ->route('evidence-approval.index')
+            ->to(LopReturnDestination::resolve($request, route('evidence-approval.index')))
             ->with('status', "Review {$qe_lop->incident} selesai — LOP ditandai Completed.");
     }
 }

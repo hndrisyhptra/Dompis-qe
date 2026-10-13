@@ -944,7 +944,7 @@ window.detailLaporanTab = (lopId, hasPlan = false) => ({
     },
 });
 
-window.boqEditor = (encodedItems, encodedOptions) => {
+window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
     const initialItems = JSON.parse(atob(encodedItems));
     const sharedOptions = encodedOptions
         || document.querySelector('[data-boq-options]')?.dataset.boqOptions
@@ -959,10 +959,11 @@ window.boqEditor = (encodedItems, encodedOptions) => {
         dropConfirm: false,
         pendingDropIndex: null,
         originalItems: initialItems,
+        maxItems: settings.maxItems ?? 300,
         items: withSearch(JSON.parse(JSON.stringify(initialItems))),
         // Daftar master designator disisipkan sekali per halaman, bukan sekali
         // untuk setiap baris BOQ. Ini menjaga HTML tetap kecil saat pagination penuh.
-        options: JSON.parse(atob(sharedOptions)),
+        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL'),
 
         openEdit() {
             this.items = withSearch(JSON.parse(JSON.stringify(this.originalItems)));
@@ -977,6 +978,7 @@ window.boqEditor = (encodedItems, encodedOptions) => {
         },
 
         add() {
+            if (this.items.length >= this.maxItems) return;
             this.items.forEach((item) => { item.open = false; });
             this.items.push({ designator_id: '', qty: 1, unit_price: 0, search: '', open: true });
         },
@@ -1046,13 +1048,13 @@ window.boqEditor = (encodedItems, encodedOptions) => {
         },
 
         requestDrop(index) {
-            if (this.items.length <= 1) return;
+            if (this.items.length <= 1 || this.items[index]?.can_delete === false) return;
             this.pendingDropIndex = index;
             this.dropConfirm = true;
         },
 
         confirmDrop() {
-            if (this.pendingDropIndex !== null && this.items.length > 1) {
+            if (this.pendingDropIndex !== null && this.items.length > 1 && this.items[this.pendingDropIndex]?.can_delete !== false) {
                 this.items.splice(this.pendingDropIndex, 1);
             }
             this.pendingDropIndex = null;

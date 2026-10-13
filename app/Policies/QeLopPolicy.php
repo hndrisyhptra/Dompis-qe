@@ -122,8 +122,18 @@ class QeLopPolicy
         return false;
     }
 
+    public function resetBoq(User $user, QeLop $lop): bool
+    {
+        return $this->update($user, $lop) && $lop->status_lop->value === 'completed';
+    }
+
     public function transitionStatus(User $user, QeLop $lop): bool
     {
+        // LOP selesai hanya dibuka lewat aksi reset dengan konfirmasi.
+        if ($lop->status_lop->value === 'completed') {
+            return false;
+        }
+
         if ($user->hasRole(UserRole::SUPER_ADMIN)) {
             return true;
         }

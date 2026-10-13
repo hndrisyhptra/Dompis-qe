@@ -13,6 +13,7 @@ use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class EvidenceApprovalService
@@ -30,27 +31,30 @@ class EvidenceApprovalService
      */
     public function completeReview(QeLop $lop, User $actor): void
     {
-        if ($lop->status_lop !== LopStatus::WAITING_APPROVAL) {
-            throw ValidationException::withMessages([
-                'review' => 'LOP tidak sedang menunggu approval sehingga review tidak dapat diselesaikan.',
-            ]);
-        }
+        DB::transaction(function () use ($lop, $actor): void {
+            $lop = QeLop::whereKey($lop->getKey())->lockForUpdate()->firstOrFail();
+            if ($lop->status_lop !== LopStatus::WAITING_APPROVAL) {
+                throw ValidationException::withMessages([
+                    'review' => 'LOP tidak sedang menunggu approval sehingga review tidak dapat diselesaikan.',
+                ]);
+            }
 
-        $lop->loadMissing('evidences');
-        $summary = $this->summary($lop);
+            $lop->loadMissing('evidences');
+            $summary = $this->summary($lop);
 
-        if ($summary['total'] === 0 || $summary['approved'] !== $summary['total']) {
-            throw ValidationException::withMessages([
-                'review' => 'Review belum bisa diselesaikan. Semua evidence harus berstatus disetujui — jika ada yang ditolak, tunggu teknisi memperbaikinya lalu review ulang.',
-            ]);
-        }
+            if ($summary['total'] === 0 || $summary['approved'] !== $summary['total']) {
+                throw ValidationException::withMessages([
+                    'review' => 'Review belum bisa diselesaikan. Semua evidence harus berstatus disetujui — jika ada yang ditolak, tunggu teknisi memperbaikinya lalu review ulang.',
+                ]);
+            }
 
-        $this->lopService->transitionStatus(
-            $lop,
-            LopStatus::COMPLETED,
-            $actor,
-            'Review evidence selesai — seluruh evidence disetujui.',
-        );
+            $this->lopService->transitionStatus(
+                $lop,
+                LopStatus::COMPLETED,
+                $actor,
+                'Review evidence selesai — seluruh evidence disetujui.',
+            );
+        });
     }
 
     public function indexData(User $user, array $filters): array

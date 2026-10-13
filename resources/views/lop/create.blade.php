@@ -18,7 +18,7 @@
     $formAction = route('lop.store');
     $formMethod = 'POST';
     $submitLabel = 'Simpan LOP';
-    $cancelUrl = route('lop.index');
+    $cancelUrl = route('data-lops.index');
 @endphp
 
 <div class="mx-auto max-w-6xl">

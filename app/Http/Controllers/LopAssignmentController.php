@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\AssignLopRequest;
 use App\Models\QeLop;
 use App\Models\User;
 use App\Services\LopService;
+use App\Support\LopReturnDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -23,13 +25,16 @@ class LopAssignmentController extends Controller
         $flash = "Teknisi {$technician->name} berhasil ditugaskan.";
 
         if (str_starts_with($returnTo, 'program:')) {
-            return redirect()->route('program.show', substr($returnTo, strlen('program:')))->with('status', $flash);
+            return redirect()->to(LopReturnDestination::resolve($request, route('program.show', substr($returnTo, strlen('program:')))))->with('status', $flash);
         }
 
         $route = $returnTo === 'index' ? 'lop.index' : 'lop.show';
+        if ($request->user()->hasRole(UserRole::SUPER_ADMIN)) {
+            $route = 'data-lops.index';
+        }
 
         return redirect()
-            ->route($route, $route === 'lop.show' ? $qe_lop : [])
+            ->to(LopReturnDestination::resolve($request, route($route, $route === 'lop.show' ? $qe_lop : [])))
             ->with('status', $flash);
     }
 
@@ -41,7 +46,7 @@ class LopAssignmentController extends Controller
         $this->lopService->unassign($qe_lop, $request->user());
 
         return redirect()
-            ->route('lop.index')
+            ->to(LopReturnDestination::resolve($request, route($request->user()->hasRole(UserRole::SUPER_ADMIN) ? 'data-lops.index' : 'lop.index')))
             ->with('status', "Assignment {$technicianName} berhasil dibatalkan.");
     }
 }

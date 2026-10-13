@@ -25,6 +25,7 @@ use App\Services\LopVisibilityService;
 use App\Services\ManualIncidentService;
 use App\Services\ProjectProgressService;
 use App\Services\TicketLookupService;
+use App\Support\LopReturnDestination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class LopController extends Controller
         }
 
         if ($request->user()->hasRole(UserRole::SUPER_ADMIN)) {
-            return redirect()->route('evidence-approval.index');
+            return redirect()->route('data-lops.index');
         }
 
         $this->authorize('viewAny', QeLop::class);
@@ -146,7 +147,7 @@ class LopController extends Controller
         }
 
         if ($request->user()->hasRole(UserRole::SUPER_ADMIN)) {
-            return redirect()->route('evidence-approval.index');
+            return redirect()->route('data-lops.index', ['status' => LopStatus::COMPLETED->value]);
         }
 
         $this->authorize('viewAny', QeLop::class);
@@ -315,7 +316,7 @@ class LopController extends Controller
         $lop = $this->lopService->create($request->validated(), $request->user());
 
         return redirect()
-            ->route('lop.index')
+            ->route('lop.create')
             ->with('status', 'LOP berhasil dibuat.');
     }
 
@@ -327,11 +328,9 @@ class LopController extends Controller
 
         $this->authorize('view', $qe_lop);
 
-        if (request()->user()->hasRole(UserRole::SUPER_ADMIN)) {
-            return redirect()->route('evidence-approval.index');
-        }
+        $fallback = route(request()->user()->hasRole(UserRole::SUPER_ADMIN) ? 'data-lops.index' : 'lop.index');
 
-        return redirect()->route('lop.index');
+        return redirect()->to(LopReturnDestination::resolve(request(), $fallback));
     }
 
     public function edit(QeLop $qe_lop): View
@@ -340,6 +339,7 @@ class LopController extends Controller
 
         return view('lop.edit', [
             'lop' => $qe_lop,
+            'returnUrl' => LopReturnDestination::resolve(request(), route(request()->user()->hasRole(UserRole::SUPER_ADMIN) ? 'data-lops.index' : 'lop.index')),
             ...$this->locationFormOptions(request()->user()),
             ...$this->formOptions(),
         ]);
@@ -353,7 +353,7 @@ class LopController extends Controller
         $target = $qe_lop->status_lop === LopStatus::COMPLETED ? 'lop.history' : 'lop.index';
 
         return redirect()
-            ->route($target)
+            ->to(LopReturnDestination::resolve($request, route($request->user()->hasRole(UserRole::SUPER_ADMIN) ? 'data-lops.index' : $target)))
             ->with('status', 'LOP berhasil diperbarui.');
     }
 
@@ -374,7 +374,7 @@ class LopController extends Controller
         );
 
         return redirect()
-            ->route('lop.index')
+            ->to(LopReturnDestination::resolve($request, route($request->user()->hasRole(UserRole::SUPER_ADMIN) ? 'data-lops.index' : 'lop.index')))
             ->with('status', "Status LOP diubah ke {$target->label()}.");
     }
 

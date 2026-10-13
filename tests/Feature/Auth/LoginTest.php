@@ -145,7 +145,7 @@ class LoginTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->get(route('lop.index'))
-            ->assertRedirect(route('evidence-approval.index'));
+            ->assertRedirect(route('data-lops.index'));
 
         $this->get(route('evidence-approval.index'))
             ->assertOk()

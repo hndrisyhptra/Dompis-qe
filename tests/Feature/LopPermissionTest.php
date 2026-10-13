@@ -187,7 +187,7 @@ class LopPermissionTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->get(route('lop.index'))
-            ->assertRedirect(route('evidence-approval.index'));
+            ->assertRedirect(route('data-lops.index'));
     }
 
     public function test_assign_from_inbox_redirects_back_to_inbox(): void

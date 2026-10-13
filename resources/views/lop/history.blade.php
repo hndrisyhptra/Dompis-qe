@@ -44,7 +44,7 @@
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
                             </x-table-action>
                             @can('update', $lop)
-                                <x-table-action label="Edit LOP" tone="primary" :href="route('lop.edit', $lop)">
+                                <x-table-action label="Edit LOP" tone="primary" :href="route('lop.edit', [$lop, 'return_url' => request()->fullUrl()])">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 16.5V12a2.25 2.25 0 0 0-2.25-2.25h-6A2.25 2.25 0 0 0 6 12v4.5A2.25 2.25 0 0 0 8.25 18.75h6A2.25 2.25 0 0 0 16.5 16.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 9V7.5A1.5 1.5 0 0 0 10.5 6h-3A1.5 1.5 0 0 0 6 7.5V9"/><path stroke-linecap="round" stroke-linejoin="round" d="m12 12.75 1.5 1.5 3-3"/></svg>
                                 </x-table-action>
                             @endcan

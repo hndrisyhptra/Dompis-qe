@@ -196,7 +196,7 @@ class LopImportController extends Controller
         session()->forget(self::SESSION_KEY);
 
         return redirect()
-            ->route('lop.index')
+            ->route('lop.import.form')
             ->with('status', "LOP {$lop->incident} berhasil diimpor ({$materialCount} material + {$jasaCount} jasa).");
     }
 }
