@@ -131,6 +131,31 @@ test('endpoint atau redirect beda origin dan respons tidak lengkap ditolak tanpa
     assert.equal(incomplete.feedback.hidden, false);
 });
 
+test('tombol batal konfirmasi ikut dikunci selama logout dan pulih saat koneksi gagal', async () => {
+    let release;
+    const app = setup({ mode: 'logout', userId: '7', request: () => new Promise((_, reject) => { release = reject; }) });
+    const cancel = { disabled: false };
+    const alreadyDisabled = { disabled: true };
+    app.form.querySelectorAll = selector => {
+        assert.match(selector, /data-auth-session-cancel/);
+        return [app.button, cancel, alreadyDisabled];
+    };
+    const submitting = app.submit();
+    assert.equal(cancel.disabled, true);
+    assert.equal(app.button.disabled, true);
+    assert.equal(app.form.attributes['aria-busy'], 'true');
+    await app.submit();
+    assert.equal(app.requests.length, 1);
+    release(new Error('offline'));
+    await submitting;
+    assert.equal(cancel.disabled, false);
+    assert.equal(app.button.disabled, false);
+    assert.equal(alreadyDisabled.disabled, true);
+    assert.equal(app.form.attributes['aria-busy'], undefined);
+    assert.equal(app.feedback.hidden, false);
+    assert.equal(app.submits.length, 0);
+});
+
 test('klik ganda saat pemeriksaan masih berjalan hanya menimbulkan satu request', async () => {
     let release;
     const wait = new Promise(resolve => { release = resolve; });

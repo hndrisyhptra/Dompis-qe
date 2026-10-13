@@ -20,6 +20,7 @@ use App\Http\Controllers\LopController;
 use App\Http\Controllers\LopImportController;
 use App\Http\Controllers\LopNameFormatController;
 use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\MyApprovalController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\RegionController;
@@ -121,6 +122,7 @@ Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
 Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/', [LopController::class, 'index'])->name('index');
     Route::get('/history', [LopController::class, 'history'])->name('history');
+    Route::get('/my-approvals', [MyApprovalController::class, 'index'])->middleware('role:ADMIN')->name('my-approvals');
     Route::get('/create', [LopController::class, 'create'])->name('create');
     Route::get('/ticket-lookup', [LopController::class, 'ticketLookup'])->name('ticket-lookup');
     Route::get('/manual-incident', [LopController::class, 'manualIncident'])->name('manual-incident');

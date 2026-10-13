@@ -3,7 +3,7 @@
 Terakhir diaudit: **13 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `0840dd1` (`fix: fixing 419 expired`)
+HEAD dasar saat audit terbaru: `1845c0f` (`feat: Edit BOQ Reservasi`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat task kelola BOQ aktual berada di commit `0840dd1`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat task Approval Saya berada di commit `1845c0f`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Worktree bersih saat memulai task BOQ aktual. Perubahan terbaru yang belum di-commit menambahkan edit reservasi oleh admin dari card BOQ Aktual, proteksi/audit, dan regression test; file Android/auth tidak diubah pada task ini.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Worktree bersih saat memulai task Approval Saya. Perubahan terbaru yang belum di-commit menambahkan monitoring per assigner admin, popup pengingat sekali setelah login, dan penempatan Inbox di bawah Revenue Overview; tidak mengubah BOQ, import, atau source Android.
 
 ### 2.3 Status migration lokal
 
@@ -225,6 +225,7 @@ Pemilihan paket reservasi otomatis:
 - Approval dikelompokkan per LOP, step, evidence group, dan item designator.
 - Reviewer dapat approve, reject, reset, dan bulk approve per accordion/group.
 - LOP selesai hanya bila semua evidence workflow yang dapat direview sudah approved.
+- Inbox Approval Saya memonitor LOP dengan assignment aktif oleh admin login, diiriskan dengan scope lokasi dan permission approve_evidence. Popup login sekali per login menampilkan pending serta LOP Waiting Approval yang seluruh evidence sudah approved namun belum Completed; tanpa polling/notifikasi terjadwal. Menu Approval Evidence umum tetap memuat seluruh scope admin, bukan hanya assignment miliknya.
 - Admin Area/Region/Branch dapat mereview seluruh evidence dalam scope lokasi. Admin Service Area tetap dibatasi scope service area, bukan hanya pembuat LOP.
 
 ### 4.8 Dashboard, program, dan Revenue Overview
@@ -282,11 +283,15 @@ Pemilihan paket reservasi otomatis:
 - `app/Models/QeEvidence.php`
 - `app/Services/EvidenceService.php`
 - `app/Services/EvidenceApprovalService.php`
+- `app/Services/MyApprovalService.php`
 - `app/Http/Controllers/EvidenceController.php`
 - `app/Http/Controllers/EvidenceApprovalController.php`
+- `app/Http/Controllers/MyApprovalController.php`
 - `app/Policies/EvidencePolicy.php`
 - `resources/views/evidence-approval/index.blade.php`
 - `resources/views/evidence-approval/lop-review.blade.php`
+- `resources/views/my-approvals/index.blade.php`
+- `resources/views/my-approvals/_login-reminder.blade.php`
 - `resources/views/components/approval-evidence-group.blade.php`
 
 ### 5.4 BOQ, import, dan queue
@@ -540,6 +545,26 @@ Pemilihan paket reservasi otomatis:
 - Regression ReservationBoqManagementTest diperluas untuk Waiting Approval, lock/reset Completed, konfirmasi, scope semua level/role, preservasi actual/evidence/Plan/assignment, Revenue sebelum/sesudah reset dan completion, material tambahan, serta stale completion. LopReturnNavigationTest memverifikasi admin/Super Admin, form create, edit/query filters, assign/unassign, review lintas step, dan pencegahan open redirect. Assertion redirect legacy pada LoginTest/LopPermissionTest/LopExcelImportTest diperbarui sesuai perilaku baru.
 - Verifikasi: **295 tests / 2250 assertions** Laravel dan **19 frontend tests** lulus; Vite build, view:cache, Pint file implementasi, dan git diff --check lulus. Tidak ada migration/schema baru, write database operasional, reset LOP nyata, tes browser, commit/push, atau deployment pada sesi ini. Perubahan lokal sebelumnya dipertahankan. Test memakai SQLite memory; server produksi belum diverifikasi.
 
+### 7.22 Reminder login admin dan Inbox Approval Saya — 13 Oktober 2026
+
+- Menu Inbox dipindahkan tepat setelah Revenue Overview. Approval Saya berada di dalam Inbox, khusus ADMIN dengan permission approve_evidence; SUPER_ADMIN tetap tanpa Inbox sesuai aturan sebelumnya. Menu Approval Evidence umum, scope review, lifecycle, BOQ, dan Revenue tidak dipersempit atau diubah.
+- GET lop/my-approvals memakai middleware auth/role ADMIN dan Gate view-my-approvals. MyApprovalService memilih activeAssignment.assigned_by = ID admin login lalu menerapkan LopVisibilityService. Creator LOP bukan penentu. Assignment replaced, dibatalkan, LOP arsip, scope luar, dan LOP aktif yang di-reassign oleh admin lain tidak masuk; completed dengan assignment aktif tetap tersedia untuk monitoring.
+- Halaman rounded-md menyediakan lima KPI, tab Perlu tindakan/Pending/Siap diselesaikan/Perbaikan/Completed/Belum ada evidence/Semua, pencarian Incident/nama/teknisi/Branch/STO, filter empat program/status LOP, pagination 15 LOP, hitungan pending/approved/rejected, persentase approval/review, identitas teknisi/waktu assignment, dan tombol Review langsung per LOP. KPI merangkum seluruh penugasan admin, sedangkan tabel mengikuti filter.
+- Perlu tindakan = LOP non-Completed dengan evidence pending, atau Waiting Approval dengan minimal satu evidence reviewable dan seluruhnya approved. Rejected-only menunggu teknisi dan tidak memicu reminder. Pending pada Completed yang inkonsisten tidak menjadi antrean kerja. Request_letter dan evidence soft-deleted dikecualikan dari seluruh hitungan. Waktu pending memakai updated_at evidence pending (termasuk upload ulang/reset); aktivitas terakhir memakai updated_at evidence reviewable. Bukan rekonstruksi histori approval lengkap.
+- Login sukses admin menyimpan approval_reminder_user_id dalam session. View composer layouts.app mengonsumsinya sekali, memvalidasi identitas/role/permission lagi, lalu membaca data scoped terbaru. Popup native dialog + Alpine menampilkan jumlah pending/LOP siap selesai, prioritas pending terlama, Buka Approval Saya, Review LOP, dan Nanti/tutup. Refresh/navigasi tidak mengulang popup; login berikutnya mengecek ulang. Halaman intended yang memakai layout admin tetap mendapatkan reminder, bukan harus Dashboard. Session mismatch/role lain/no actionable work tidak menampilkan data. Logout/rotasi session/CSRF existing dipertahankan.
+- EvidenceApprovalService.withSummaryCounts/onlyReviewable dipakai bersama menu umum dan service baru. summary tidak melakukan lazy query seluruh foto jika empat agregat tersedia. Query agregat/count dan eager loading dibatasi ke metadata/15 LOP; tidak memuat foto ke tabel atau melakukan query dalam loop Blade. Index assigned_by/status/lop dan evidence lop/status sudah disediakan migration runtime existing; tidak menambah migration.
+- Link review meneruskan return_url ke Approval Saya dengan filter. LopReturnDestination mengizinkan route baru melalui whitelist internal; selesai review/kembali tidak mengalihkan ke daftar Approval umum secara paksa. Siap diselesaikan dan Completed membuka Step 5; pending memakai suggestedStep existing. Review/approve/reject tetap melalui policy dan endpoint existing, tidak auto-approve dari popup.
+- MyApprovalTest mencakup ownership vs creator, histori/reassignment/cancel/archive, empat scope/multi-STO/akun tanpa scope, permission/non-admin/Super Admin, exclusion dokumen/soft-delete/Completed, KPI/progres, filter/pagination/return setelah completion, urutan menu, popup once-per-login/intended page/no work/account mismatch/failed login. **301 tests / 2359 assertions** Laravel dan **19 frontend tests** lulus; build Vite, view:cache, Pint file task, route registration, serta diff check lulus. Tidak menjalankan migration, login/import/review akun nyata, queue restart, commit/push, atau deployment. Popup/browser/device dan MySQL produksi belum diverifikasi.
+
+### 7.23 Badge Approval Saya dan konfirmasi logout putih — 13 Oktober 2026
+
+- Menu Approval Saya menampilkan badge blok merah dengan angka jumlah LOP non-Completed yang mempunyai evidence pending (bukan jumlah foto), termasuk 0 bila antrean kosong. Counter mengikuti assigner aktif, scope lokasi, permission, dan exclusion Request Letter/soft-delete existing. LOP seluruh evidence approved namun masih menunggu penyelesaian tidak masuk badge pending; tetap ada pada tab Siap Diselesaikan/reminder.
+- MyApprovalService.pendingLopCount memakai COUNT LOP + EXISTS evidence untuk satu aggregate ringan tanpa mengambil seluruh foto. Composer layout memakai stats halaman Approval Saya jika tersedia, atau query count pada halaman admin lain; tidak menghitung ulang seluruh KPI untuk badge. Counter diperbarui ketika halaman/navigasi/redirect setelah review dimuat, tanpa polling/cache lintas akun.
+- Komponen logout-confirmation digunakan topbar layout app dan halaman Profile Teknisi. Klik Logout hanya membuka dialog putih rounded-md dengan identitas akun, teks pastikan pekerjaan disimpan, Batal (autofocus), serta Ya, Logout. Pemicu/Batal/tutup memakai type button; hanya Ya memakai submit POST asli dengan token dan atribut session guard existing. Popup tetap putih dengan teks gelap pada dark mode sesuai permintaan user.
+- Session guard hanya diperluas agar tombol data-auth-session-cancel ikut disabled selama pemeriksaan session, lalu pulih bila jaringan gagal. Escape/backdrop diblokir selama aria-busy; loading/error terlihat di dialog. Refresh token same-origin, pencegahan klik ganda, proteksi logout akun lain dari tab lama, dan larangan replay form pekerjaan tidak diubah. Tidak menambah endpoint atau pengecualian CSRF.
+- Regression badge memastikan 2 foto pending pada satu LOP dihitung 1, angka turun setelah approve terakhir, dokumen/Completed/assignment replaced/admin lain tidak masuk, dan Super Admin tanpa badge. LogoutConfirmationTest memeriksa struktur DOM kelima role, desain putih, non-submit pemicu/Batal, identitas/token/URL form, serta satu tombol POST. Frontend guard menambah skenario disable/restore tombol batal ketika koneksi gagal.
+- Verifikasi terakhir: **303 tests / 2492 assertions** Laravel, **20 frontend tests**, build Vite, view:cache, Pint file PHP task, dan diff check lulus. Tidak ada migration, write data operasional, logout akun nyata, commit/push, atau deployment. Render interaktif browser/device belum diuji; perubahan task sebelumnya tetap dipertahankan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -573,8 +598,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-295 tests passed
-2250 assertions
+303 tests passed
+2492 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -582,13 +607,14 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
-- Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression); frontend auth-session.test.mjs (10 passed), seluruh frontend (15 passed).
+- Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
 - Scope admin/project status: `AdminScopeAndProjectStatusTest`.
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
 - BOQ aktual dari reservasi: `ReservationBoqManagementTest`, `LopBoqProjectionTest`; frontend boq-editor.test.mjs (4 passed), seluruh frontend (19 passed).
 - Navigasi asal dan reset BOQ: `LopReturnNavigationTest`, `ReservationBoqManagementTest`, serta regression redirect pada `LoginTest`, `LopPermissionTest`, `LopExcelImportTest`.
+- Inbox Approval Saya/reminder login/badge: `MyApprovalTest` (7 tests), dengan full suite auth/session/scope/evidence tetap lulus.
 - Bulk LOP terbaru: `BulkLopLatestRulesTest`, `LopProgramRulesTest`; frontend `node --test tests/Frontend/lop-form.test.mjs` (5 passed).
 - Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
 - Revenue: `RevenueDashboardTest`.

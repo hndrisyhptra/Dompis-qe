@@ -41,6 +41,10 @@ class AuthenticatedSessionController extends Controller
         // sebelum-login (anonymous) tidak bisa dipakai lagi - mencegah
         // session fixation. Pola sama seperti dompis-cons.
         $request->session()->regenerate();
+        $request->session()->forget('approval_reminder_user_id');
+        if ($request->user()->can('view-my-approvals')) {
+            $request->session()->put('approval_reminder_user_id', $request->user()->getKey());
+        }
 
         $request->user()->forceFill([
             'last_login_at' => now(),

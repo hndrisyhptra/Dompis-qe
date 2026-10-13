@@ -1,0 +1,18 @@
+@if ($loginApprovalReminder)
+    @php
+        $reminderStats = $loginApprovalReminder['stats'];
+        $priorityLop = $loginApprovalReminder['priority'];
+        $monitorUrl = route('lop.my-approvals');
+    @endphp
+    <dialog id="admin-approval-reminder" aria-labelledby="approval-reminder-title" aria-describedby="approval-reminder-description" x-data="{}" x-init="$nextTick(() => $el.showModal())" @click.self="$el.close()" class="fixed inset-0 m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-md border border-ink-200 bg-white p-0 shadow-2xl backdrop:bg-ink-950/60 dark:border-ink-700 dark:bg-ink-900">
+        <div class="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4 dark:border-ink-800"><div><p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-black-600">Inbox Approval</p><h2 id="approval-reminder-title" class="mt-1 text-lg font-extrabold text-ink-900 dark:text-white">Eviden menunggu review Anda</h2></div><button type="button" @click="$el.closest('dialog').close()" aria-label="Tutup pengingat approval" title="Tutup pengingat" class="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-ink-200 text-lg text-ink-500 dark:border-ink-700">×</button></div>
+        <div class="space-y-4 p-5">
+            <p id="approval-reminder-description" class="text-sm leading-6 text-ink-500 dark:text-ink-400">Hanya menampilkan project dan LOP yang di-assign kepada Anda.</p>
+            <div class="grid grid-cols-2 gap-3"><div class="rounded-md border border-ink-200 bg-gray-50 p-3 dark:border-ink-900 dark:bg-white-950/30"><p class="text-[10px] font-bold uppercase text-ink-700 dark:text-ink-300">Evidence pending</p><p class="mt-1 text-2xl font-extrabold text-ink-700 dark:text-ink-300">{{ number_format($reminderStats['pending_evidences'], 0, ',', '.') }}</p><p class="mt-1 text-[11px] text-ink-700 dark:text-ink-300">Pada {{ $reminderStats['pending_lops'] }} LOP</p></div><div class="rounded-md border border-ink-200 bg-gray-50 p-3 dark:border-ink-900 dark:bg-white-950/30"><p class="text-[10px] font-bold uppercase text-ink-700 dark:text-ink-300">Siap diselesaikan</p><p class="mt-1 text-2xl font-extrabold text-ink-700 dark:text-ink-300">{{ $reminderStats['ready_lops'] }} LOP</p><p class="mt-1 text-[11px] text-ink-700 dark:text-ink-300">Semua evidence approved</p></div></div>
+            @if ($priorityLop)
+                <div class="rounded-md border border-ink-200 p-3 dark:border-ink-700"><p class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Prioritas review</p><p class="mt-1 text-xs font-extrabold">{{ $priorityLop->incident }}</p><p class="mt-1 text-xs leading-5 text-ink-500">{{ $priorityLop->nama_lop }}</p><a href="{{ route('evidence-approval.lop.review', ['qe_lop' => $priorityLop, 'return_url' => $monitorUrl, ...((int) $priorityLop->pending_evidences_count === 0 ? ['step' => 5] : [])]) }}" class="mt-2 inline-flex text-xs font-bold text-brand-600 hover:text-brand-700">Review LOP ini →</a></div>
+            @endif
+            <div class="flex flex-col-reverse gap-2 border-t border-ink-100 pt-4 dark:border-ink-800 sm:flex-row sm:justify-end"><button type="button" @click="$el.closest('dialog').close()" class="min-h-10 rounded-md border border-ink-200 px-4 text-xs font-bold text-ink-600 dark:border-ink-700 dark:text-ink-300">Nanti</button><a href="{{ $monitorUrl }}" autofocus class="inline-flex min-h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-xs font-bold text-white hover:bg-brand-700">Buka Approval Saya</a></div>
+        </div>
+    </dialog>
+@endif

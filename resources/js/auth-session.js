@@ -27,7 +27,7 @@ export function installAuthSessionGuard({
 
         const feedback = form.querySelector('[data-auth-session-error]');
         if (feedback) { feedback.hidden = true; feedback.textContent = ''; }
-        const buttons = Array.from(form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]'));
+        const buttons = Array.from(form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"], [data-auth-session-cancel]'));
         const states = buttons.map(button => button.disabled);
         buttons.forEach(button => { button.disabled = true; });
         form.setAttribute('aria-busy', 'true');

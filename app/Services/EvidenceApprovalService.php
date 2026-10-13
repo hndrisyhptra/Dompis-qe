@@ -80,6 +80,7 @@ class EvidenceApprovalService
         $scoped = $this->scopedLops($user);
         $stats = $this->stats(clone $scoped);
         $query = clone $scoped;
+        $this->withSummaryCounts($query);
 
         $query->with(['activeAssignment.technician', 'activeAssignment.assigner'])
             ->with(['evidences' => function ($query) use ($evidenceFilter): void {
@@ -87,10 +88,6 @@ class EvidenceApprovalService
                 $query->with(['designator', 'uploader', 'reviewer'])->latest();
             }])
             ->withCount([
-                'evidences' => fn ($query) => $this->onlyReviewable($query),
-                'evidences as pending_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::PENDING),
-                'evidences as approved_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::APPROVED),
-                'evidences as rejected_evidences_count' => fn ($query) => $this->onlyReviewable($query)->where('status', EvidenceStatus::REJECTED),
                 // Evidence yang sudah pernah ditolak lalu diunggah ulang teknisi
                 // (jalur replace menaruh metadata.replaced_at) & kini menunggu review.
                 'evidences as reuploaded_pending_count' => fn ($query) => $this->onlyReviewable($query)
@@ -173,7 +170,8 @@ class EvidenceApprovalService
 
     public function summary(QeLop $lop): array
     {
-        $evidences = $lop->evidences->reject(
+        $hasCounts = isset($lop->evidences_count, $lop->pending_evidences_count, $lop->approved_evidences_count, $lop->rejected_evidences_count);
+        $evidences = $hasCounts ? collect() : $lop->evidences->reject(
             fn ($evidence) => $evidence->category === EvidenceCategory::REQUEST_LETTER
         );
         $total = isset($lop->evidences_count) ? (int) $lop->evidences_count : $evidences->count();
@@ -256,7 +254,17 @@ class EvidenceApprovalService
         }
     }
 
-    private function onlyReviewable($query)
+    public function withSummaryCounts(Builder $query): Builder
+    {
+        return $query->withCount([
+            'evidences' => fn ($q) => $this->onlyReviewable($q),
+            'evidences as pending_evidences_count' => fn ($q) => $this->onlyReviewable($q)->where('status', EvidenceStatus::PENDING),
+            'evidences as approved_evidences_count' => fn ($q) => $this->onlyReviewable($q)->where('status', EvidenceStatus::APPROVED),
+            'evidences as rejected_evidences_count' => fn ($q) => $this->onlyReviewable($q)->where('status', EvidenceStatus::REJECTED),
+        ]);
+    }
+
+    public function onlyReviewable($query)
     {
         return $query->where(function ($builder): void {
             $builder->whereNull('category')

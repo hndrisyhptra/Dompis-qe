@@ -103,6 +103,46 @@
             </a>
             @endif
 
+            @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
+            <div x-data="{ open: {{ request()->routeIs(['lop.index', 'lop.history', 'lop.my-approvals']) ? 'true' : 'false' }} }">
+                <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
+                    <span class="flex items-center gap-2.5">
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M2.25 13.838V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162a1.13 1.13 0 00-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a1.13 1.13 0 00-.1.661z" />
+                        </svg>
+                        Inbox
+                    </span>
+                    {!! $chevron !!}
+                </button>
+                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <a href="{{ route('lop.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.index') ? $navSubLinkActive : $navSubLinkInactive }}">
+                        @if (request()->routeIs('lop.index'))
+                            <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                        @endif
+                        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                        Active LOP
+                    </a>
+                    @can('view-my-approvals')
+                        <a href="{{ route('lop.my-approvals') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.my-approvals') ? $navSubLinkActive : $navSubLinkInactive }}">
+                            @if (request()->routeIs('lop.my-approvals'))
+                                <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                            @endif
+                            <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"></span>
+                            <span class="min-w-0 flex-1">Approval Saya</span>
+                            <span data-my-approval-count title="{{ $myApprovalPendingCount }} LOP menunggu review" aria-label="{{ $myApprovalPendingCount }} LOP menunggu review" class="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-red-600 px-1.5 text-[10px] font-extrabold tabular-nums text-white">{{ number_format($myApprovalPendingCount, 0, ',', '.') }}</span>
+                        </a>
+                    @endcan
+                    <a href="{{ route('lop.history') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.history') ? $navSubLinkActive : $navSubLinkInactive }}">
+                        @if (request()->routeIs('lop.history'))
+                            <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                        @endif
+                        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
+                        History
+                    </a>
+                </div>
+            </div>
+            @endunless
+
             @can('create', \App\Models\QeLop::class)
                 @php($importMenuOpen = request()->routeIs(['lop.create', 'bulk-import.*', 'imports.*']))
                 <div x-data="{ open: {{ $importMenuOpen ? 'true' : 'false' }} }">
@@ -160,35 +200,6 @@
                 </div>
             @endif
 
-            @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
-            <div x-data="{ open: {{ request()->routeIs('lop.*') ? 'true' : 'false' }} }">
-                <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                    <span class="flex items-center gap-2.5">
-                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M2.25 13.838V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162a1.13 1.13 0 00-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a1.13 1.13 0 00-.1.661z" />
-                        </svg>
-                        Inbox
-                    </span>
-                    {!! $chevron !!}
-                </button>
-                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
-                    <a href="{{ route('lop.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.index') ? $navSubLinkActive : $navSubLinkInactive }}">
-                        @if (request()->routeIs('lop.index'))
-                            <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                        @endif
-                        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
-                        Active LOP
-                    </a>
-                    <a href="{{ route('lop.history') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.history') ? $navSubLinkActive : $navSubLinkInactive }}">
-                        @if (request()->routeIs('lop.history'))
-                            <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                        @endif
-                        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0"></span>
-                        History
-                    </a>
-                </div>
-            </div>
-            @endunless
 
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::TEKNISI))
                 <div x-data="{ open: {{ request()->routeIs('program.*') ? 'true' : 'false' }} }">
@@ -386,14 +397,10 @@
                         <p class="text-sm font-medium text-ink-900 dark:text-ink-50 leading-none">{{ auth()->user()?->name }}</p>
                         <p class="text-xs text-ink-500 dark:text-ink-400 mt-1">{{ auth()->user()?->role?->name ?? '—' }}</p>
                     </div>
-                    <form method="POST" action="{{ route('logout', [], false) }}" data-auth-session="logout" data-auth-user-id="{{ auth()->id() }}" data-auth-session-url="{{ route('auth.session', [], false) }}" class="relative">
-                        @csrf
-                        <p data-auth-session-error hidden role="alert" class="absolute right-0 top-full z-50 mt-2 w-64 rounded-md border border-red-200 bg-white p-3 text-xs leading-5 text-red-700 shadow-sm dark:border-red-900 dark:bg-ink-900 dark:text-red-200"></p>
-                        <button type="submit" title="Logout dari aplikasi" class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 text-xs font-bold text-ink-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:bg-brand-950/30 dark:hover:text-brand-300">
+                    <x-logout-confirmation button-class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 text-xs font-bold text-ink-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:bg-brand-950/30 dark:hover:text-brand-300">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12"/></svg>
-                            Logout
-                        </button>
-                    </form>
+                        Logout
+                    </x-logout-confirmation>
                 </div>
             </div>
         </header>
@@ -405,5 +412,6 @@
             @yield('content')
         </main>
     </div>
+    @include('my-approvals._login-reminder')
 </body>
 </html>
