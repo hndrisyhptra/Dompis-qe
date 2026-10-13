@@ -121,13 +121,13 @@ class LopVisibilityService
 
     public function label(User $user): string
     {
-        $user->loadMissing(['area', 'region', 'branch', 'serviceAreas']);
+        $user->loadMissing(['area', 'region', 'branch', 'serviceAreas', 'serviceArea']);
 
         return match ($user->admin_scope_type) {
             AdminScopeType::AREA => 'Area · '.($user->area?->name ?? 'belum diatur'),
             AdminScopeType::REGION => 'Region · '.($user->region?->name ?? 'belum diatur'),
             AdminScopeType::BRANCH => 'Branch · '.($user->branch?->name ?? 'belum diatur'),
-            AdminScopeType::SERVICE_AREA => 'Service Area · '.$user->serviceAreas->pluck('workzone')->join(', '),
+            AdminScopeType::SERVICE_AREA => 'Service Area · '.($user->serviceAreas->pluck('workzone')->join(', ') ?: ($user->serviceArea?->workzone ?? 'belum diatur')),
             default => $user->branch?->name ?? 'Scope belum diatur',
         };
     }

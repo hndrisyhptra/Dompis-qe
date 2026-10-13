@@ -72,6 +72,10 @@ class LopController extends Controller
 
         $query = $this->scopeForUser($query, $request);
 
+        if ($request->user()->hasRole(UserRole::ADMIN)) {
+            $query->where('created_by', $request->user()->id_user);
+        }
+
         $statsQuery = clone $query;
 
         if ($search = $request->string('q')->trim()->value()) {

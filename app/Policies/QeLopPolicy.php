@@ -51,13 +51,7 @@ class QeLopPolicy
 
     public function delete(User $user, QeLop $lop): bool
     {
-        $allowedRole = $user->hasRole(UserRole::SUPER_ADMIN)
-            || ($user->hasRole(UserRole::ADMIN) && $this->visibility->canAccess($user, $lop));
-
-        return $allowedRole
-            && $lop->status_lop->value === 'draft'
-            && ! $lop->assignments()->exists()
-            && ! $lop->evidences()->exists();
+        return $this->update($user, $lop);
     }
 
     public function assign(User $user, QeLop $lop): bool

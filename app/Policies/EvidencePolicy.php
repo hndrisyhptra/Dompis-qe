@@ -34,6 +34,10 @@ class EvidencePolicy
      */
     public function view(User $user, QeEvidence $evidence): bool
     {
+        if ($evidence->lop === null) {
+            return false;
+        }
+
         if ($user->hasRole(UserRole::ADMIN)) {
             return $this->visibility->canAccess($user, $evidence->lop);
         }
@@ -52,6 +56,10 @@ class EvidencePolicy
      */
     public function delete(User $user, QeEvidence $evidence): bool
     {
+        if ($evidence->lop === null) {
+            return false;
+        }
+
         if ($user->hasRole(...UserRole::adminLevel())) {
             return true;
         }
@@ -80,7 +88,7 @@ class EvidencePolicy
 
     public function replace(User $user, QeEvidence $evidence): bool
     {
-        if (! $user->hasRole(UserRole::TEKNISI) || $evidence->status !== EvidenceStatus::REJECTED) {
+        if ($evidence->lop === null || ! $user->hasRole(UserRole::TEKNISI) || $evidence->status !== EvidenceStatus::REJECTED) {
             return false;
         }
 
@@ -92,7 +100,7 @@ class EvidencePolicy
 
     private function canReview(User $user, QeEvidence $evidence): bool
     {
-        if ($evidence->category === EvidenceCategory::REQUEST_LETTER) {
+        if ($evidence->lop === null || $evidence->category === EvidenceCategory::REQUEST_LETTER) {
             return false;
         }
 

@@ -8,7 +8,7 @@
         <div>
             <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Operations workspace</p>
             <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">Inbox Project</h1>
-            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Pantau pekerjaan aktif, progres teknisi, dan project yang memerlukan tindakan.</p>
+            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">{{ auth()->user()->hasRole(\App\Enums\UserRole::ADMIN) ? 'Pekerjaan aktif dari LOP yang Anda buat, sesuai scope akses Anda.' : 'Pantau pekerjaan aktif, progres teknisi, dan project yang memerlukan tindakan.' }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
             <a href="{{ route('lop.history') }}" class="inline-flex min-h-10 items-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">History</a>

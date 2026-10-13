@@ -30,7 +30,7 @@ class DataBoqController extends Controller
 
     public function index(Request $request): View
     {
-        $query = QeBoq::query()->with(['lop', 'package', 'items.designator.type']);
+        $query = QeBoq::query()->whereHas('lop')->with(['lop', 'package', 'items.designator.type']);
 
         if ($request->user()->hasRole(UserRole::ADMIN)) {
             $query->whereHas('lop', fn ($lop) => $this->visibility->apply($lop, $request->user()));
@@ -108,6 +108,7 @@ class DataBoqController extends Controller
 
     public function destroy(Request $request, QeBoq $boq): RedirectResponse
     {
+        abort_if($boq->lop === null, 404);
         $this->authorize('update', $boq->lop);
         $this->boqService->delete($boq, $request->user());
 

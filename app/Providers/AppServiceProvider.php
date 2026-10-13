@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Policies\EvidencePolicy;
 use App\Policies\QeLopPolicy;
 use App\Policies\UserPolicy;
+use App\Services\AccountScopeService;
 use App\Services\MyApprovalService;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Support\Facades\Event;
@@ -55,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
             }
             $view->with('loginApprovalReminder', $reminder);
             $view->with('myApprovalPendingCount', $pendingCount);
+            $view->with('accountScopeLabel', $user ? app(AccountScopeService::class)->label($user) : 'Scope belum diatur');
         });
 
         /**

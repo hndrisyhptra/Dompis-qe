@@ -381,7 +381,7 @@
 
                 <div class="flex-1"></div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex min-w-0 items-center gap-2 sm:gap-3">
                     <button type="button" @click="darkMode = !darkMode"
                             class="inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800 transition"
                             title="Ganti tema">
@@ -393,10 +393,11 @@
                         </svg>
                     </button>
 
-                    <div class="text-right hidden sm:block">
-                        <p class="text-sm font-medium text-ink-900 dark:text-ink-50 leading-none">{{ auth()->user()?->name }}</p>
-                        <p class="text-xs text-ink-500 dark:text-ink-400 mt-1">{{ auth()->user()?->role?->name ?? '—' }}</p>
-                    </div>
+                    <a href="{{ route('account.password.edit') }}" title="Ganti password · {{ $accountScopeLabel }}" aria-label="Ganti password akun Anda" class="min-w-0 max-w-[90px] rounded-md text-right outline-none focus:ring-2 focus:ring-brand-500 sm:max-w-xs">
+                        <p class="truncate text-sm font-medium text-ink-900 dark:text-ink-50 leading-none">{{ auth()->user()?->name }}</p>
+                        <p class="mt-1 truncate text-[10px] text-ink-500 dark:text-ink-400 sm:text-xs">{{ $accountScopeLabel }}</p>
+                    </a>
+                    <a href="{{ route('account.password.edit') }}" title="Ganti Password" aria-label="Ganti Password" class="hidden h-9 w-9 place-items-center rounded-full border border-ink-200 text-ink-500 hover:text-brand-600 dark:border-ink-700 dark:text-ink-300 sm:grid"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-round preview-icon"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></a>
                     <x-logout-confirmation button-class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-ink-200 bg-white px-3 text-xs font-bold text-ink-700 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:border-brand-800 dark:hover:bg-brand-950/30 dark:hover:text-brand-300">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12"/></svg>
                         Logout

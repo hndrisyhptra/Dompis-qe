@@ -3,7 +3,7 @@
 Terakhir diaudit: **13 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `1845c0f` (`feat: Edit BOQ Reservasi`)
+HEAD dasar saat audit terbaru: `4a1f6d8` (`feat: new approval saya`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat task Approval Saya berada di commit `1845c0f`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat task password/pembatalan LOP berada di commit `4a1f6d8`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Worktree bersih saat memulai task Approval Saya. Perubahan terbaru yang belum di-commit menambahkan monitoring per assigner admin, popup pengingat sekali setelah login, dan penempatan Inbox di bawah Revenue Overview; tidak mengubah BOQ, import, atau source Android.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Worktree bersih saat memulai task password/pembatalan LOP. Perubahan terbaru yang belum di-commit: ganti password akun sendiri, label scope di topbar, pengarsipan LOP cancel pada semua status dengan verifikasi, dan Active LOP khusus pembuat admin login. Tidak mengubah schema, import, atau source Android.
 
 ### 2.3 Status migration lokal
 
@@ -565,6 +565,18 @@ Pemilihan paket reservasi otomatis:
 - Regression badge memastikan 2 foto pending pada satu LOP dihitung 1, angka turun setelah approve terakhir, dokumen/Completed/assignment replaced/admin lain tidak masuk, dan Super Admin tanpa badge. LogoutConfirmationTest memeriksa struktur DOM kelima role, desain putih, non-submit pemicu/Batal, identitas/token/URL form, serta satu tombol POST. Frontend guard menambah skenario disable/restore tombol batal ketika koneksi gagal.
 - Verifikasi terakhir: **303 tests / 2492 assertions** Laravel, **20 frontend tests**, build Vite, view:cache, Pint file PHP task, dan diff check lulus. Tidak ada migration, write data operasional, logout akun nyata, commit/push, atau deployment. Render interaktif browser/device belum diuji; perubahan task sebelumnya tetap dipertahankan.
 
+### 7.24 Password akun sendiri, scope topbar, pembatalan LOP, dan Active LOP — 13 Oktober 2026
+
+- Seluruh role aktif mempunyai GET/PUT account/password (auth; update throttle 6/menit). Link nama/ikon kunci pada topbar dan tombol Profile Teknisi membuka halaman rounded-md dengan password saat ini, password baru, konfirmasi, show/hide, error, loading, success, dan Kembali. Form tidak menyimpan/menampilkan ulang password. Password baru minimal 8 karakter, berbeda dari lama, maksimal 72 byte untuk bcrypt, dan tanpa null byte. Tidak menerima target user lain.
+- UpdateOwnPasswordRequest memvalidasi current_password:web. UserService.changeOwnPassword memuat ulang akun sendiri dengan row lock, mengecek status aktif/password saat ini lagi, menyimpan melalui cast hashed, merotasi remember_token, dan mencatat event password_changed pada user_histories tanpa password/hash. Role, lokasi, dan pivot Service Area tidak disentuh. Controller mempertahankan login perangkat ini, meregenerasi session ID/CSRF, dan menghapus cookie remember perangkat ini.
+- Middleware web auth.session mengikat sesi pada fingerprint password Laravel. Sesi lain yang telah memiliki fingerprint lama ditolak pada request berikutnya; cookie remember lama juga tidak valid setelah token dirotasi. Sesi legacy sebelum middleware ini aktif yang belum menyimpan fingerprint mengambil fingerprint saat request pertama: jangan mengklaim seluruh sesi produksi lama telah langsung ditutup saat deployment. Jika dibutuhkan logout massal legacy, rencanakan invalidasi sesi tersendiri dengan izin operasional. Pemulihan 419 existing tetap berjalan dan form password tidak direplay otomatis.
+- AccountScopeService menggunakan LopVisibilityService.label untuk ADMIN Area/Region/Branch/multi Service Area (termasuk fallback service_area_id legacy). Super Admin = seluruh wilayah; Teknisi = LOP penugasan; Manager/Approver = visibilitas monitoring/review sesuai izin existing. Topbar menampilkan nama, lalu scope akses di bawahnya; label panjang dipotong dengan tooltip. Label bukan aturan authorization baru.
+- Klarifikasi eksplisit user: admin boleh menghapus LOP kapan saja jika dianggap cancel. Policy delete sekarang sama dengan update (SUPER_ADMIN semua; ADMIN dalam scope lokasi), tidak dibatasi Draft dan tidak memaknai status Rejected sebagai Cancelled. Tidak menambah enum/tabel/kolom baru. Popup native dialog meminta alasan min 5/max 1000 karakter, ketik Incident persis, checkbox konfirmasi, Batal/Ya Hapus, dan peringatan dampak Revenue. DeleteLopRequest mengharuskan verifikasi di backend, bukan hanya UI.
+- LopService.delete memuat/lock parent fresh, authorize lagi, menutup assignment aktif sebagai replaced + unassigned_at, mencatat event deleted beserta alasan/aktor/status terakhir, lalu soft-delete qe_lops dalam satu transaction. Status terakhir, histories, BOQ snapshot/item, reservasi/qty_actual, serta evidence/file asli tetap tersimpan. LOP hilang dari daftar/query aktif dan nilai Completed tidak lagi masuk Revenue. Tidak menyediakan restore UI pada task ini; pembatalan memerlukan keputusan admin, bukan auto-delete ketika evidence rejected. Redirect kembali ke daftar/filter asal melalui LopReturnDestination.
+- Data BOQ hanya memilih parent LOP aktif, sehingga soft-delete tidak menghasilkan lop null/error 500 untuk Super Admin. URL BOQ lama ditolak untuk edit/hapus; EvidencePolicy menolak akses/review/replace/delete jika parent diarsipkan. EvidenceService mengunci parent aktif sebelum upload, review, bulk approval, reset, replace, dan delete agar request stale tidak mengubah file/data arsip. Upload baru dibersihkan jika replace gagal; file asli tetap aman. Lock riil/concurrency MySQL belum diuji; test SQLite memverifikasi stale parent dan rollback/cleanup, bukan simulasi concurrent transaksi MySQL.
+- Active LOP khusus ADMIN menerapkan created_by = ID login setelah scope lokasi dan sebelum clone query KPI/filter. LOP import yang dibuat admin login mengikuti aturan yang sama. History, Dashboard, Program, Master Data, Approval Evidence dan Approval Saya tidak dipersempit; Approval Saya tetap berdasarkan assigner aktif. Super Admin tetap tanpa Inbox.
+- AccountPasswordTest (15 cases) dan LopCancellationTest (14 cases) memeriksa semua role/status, invalid password/CSRF/throttle, audit tanpa rahasia, rotasi session/remember token, scope/pivot tetap, verifikasi hapus, deny scope luar/role lain, soft-delete/child/file retention, akses lama, stale evidence actions, Revenue, serta creator-only list/KPI. Full suite **332 tests / 3006 assertions** dan **20 frontend tests** lulus; build Vite, view:cache, Pint file task dan diff check lulus. Tidak menjalankan migration, mengubah password/menghapus LOP nyata, restart worker, commit/push, atau deployment. Browser interaktif/mobile dan produksi belum diuji.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -598,8 +610,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-303 tests passed
-2492 assertions
+332 tests passed
+3006 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -607,7 +619,8 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
-- Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
+- Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
+- Pembatalan/arsip LOP semua status dan Active LOP pembuat: `LopCancellationTest` (termasuk retensi BOQ/evidence/file, stale actions, dan exclusion Revenue).
 - Scope admin/project status: `AdminScopeAndProjectStatusTest`.
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
 - Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.

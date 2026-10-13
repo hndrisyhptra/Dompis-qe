@@ -10,7 +10,7 @@ class UpdateBoqRequest extends FormRequest
     {
         $boq = $this->route('boq');
 
-        return $boq !== null && ($this->user()?->can('update', $boq->lop) ?? false);
+        return $boq?->lop !== null && ($this->user()?->can('update', $boq->lop) ?? false);
     }
 
     public function rules(): array

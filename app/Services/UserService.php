@@ -12,6 +12,9 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use App\Models\UserHistory;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -23,6 +26,21 @@ use InvalidArgumentException;
  */
 class UserService
 {
+    public function changeOwnPassword(User $actor, string $currentPassword, string $password): User
+    {
+        return DB::transaction(function () use ($actor, $currentPassword, $password): User {
+            $user = User::query()->lockForUpdate()->findOrFail($actor->getKey());
+            abort_unless($user->isActive(), 403);
+            if (! Hash::check($currentPassword, $user->password)) {
+                throw ValidationException::withMessages(['current_password' => 'Password saat ini tidak sesuai.']);
+            }
+            $user->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+            $this->recordHistory($user, $user, 'password_changed', null, 'Password diubah oleh pemilik akun');
+
+            return $user;
+        });
+    }
+
     public function create(array $data, User $actor): User
     {
         return DB::transaction(function () use ($data, $actor) {

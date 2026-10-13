@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
+use App\Http\Requests\DeleteLopRequest;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Services\LopService;
 use App\Services\LopVisibilityService;
+use App\Support\LopReturnDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -56,12 +58,13 @@ class DataLopController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, QeLop $qe_lop): RedirectResponse
+    public function destroy(DeleteLopRequest $request, QeLop $qe_lop): RedirectResponse
     {
         $this->authorize('delete', $qe_lop);
-        $this->lopService->delete($qe_lop, $request->user());
+        $this->lopService->delete($qe_lop, $request->user(), $request->validated('cancellation_reason'));
 
-        return redirect()->route('data-lops.index')->with('status', 'Data LOP berhasil dihapus.');
+        return redirect()->to(LopReturnDestination::resolve($request, route('data-lops.index')))
+            ->with('status', 'LOP dibatalkan dan diarsipkan. Riwayat serta file tetap tersimpan, tetapi LOP tidak lagi masuk perhitungan aktif.');
     }
 
     private function scope(Request $request)

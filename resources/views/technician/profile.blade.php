@@ -15,5 +15,6 @@
         <div class="border-b border-ink-100 px-4 py-3.5 last:border-0 dark:border-ink-800"><p class="text-[10px] font-bold uppercase tracking-wide text-ink-400">{{ $label }}</p><p class="mt-1 text-sm font-semibold">{{ $value }}</p></div>
     @endforeach
 </section>
+<a href="{{ route('account.password.edit') }}" class="mt-5 flex min-h-12 items-center justify-between rounded-md border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200"><span>Ganti Password</span><span aria-hidden="true">→</span></a>
 <x-logout-confirmation id="technician-logout-confirmation" class="mt-5" button-class="min-h-12 w-full rounded-2xl border border-brand-200 bg-white text-sm font-bold text-brand-600 dark:border-brand-900 dark:bg-ink-900 dark:text-brand-400">Keluar dari akun</x-logout-confirmation>
 @endsection

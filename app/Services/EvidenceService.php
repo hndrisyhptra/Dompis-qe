@@ -51,6 +51,9 @@ class EvidenceService
         ?UploadedFile $thumb = null,
         ?array &$writtenPaths = null,
     ): QeEvidence {
+        // Upload yang sudah berjalan tidak boleh menulis setelah LOP diarsipkan.
+        // Caller selalu membuka transaction; lock ini sejalan dengan LopService::delete.
+        $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
         $step = $data['step'] instanceof EvidenceStep ? $data['step']->value : $data['step'];
         $dir = "evidences/{$lop->id_qe_lops}/{$step}";
         // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.
@@ -146,23 +149,26 @@ class EvidenceService
 
     public function approve(QeEvidence $evidence, User $actor): QeEvidence
     {
-        $evidence->update([
-            'status' => EvidenceStatus::APPROVED,
-            'review_note' => null,
-            'reviewed_by' => $actor->id_user,
-            'reviewed_at' => now(),
-        ]);
+        return DB::transaction(function () use ($evidence, $actor): QeEvidence {
+            $this->lockActiveLop($evidence);
+            $evidence->update([
+                'status' => EvidenceStatus::APPROVED,
+                'review_note' => null,
+                'reviewed_by' => $actor->id_user,
+                'reviewed_at' => now(),
+            ]);
 
-        $evidence = $evidence->refresh();
+            $evidence = $evidence->refresh();
 
-        $evidence->uploader?->notify(new TechnicianActivityNotification(
-            'Evidence disetujui',
-            "{$evidence->category?->label()} pada {$evidence->lop->incident} telah disetujui.",
-            $evidence->qe_lop_id,
-            'success'
-        ));
+            $evidence->uploader?->notify(new TechnicianActivityNotification(
+                'Evidence disetujui',
+                "{$evidence->category?->label()} pada {$evidence->lop->incident} telah disetujui.",
+                $evidence->qe_lop_id,
+                'success'
+            ));
 
-        return $evidence;
+            return $evidence;
+        });
     }
 
     /**
@@ -176,6 +182,7 @@ class EvidenceService
         $ids = collect($evidenceIds)->map(fn ($id): int => (int) $id)->unique()->values();
 
         [$approved, $uploaderIds] = DB::transaction(function () use ($lop, $ids, $actor): array {
+            QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
             $evidences = QeEvidence::query()
                 ->where('qe_lop_id', $lop->id_qe_lops)
                 ->whereIn('id_evidence', $ids)
@@ -240,6 +247,7 @@ class EvidenceService
 
         try {
             $evidence = DB::transaction(function () use ($evidence, $file, $actor, $newPath, $newThumbPath) {
+                $this->lockActiveLop($evidence);
                 $metadata = $evidence->metadata ?? [];
                 $evidence->update([
                     'file_path' => $newPath,
@@ -272,32 +280,35 @@ class EvidenceService
 
     public function reject(QeEvidence $evidence, User $actor, string $reason): QeEvidence
     {
-        $evidence->update([
-            'status' => EvidenceStatus::REJECTED,
-            'review_note' => $reason,
-            'reviewed_by' => $actor->id_user,
-            'reviewed_at' => now(),
-        ]);
+        return DB::transaction(function () use ($evidence, $actor, $reason): QeEvidence {
+            $this->lockActiveLop($evidence);
+            $evidence->update([
+                'status' => EvidenceStatus::REJECTED,
+                'review_note' => $reason,
+                'reviewed_by' => $actor->id_user,
+                'reviewed_at' => now(),
+            ]);
 
-        $evidence = $evidence->refresh();
+            $evidence = $evidence->refresh();
 
-        if ($evidence->lop->status_lop === LopStatus::WAITING_APPROVAL) {
-            $this->lopService->transitionStatus(
-                $evidence->lop,
-                LopStatus::REJECTED,
-                $actor,
-                "Evidence ditolak: {$reason}"
-            );
-        }
+            if ($evidence->lop->status_lop === LopStatus::WAITING_APPROVAL) {
+                $this->lopService->transitionStatus(
+                    $evidence->lop,
+                    LopStatus::REJECTED,
+                    $actor,
+                    "Evidence ditolak: {$reason}"
+                );
+            }
 
-        $evidence->uploader?->notify(new TechnicianActivityNotification(
-            'Evidence perlu diperbaiki',
-            "{$evidence->category?->label()} pada {$evidence->lop->incident} ditolak: {$reason}",
-            $evidence->qe_lop_id,
-            'danger'
-        ));
+            $evidence->uploader?->notify(new TechnicianActivityNotification(
+                'Evidence perlu diperbaiki',
+                "{$evidence->category?->label()} pada {$evidence->lop->incident} ditolak: {$reason}",
+                $evidence->qe_lop_id,
+                'danger'
+            ));
 
-        return $evidence;
+            return $evidence;
+        });
     }
 
     public function resetReview(QeEvidence $evidence, User $actor): QeEvidence
@@ -305,6 +316,7 @@ class EvidenceService
         $previousStatus = $evidence->status;
 
         $evidence = DB::transaction(function () use ($evidence, $actor, $previousStatus) {
+            $this->lockActiveLop($evidence);
             $metadata = $evidence->metadata ?? [];
             $reviewResets = $metadata['review_resets'] ?? [];
             $reviewResets[] = [
@@ -357,9 +369,18 @@ class EvidenceService
     public function delete(QeEvidence $evidence): void
     {
         DB::transaction(function () use ($evidence) {
+            $this->lockActiveLop($evidence);
             Storage::disk($this->disk())->delete(array_filter([$evidence->file_path, $evidence->thumb_path]));
             $evidence->delete();
         });
+    }
+
+    private function lockActiveLop(QeEvidence $evidence): QeLop
+    {
+        $lop = QeLop::query()->lockForUpdate()->findOrFail($evidence->qe_lop_id);
+        $evidence->setRelation('lop', $lop);
+
+        return $lop;
     }
 
     private function storeUploadedFile(UploadedFile $file, string $directory, string $baseName): string

@@ -220,16 +220,22 @@ class LopService
         });
     }
 
-    public function delete(QeLop $lop, User $actor): void
+    public function delete(QeLop $lop, User $actor, string $reason): void
     {
-        DB::transaction(function () use ($lop, $actor) {
+        DB::transaction(function () use ($lop, $actor, $reason) {
+            $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+            Gate::forUser($actor)->authorize('delete', $lop);
+            $lop->assignments()->where('status', AssignmentStatus::ACTIVE->value)->update([
+                'status' => AssignmentStatus::REPLACED->value,
+                'unassigned_at' => now(),
+            ]);
             $this->recordHistory(
                 $lop,
                 $lop->status_lop,
                 $lop->status_lop,
                 $actor,
                 'deleted',
-                'LOP dihapus dari Master Data'
+                'LOP dibatalkan dan diarsipkan: '.$reason
             );
             $lop->delete();
         });
