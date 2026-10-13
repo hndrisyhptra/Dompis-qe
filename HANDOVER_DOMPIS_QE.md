@@ -3,7 +3,7 @@
 Terakhir diaudit: **13 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `4a1f6d8` (`feat: new approval saya`)
+HEAD dasar saat audit terbaru: `afee345` (`feat: change password & softdel LOP`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -41,12 +41,12 @@ Stack utama:
 ### 2.1 Branch dan sinkronisasi remote
 
 - Branch lokal dan remote kerja: `collab/import-LOP-import-BOQ`.
-- HEAD lokal saat task password/pembatalan LOP berada di commit `4a1f6d8`; periksa ulang posisi remote sebelum pull/push.
+- HEAD lokal saat task Matrix Program per scope berada di commit `afee345`; periksa ulang posisi remote sebelum pull/push.
 - Jangan berpindah ke `main` untuk melanjutkan pekerjaan sebelum memastikan commit branch tersebut sudah di-merge atau memang sengaja ditinggalkan.
 
 ### 2.2 Perubahan lokal yang belum di-commit
 
-Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Worktree bersih saat memulai task password/pembatalan LOP. Perubahan terbaru yang belum di-commit: ganti password akun sendiri, label scope di topbar, pengarsipan LOP cancel pada semua status dengan verifikasi, dan Active LOP khusus pembuat admin login. Tidak mengubah schema, import, atau source Android.
+Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
 ### 2.3 Status migration lokal
 
@@ -234,6 +234,7 @@ Pemilihan paket reservasi otomatis:
 - Summary menyediakan tanggal monitoring WIB, enam KPI aktivitas, filter pergerakan/region/pencarian branch, accordion rincian LOP, pencarian Incident/nama LOP, dan pagination 20 LOP. Scope diterapkan kembali pada endpoint rincian.
 - Card Approval Evidence, Kesiapan Data & Penugasan, dan Prioritas Operasional dihapus dari dashboard; sudut card dashboard menggunakan `rounded-md`.
 - Matrix SUPER_ADMIN dapat dibuka per region/branch; ADMIN mengikuti scope lokasi.
+- Matrix Program ADMIN: Area per Region di Area tersebut, Region per Branch, Branch per Service Area/STO, Service Area (termasuk multi-STO) per Program. Dropdown empat program/Semua Program berada pada tab Program; filter program berlaku juga pada KPI, Matrix Status LOP, dan Summary. Assign menghitung status Assigned; Unassign setelahnya menghitung Draft/Unassigned.
 - Program Preventive dan Relok mempunyai tab Usulan/On Going; Recovery tidak memakai `status_project`.
 - Revenue Overview menyediakan filter region/branch/service area/program/status, KPI plan/realisasi/gap/rasio, chart per program/branch, matrix branch per program, dan trend segmen.
 - Plan hanya dihitung untuk Preventive dan Relok.
@@ -315,6 +316,8 @@ Pemilihan paket reservasi otomatis:
 ### 5.5 Dashboard dan nilai
 
 - `app/Services/AdminDashboardService.php`
+- `app/Services/DashboardProgramMatrixService.php`
+- `app/Support/DashboardMatrixMetrics.php`
 - `app/Services/DashboardMonitoringService.php`
 - `app/Services/RevenueService.php`
 - `app/Services/LopBoqValueService.php`
@@ -322,6 +325,7 @@ Pemilihan paket reservasi otomatis:
 - `app/Http/Controllers/DashboardController.php`
 - `app/Http/Controllers/RevenueController.php`
 - `resources/views/dashboard/index.blade.php`
+- `resources/views/dashboard/partials/program-matrix.blade.php`
 - `resources/views/dashboard/partials/monitoring.blade.php`
 - `resources/views/revenue/index.blade.php`
 
@@ -577,6 +581,16 @@ Pemilihan paket reservasi otomatis:
 - Active LOP khusus ADMIN menerapkan created_by = ID login setelah scope lokasi dan sebelum clone query KPI/filter. LOP import yang dibuat admin login mengikuti aturan yang sama. History, Dashboard, Program, Master Data, Approval Evidence dan Approval Saya tidak dipersempit; Approval Saya tetap berdasarkan assigner aktif. Super Admin tetap tanpa Inbox.
 - AccountPasswordTest (15 cases) dan LopCancellationTest (14 cases) memeriksa semua role/status, invalid password/CSRF/throttle, audit tanpa rahasia, rotasi session/remember token, scope/pivot tetap, verifikasi hapus, deny scope luar/role lain, soft-delete/child/file retention, akses lama, stale evidence actions, Revenue, serta creator-only list/KPI. Full suite **332 tests / 3006 assertions** dan **20 frontend tests** lulus; build Vite, view:cache, Pint file task dan diff check lulus. Tidak menjalankan migration, mengubah password/menghapus LOP nyata, restart worker, commit/push, atau deployment. Browser interaktif/mobile dan produksi belum diuji.
 
+### 7.25 Matrix Program sesuai scope admin — 13 Oktober 2026
+
+- Tab Program sekarang menampilkan level berikut: ADMIN Area = seluruh Region dalam Area akun, ADMIN Region = seluruh Branch di Region akun, ADMIN Branch = seluruh Service Area/STO di Branch akun, ADMIN Service Area = per Program dari gabungan STO yang diizinkan. ADMIN legacy branch_id tanpa admin_scope_type tetap memakai rincian STO. Wilayah master non-soft-deleted dengan 0 LOP tetap ditampilkan, termasuk Region/Branch yang belum mempunyai LOP; scope tidak diperluas menjadi seluruh wilayah aplikasi.
+- DashboardProgramMatrixService menerima query yang sudah memakai LopVisibilityService dan filter dashboard. SQL mengagregasi hanya program/status/dimensi lokasi yang diperlukan, tanpa memuat seluruh LOP/evidence/BOQ dan tanpa query dalam loop Blade. FK diprioritaskan; fallback branch/sto lama tetap dipakai. Branch dengan LOP tanpa STO master menampilkan baris Service Area belum terdata, bukan membuangnya dari total. LOP soft-deleted tidak dihitung.
+- DashboardMatrixMetrics digunakan bersama matrix baru dan matrix Region/Branch existing. Assign = status assigned; Unassign = status draft (label Unassigned), bukan seluruh riwayat assignment atau ketiadaan assignment historis. In Review = waiting_approval, Complete = completed. Total mencakup seluruh delapan status; persentase footer memakai Complete gabungan / Total gabungan, bukan rata-rata persentase baris. Tidak mengubah status atau lifecycle.
+- Kolom Unassign berada tepat setelah Assign pada matrix admin dan accordion matrix Super Admin. Seluruh angka, termasuk Total Scope dan persentase, membuka modal rincian existing. Endpoint dashboard.matrix-lops menerima region_id/branch_id/service_area_id serta service_area_unmapped untuk kasus data STO belum lengkap; parameter ID dan string divalidasi. Filter diterapkan sebagai irisan setelah scope canonical, sehingga manipulasi ID wilayah luar tidak memperluas akses. Fallback lokasi legacy dipertahankan pada rincian.
+- Pilih Program (empat enum + Semua Program) dipindahkan ke tab Program, untuk ADMIN dan SUPER_ADMIN. Form GET auto-submit dengan loading/fallback tombol Tampilkan mempertahankan region/branch/status Super Admin dan tanggal monitoring, lalu kembali ke tab Program. Filter program kini diterima untuk ADMIN juga; program pilihan memfilter seluruh dashboard (KPI, kedua matrix, Summary dan rincian). Badge program aktif di header memperjelas filter saat berpindah ke Status/Summary. Filter lokasi/status tambahan dashboard ADMIN tetap diabaikan seperti sebelumnya; scope tidak bergantung pada input browser.
+- Tampilan matrix admin berupa tabel ringkas rounded-md, baris metadata lokasi, warna per metrik, sticky kolom identitas saat horizontal scroll mobile, footer Total Scope, dan empty state. Matrix Status LOP serta accordion Region/Branch/Program Super Admin tetap mengikuti desain existing. Tidak mengubah menu Program, Revenue, Inbox creator-only, Approval Saya per assigner, maupun approval umum.
+- Regression baru DashboardProgramScopeMatrixTest (9 cases) mencakup empat scope, multi-STO lintas Branch, legacy branch/STO dan scope legacy, seluruh status, weighted percentage, empat dropdown program, lokasi nol, archived LOP, query ID/program luar/malformed, baris STO belum terdata, rincian Unassign, preservasi tanggal/filter, serta Super Admin. **341 tests / 3196 assertions** Laravel dan **20 frontend tests** lulus; view:cache, build Vite, Pint seluruh file PHP task, serta diff check lulus. Tidak ada migration/write data operasional, commit/push, tes browser, restart worker, atau deployment. MySQL produksi belum diuji.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -610,8 +624,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-332 tests passed
-3006 assertions
+341 tests passed
+3196 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -629,7 +643,7 @@ Pemetaan test utama:
 - Navigasi asal dan reset BOQ: `LopReturnNavigationTest`, `ReservationBoqManagementTest`, serta regression redirect pada `LoginTest`, `LopPermissionTest`, `LopExcelImportTest`.
 - Inbox Approval Saya/reminder login/badge: `MyApprovalTest` (7 tests), dengan full suite auth/session/scope/evidence tetap lulus.
 - Bulk LOP terbaru: `BulkLopLatestRulesTest`, `LopProgramRulesTest`; frontend `node --test tests/Frontend/lop-form.test.mjs` (5 passed).
-- Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`.
+- Dashboard: `AdminDashboardTest`, `DashboardMonitoringTest`, `DashboardProgramScopeMatrixTest`.
 - Revenue: `RevenueDashboardTest`.
 - Reporting: `MaterialReportTest`.
 - User management: `UserManagementWorkflowTest`, `UserPermissionTest`, `UserBulkImportTest`.

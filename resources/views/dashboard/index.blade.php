@@ -5,7 +5,7 @@
 @section('content')
 @php
     $hasFilters = collect($filters)->contains(fn ($value) => $value !== '');
-    $matrixScopeFilters = $isSuperAdmin ? array_filter($filters, fn ($value) => $value !== '') : [];
+    $matrixScopeFilters = array_filter($filters, fn ($value) => $value !== '');
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-6" x-data="dashboardMatrixModal(@js(route('dashboard.matrix-lops', [], false)), @js($dashboardTab))">
@@ -18,6 +18,9 @@
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s6.75-4.35 6.75-11.25a6.75 6.75 0 1 0-13.5 0C5.25 16.65 12 21 12 21Z"/><circle cx="12" cy="9.75" r="2.25"/></svg>
                     {{ $scopeLabel }}
                 </span>
+                @if ($filters['program'] !== '')
+                    <span class="rounded-md border border-brand-200 bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700 dark:border-brand-900 dark:bg-brand-950/40 dark:text-brand-300">Program: {{ \App\Enums\ProgramType::from($filters['program'])->label() }}</span>
+                @endif
             </div>
             <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-3xl">Dashboard Operasional</h1>
             <p class="mt-1 max-w-2xl text-sm leading-6 text-ink-500 dark:text-ink-400">
@@ -59,9 +62,10 @@
                 @endif
             </div>
 
-            <form method="GET" action="{{ route('dashboard') }}" class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+            <form method="GET" action="{{ route('dashboard') }}" class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto]">
                 <input type="hidden" name="tab" :value="dashboardTab">
                 <input type="hidden" name="date" value="{{ $monitoring['date'] }}">
+                <input type="hidden" name="program" value="{{ $filters['program'] }}">
                 <label class="space-y-1.5">
                     <span class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Region</span>
                     <select name="region" onchange="this.form.submit()" class="min-h-11 w-full rounded-md border border-ink-200 bg-ink-50 px-3 text-sm font-semibold outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800">
@@ -78,16 +82,6 @@
                         <option value="">Semua Branch</option>
                         @foreach ($branches->when($filters['region'], fn ($items) => $items->where('region', $filters['region'])) as $branch)
                             <option value="{{ $branch->name }}" @selected($filters['branch'] === $branch->name)>{{ $branch->name }}</option>
-                        @endforeach
-                    </select>
-                </label>
-
-                <label class="space-y-1.5">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Program</span>
-                    <select name="program" class="min-h-11 w-full rounded-md border border-ink-200 bg-ink-50 px-3 text-sm font-semibold outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800">
-                        <option value="">Semua Program</option>
-                        @foreach (\App\Enums\ProgramType::cases() as $program)
-                            <option value="{{ $program->value }}" @selected($filters['program'] === $program->value)>{{ $program->label() }}</option>
                         @endforeach
                     </select>
                 </label>
@@ -177,11 +171,28 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Program</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total dan posisi LOP berdasarkan status workflow setiap Program.</p>
+                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $isSuperAdmin ? 'Total dan posisi LOP berdasarkan Region, Branch, dan Program.' : 'Ringkasan per '.$programMatrix['heading'].' sesuai scope akses Anda.' }}</p>
                 </div>
-                <div class="flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = status Assigned</span><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
+                <form method="GET" action="{{ route('dashboard') }}" x-data="{ changing: false }" @submit="changing = true" :aria-busy="changing" class="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
+                    <input type="hidden" name="tab" value="program">
+                    <input type="hidden" name="date" value="{{ $monitoring['date'] }}">
+                    @foreach (['region', 'branch', 'status'] as $field)<input type="hidden" name="{{ $field }}" value="{{ $filters[$field] }}">@endforeach
+                    <label for="dashboard-program-filter" class="text-[10px] font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Pilih Program</label>
+                    <div class="flex gap-2">
+                        <select id="dashboard-program-filter" name="program" onchange="this.form.requestSubmit()" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-xs font-semibold outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-600 dark:bg-ink-800">
+                            <option value="">Semua Program</option>
+                            @foreach (\App\Enums\ProgramType::cases() as $program)<option value="{{ $program->value }}" @selected($filters['program'] === $program->value)>{{ $program->label() }}</option>@endforeach
+                        </select>
+                        <button type="submit" :disabled="changing" class="min-h-10 rounded-md border border-ink-200 bg-ink-50 px-3 text-xs font-bold disabled:opacity-60 dark:border-ink-700 dark:bg-ink-800" x-text="changing ? 'Memuat…' : 'Tampilkan'">Tampilkan</button>
+                    </div>
+                    <p class="text-[10px] text-ink-400">Widget dan monitoring mengikuti program yang dipilih.</p>
+                </form>
             </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = status Assigned</span><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Unassign = status Unassigned</span><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
 
+            @if (! $isSuperAdmin)
+                @include('dashboard.partials.program-matrix')
+            @else
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
@@ -193,10 +204,11 @@
                                 </span>
                                 <div class="min-w-0"><p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p><p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p></div>
                             </div>
-                            <div class="grid grid-cols-4 gap-2 sm:min-w-105">
+                            <div class="grid grid-cols-5 gap-2 sm:min-w-105">
                                 @foreach ([
                                     ['Total', $region['summary']['total'], '', 'text-ink-900 dark:text-white'],
                                     ['Assign', $region['summary']['assigned'], 'assigned', 'text-blue-700 dark:text-blue-300'],
+                                    ['Unassign', $region['summary']['unassigned'], 'unassigned', 'text-ink-600 dark:text-ink-300'],
                                     ['In Review', $region['summary']['in_review'], 'in_review', 'text-amber-700 dark:text-amber-300'],
                                     ['Completion', $region['summary']['percentage'], 'complete', 'text-emerald-700 dark:text-emerald-300'],
                                 ] as [$label, $value, $metric, $tone])
@@ -211,7 +223,7 @@
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
                                             <th class="sticky left-0 z-10 min-w-52 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
-                                            @foreach (['Total LOP', 'Assign', 'In Review', 'Complete', 'Persentase'] as $heading)<th class="min-w-24 border-b border-r border-ink-200 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 last:border-r-0 dark:border-ink-700">{{ $heading }}</th>@endforeach
+                                            @foreach (['Total LOP', 'Assign', 'Unassign', 'In Review', 'Complete', 'Persentase'] as $heading)<th class="min-w-24 border-b border-r border-ink-200 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 last:border-r-0 dark:border-ink-700">{{ $heading }}</th>@endforeach
                                         </tr>
                                     </thead>
                                     @foreach ($region['branches'] as $branch)
@@ -225,6 +237,7 @@
                                                 </td>
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><x-matrix-number :value="$branch['summary']['total']" :title="'Total LOP — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name']])"/></td>
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><x-matrix-number :value="$branch['summary']['assigned']" :title="'Assigned — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'assigned'])"/></td>
+                                                <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><x-matrix-number :value="$branch['summary']['unassigned']" :title="'Unassign — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'unassigned'])"/></td>
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><x-matrix-number :value="$branch['summary']['in_review']" :title="'In Review — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'in_review'])"/></td>
                                                 <td class="border-r border-ink-200 px-3 py-3 text-center dark:border-ink-700"><x-matrix-number :value="$branch['summary']['complete']" :title="'Complete — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'complete'])"/></td>
                                                 <td class="px-3 py-3 text-center"><x-matrix-number :value="$branch['summary']['percentage']" suffix="%" :title="'Complete — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'complete'])" class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"/></td>
@@ -234,6 +247,7 @@
                                                     <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
                                                     <td class="border-r border-ink-100 px-3 py-3 text-center dark:border-ink-800"><x-matrix-number :value="$program['total']" :title="$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value']])"/></td>
                                                     <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><x-matrix-number :value="$program['assigned']" :title="'Assigned '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'assigned'])"/></td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><x-matrix-number :value="$program['unassigned']" :title="'Unassign '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'unassigned'])"/></td>
                                                     <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><x-matrix-number :value="$program['in_review']" :title="'In Review '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'in_review'])"/></td>
                                                     <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-600 dark:border-ink-800 dark:text-ink-300"><x-matrix-number :value="$program['complete']" :title="'Complete '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'complete'])"/></td>
                                                     <td class="px-3 py-3 text-center"><x-matrix-number :value="$program['percentage']" suffix="%" :title="'Complete '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'complete'])" class="rounded-full px-2.5 py-1 text-[10px] {{ $program['percentage'] === 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-ink-300' }}"/></td>
@@ -249,6 +263,7 @@
                     <div class="rounded-md border border-dashed border-ink-200 px-6 py-12 text-center text-sm text-ink-400 dark:border-ink-700">Tidak ada data matrix pada cakupan ini.</div>
                 @endforelse
             </div>
+            @endif
         </article>
 
         <article id="dashboard-panel-status" role="tabpanel" aria-labelledby="dashboard-tab-status" x-show="dashboardTab === 'status'" x-cloak class="rounded-md border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">

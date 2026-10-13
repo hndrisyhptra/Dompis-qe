@@ -16,6 +16,7 @@ class DashboardController extends Controller
         $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Jakarta')->toDateString()],
             'tab' => ['nullable', 'in:program,status,summary'],
+            'program' => ['nullable', 'string', 'max:50'],
         ]);
 
         return view('dashboard.index', $this->dashboardService->dashboard(
@@ -26,9 +27,21 @@ class DashboardController extends Controller
 
     public function matrixLops(Request $request): JsonResponse
     {
+        $request->validate([
+            'region' => ['nullable', 'string', 'max:255'],
+            'branch' => ['nullable', 'string', 'max:255'],
+            'program' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'metric' => ['nullable', 'string', 'max:50'],
+            'region_id' => ['nullable', 'integer', 'min:1'],
+            'branch_id' => ['nullable', 'integer', 'min:1'],
+            'service_area_id' => ['nullable', 'integer', 'min:1'],
+            'service_area_unmapped' => ['nullable', 'boolean'],
+        ]);
+
         return response()->json($this->dashboardService->matrixLops(
             $request->user(),
-            $request->only(['region', 'branch', 'program', 'status', 'metric']),
+            $request->only(['region', 'branch', 'program', 'status', 'metric', 'region_id', 'branch_id', 'service_area_id', 'service_area_unmapped']),
         ));
     }
 

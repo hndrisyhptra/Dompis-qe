@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Support\DashboardMatrixMetrics;
 use Illuminate\Database\Eloquent\Builder;
 
 class AdminDashboardService
@@ -15,6 +16,7 @@ class AdminDashboardService
     public function __construct(
         private readonly DashboardMonitoringService $monitoring,
         private readonly LopVisibilityService $visibility,
+        private readonly DashboardProgramMatrixService $programMatrix,
     ) {}
 
     public function dashboard(User $user, array $filters): array
@@ -25,9 +27,7 @@ class AdminDashboardService
         $filterState = $this->normalizeFilters($isSuperAdmin, $filters);
         $query = $this->scopedLops($user);
 
-        if ($isSuperAdmin) {
-            $this->applyFilters($query, $filterState);
-        }
+        $this->applyFilters($query, $filterState);
 
         $aggregate = (clone $query)
             ->selectRaw('COUNT(*) as total')
@@ -60,6 +60,7 @@ class AdminDashboardService
             'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleBranchIds($user)->isEmpty(),
             'stats' => $stats,
             'matrixRegions' => $matrixRegions,
+            'programMatrix' => $isSuperAdmin ? null : $this->programMatrix->build(clone $query, $user, $filterState),
             'monitoring' => $this->monitoring->summary(clone $query, $user, $filterState, $filters['date'] ?? null),
             'dashboardTab' => in_array($filters['tab'] ?? '', ['program', 'status', 'summary'], true) ? $filters['tab'] : 'program',
             'pipelineStatuses' => collect(LopStatus::cases())->map(fn (LopStatus $status) => [
@@ -85,15 +86,17 @@ class AdminDashboardService
             'branch' => trim((string) ($filters['branch'] ?? '')),
             'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '',
             'status' => LopStatus::tryFrom((string) ($filters['status'] ?? ''))?->value ?? '',
-            'metric' => in_array(($filters['metric'] ?? ''), ['assigned', 'in_review', 'complete'], true)
+            'metric' => in_array(($filters['metric'] ?? ''), ['assigned', 'unassigned', 'in_review', 'complete'], true)
                 ? (string) $filters['metric']
                 : '',
         ];
 
         $this->applyFilters($query, $normalized);
+        $this->programMatrix->applyLocationFilters($query, $user, $filters);
 
         match ($normalized['metric']) {
             'assigned' => $query->where('status_lop', LopStatus::ASSIGNED),
+            'unassigned' => $query->where('status_lop', LopStatus::DRAFT),
             'in_review' => $query->where('status_lop', LopStatus::WAITING_APPROVAL),
             'complete' => $query->where('status_lop', LopStatus::COMPLETED),
             default => null,
@@ -226,18 +229,10 @@ class AdminDashboardService
                             return [$status->value => (int) ($counts[$branch['name']][$program->value][$status->value]['total'] ?? 0)];
                         })->all();
 
-                        $total = array_sum($pipeline);
-                        $complete = $pipeline[LopStatus::COMPLETED->value];
-
                         return [
                             'value' => $program->value,
                             'label' => $program->label(),
-                            'total' => $total,
-                            'assigned' => $pipeline[LopStatus::ASSIGNED->value],
-                            'in_review' => $pipeline[LopStatus::WAITING_APPROVAL->value],
-                            'complete' => $complete,
-                            'percentage' => $total > 0 ? (int) round(($complete / $total) * 100) : 0,
-                            'pipeline' => $pipeline,
+                            ...DashboardMatrixMetrics::fromPipeline($pipeline),
                         ];
                     })->values()->all();
 
@@ -260,27 +255,13 @@ class AdminDashboardService
 
     private function summarizeMatrixRows(array $rows): array
     {
-        $pipeline = collect(LopStatus::cases())->mapWithKeys(
-            fn (LopStatus $status) => [$status->value => array_sum(array_column(array_column($rows, 'pipeline'), $status->value))]
-        )->all();
-
-        $total = array_sum(array_column($rows, 'total'));
-        $complete = array_sum(array_column($rows, 'complete'));
-
-        return [
-            'total' => $total,
-            'assigned' => array_sum(array_column($rows, 'assigned')),
-            'in_review' => array_sum(array_column($rows, 'in_review')),
-            'complete' => $complete,
-            'percentage' => $total > 0 ? (int) round(($complete / $total) * 100) : 0,
-            'pipeline' => $pipeline,
-        ];
+        return DashboardMatrixMetrics::merge($rows);
     }
 
     private function normalizeFilters(bool $isSuperAdmin, array $filters): array
     {
         if (! $isSuperAdmin) {
-            return ['region' => '', 'branch' => '', 'program' => '', 'status' => ''];
+            return ['region' => '', 'branch' => '', 'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '', 'status' => ''];
         }
 
         $region = trim((string) ($filters['region'] ?? ''));
