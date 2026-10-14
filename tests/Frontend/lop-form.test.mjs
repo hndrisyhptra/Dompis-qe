@@ -57,7 +57,7 @@ function incidentForm(fetch, validateIncident = true) {
     vm.runInNewContext(component, { window, URLSearchParams, fetch });
     const model = window.lopForm({
         validateIncident,
-        incidentTicketTypes: { recovery: 'GAMAS atau UNKNOWN', preventive: 'GAMAS atau UNKNOWN', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
+        incidentTicketTypes: { recovery: 'GAMAS atau UNKNOWN', preventive: 'GAMAS, UNKNOWN, atau INFRACARE', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
         initial: { program_type: 'recovery', branch: 'SIDOARJO', sto: 'SDA', area: '3' },
     });
     const watchers = {};
@@ -241,4 +241,23 @@ test('UNKNOWN membuka Simpan untuk Recovery dan Preventive setelah hasil server 
         assert.equal(model.canSubmitLop, true);
         assert.equal(model.lookup.mode, 'found');
     }
+});
+
+test('INFRACARE membuka Simpan setelah validasi Preventive dan terkunci saat berganti ke Recovery', async () => {
+    const { model, watchers } = incidentForm(async url => ({ ok: true, json: async () => ({
+        found: true, jenis_tiket_2: 'INFRACARE',
+        incident_validation: { valid: url.includes('program_type=preventive'), ticket_type: 'INFRACARE', message: 'Hasil validasi tiket.' },
+    }) }));
+    model.form.program_type = 'preventive';
+    model.form.incident = 'INC-INFRA';
+    assert.equal(model.canSubmitLop, false);
+    await model.lookupTicket();
+    assert.equal(model.canSubmitLop, true);
+    assert.equal(model.lookup.mode, 'found');
+    model.form.program_type = 'recovery';
+    assert.equal(model.canSubmitLop, false);
+    watchers['form.program_type']();
+    await new Promise(setImmediate);
+    assert.equal(model.lookup.validation.valid, false);
+    assert.equal(model.canSubmitLop, false);
 });

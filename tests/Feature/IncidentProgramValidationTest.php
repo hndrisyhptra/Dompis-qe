@@ -81,7 +81,7 @@ class IncidentProgramValidationTest extends TestCase
         foreach (['recovery' => 'INC-UNKNOWN-REC', 'preventive' => 'INC-UNKNOWN-PREV'] as $program => $incident) {
             $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => $program]))
                 ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
-                ->assertJsonPath('incident_validation.required_type', 'GAMAS atau UNKNOWN');
+                ->assertJsonPath('incident_validation.required_type', $program === 'preventive' ? 'GAMAS, UNKNOWN, atau INFRACARE' : 'GAMAS atau UNKNOWN');
             $this->post(route('lop.store'), $this->payload($incident, $program))->assertSessionHasNoErrors();
             $this->assertDatabaseHas('qe_lops', ['incident' => $incident, 'program_type' => $program]);
         }
@@ -97,6 +97,49 @@ class IncidentProgramValidationTest extends TestCase
         $this->assertSame(1, $batch->failed_rows);
         $this->assertSame(100, $batch->progressPercentage());
         $this->assertStringContainsString('NON NUMBERING', $batch->rows()->where('status', 'failed')->value('message'));
+    }
+
+    public function test_infracare_is_accepted_for_preventive_after_lookup_and_on_save(): void
+    {
+        $this->fakeIncidentTickets(['INC-INFRA' => 'INFRACARE', 'INC-INFRA-CASE' => '  iNfRaCaRe  ']);
+        foreach (['INC-INFRA', 'INC-INFRA-CASE'] as $incident) {
+            $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => 'preventive']))
+                ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
+                ->assertJsonPath('incident_validation.required_type', 'GAMAS, UNKNOWN, atau INFRACARE');
+            $this->post(route('lop.store'), $this->payload($incident, 'preventive'))
+                ->assertRedirect(route('lop.create'))->assertSessionHasNoErrors();
+            $lop = QeLop::where('incident', $incident)->firstOrFail();
+            $this->assertSame(ProgramType::PREVENTIVE, $lop->program_type);
+            $this->assertSame('draft', $lop->status_lop->value);
+            $this->assertSame('usulan', $lop->status_project->value);
+            $this->assertSame(1, $lop->histories()->count());
+        }
+    }
+
+    public function test_infracare_is_rejected_for_recovery_and_tiang_and_similar_labels_are_rejected_for_preventive(): void
+    {
+        $this->fakeIncidentTickets(['INC-INFRA' => 'INFRACARE', 'INC-INFRA-OTHER' => 'INFRACARE CUSTOMER']);
+        foreach ([['INC-INFRA', 'recovery'], ['INC-INFRA', 'relok_tiang'], ['INC-INFRA-OTHER', 'preventive']] as [$incident, $program]) {
+            $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => $program]))
+                ->assertOk()->assertJsonPath('incident_validation.valid', false);
+            $this->post(route('lop.store'), [...$this->payload($incident, $program), 'jenis_tiket_2' => 'GAMAS'])
+                ->assertSessionHasErrors('incident');
+            $this->assertDatabaseMissing('qe_lops', ['incident' => $incident]);
+        }
+        $this->assertDatabaseCount('qe_lop_histories', 0);
+    }
+
+    public function test_bulk_import_accepts_infracare_only_for_preventive_with_progress(): void
+    {
+        $this->fakeIncidentTickets(['INC-INFRA-PREV' => '  infracare  ', 'INC-INFRA-REC' => 'INFRACARE', 'INC-INFRA-TIANG' => 'INFRACARE']);
+        $batch = $this->import([['INC-INFRA-PREV', 'preventive'], ['INC-INFRA-REC', 'recovery'], ['INC-INFRA-TIANG', 'relok_tiang']]);
+        $this->assertSame('partial', $batch->status);
+        $this->assertSame(1, $batch->success_rows);
+        $this->assertSame(2, $batch->failed_rows);
+        $this->assertSame(100, $batch->progressPercentage());
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-INFRA-PREV', 'program_type' => 'preventive']);
+        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-INFRA-REC']);
+        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-INFRA-TIANG']);
     }
 
     public function test_blank_incident_generates_inp_for_every_program_and_existing_inp_still_works(): void

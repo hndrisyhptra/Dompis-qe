@@ -663,6 +663,13 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - **24 tests / 277 assertions** (`AissBoqExportTest` 7 tests, `DataBoqExportTest`, `LopBoqProjectionTest`, `LopPermissionTest`), Pint kedua file PHP task, dan git diff --check lulus. Full suite, build frontend, dan browser/AISS produksi tidak dijalankan ulang karena perubahan hanya pada pembentukan workbook, bukan service domain bersama atau UI.
 - Tidak ada migration/schema/write database operasional, perubahan dependency, commit/push, atau deployment. Setelah kode baru di-deploy, jalankan `php artisan optimize:clear` dan uji endpoint AISS pada LOP Completed sesuai scope; tidak perlu mengunggah template atau menjalankan migration. Worktree bersih saat mulai pada HEAD e9687fc; perbaikan ini masih lokal hingga di-deploy.
 
+### 7.36 Preventive menerima jenis tiket INFRACARE — 14 Oktober 2026
+
+- Sesuai permintaan user, Preventive sekarang menerima jenis tiket yang mengandung GAMAS, persis UNKNOWN, atau persis INFRACARE setelah trim/normalisasi huruf. Recovery tetap GAMAS/UNKNOWN; Relok Tiang tetap NON NUMBERING. Pengecualian incident kosong/INP/Relok Utilitas dipertahankan. INFRACARE CUSTOMER tidak dianggap INFRACARE.
+- `IncidentTicketValidationService` dan label `ProgramType::incidentTicketType()` diperbarui; aturan berlaku bersama pada lookup, create melalui StoreLopRequest, serta Bulk LOP. Panduan halaman/template bulk ikut diperbarui. Guard Simpan tetap membutuhkan hasil valid dari server untuk pasangan incident/program terkini.
+- Tiga regression backend memeriksa lookup/simpan Preventive, variasi huruf/spasi, status Draft/Usulan dan histori create, penolakan Recovery/Relok Tiang/label mirip/spoofed jenis client, serta partial/progress bulk import. Regression frontend memastikan INFRACARE membuka Simpan setelah validasi Preventive dan kembali terkunci saat beralih ke Recovery. Test penerimaan INFRACARE gagal sebelum perbaikan dan lulus sesudahnya.
+- Verifikasi: **369 tests / 3586 assertions** Laravel, **32 tests frontend**, build Vite, view:cache, Pint keempat file PHP task, dan git diff --check lulus. Worktree bersih saat mulai pada HEAD b1a1fc2. Tidak ada migration/schema/write data operasional, import nyata, queue restart, commit/push, atau deployment. Pengujian memakai SQLite memory dan DOM stub; browser/device serta sumber tiket MySQL produksi belum diverifikasi. Restart worker setelah deploy agar validasi bulk terbaru digunakan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -697,8 +704,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-365 tests passed
-3489 assertions
+369 tests passed
+3586 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -706,7 +713,7 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
-- Validasi incident/program: `IncidentProgramValidationTest` (10 tests); frontend `lop-form.test.mjs` (15 tests).
+- Validasi incident/program: `IncidentProgramValidationTest` (13 tests, termasuk INFRACARE khusus Preventive); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).

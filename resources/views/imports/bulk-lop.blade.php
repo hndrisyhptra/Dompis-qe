@@ -39,7 +39,7 @@
                 <p><strong class="text-ink-700 dark:text-ink-200">Wajib:</strong> STO, program_type, segment, dan job_description.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Nama LOP:</strong> boleh kosong, sistem membuat nama berdasarkan format aktif.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Incident:</strong> boleh kosong untuk membuat nomor INP otomatis.</p>
-                <p><strong class="text-ink-700 dark:text-ink-200">Jenis tiket:</strong> Recovery/Preventive menerima GAMAS atau UNKNOWN. Relok Tiang memakai NON NUMBERING. INP manual dan Relok Utilitas tidak perlu pengecekan jenis tiket.</p>
+                <p><strong class="text-ink-700 dark:text-ink-200">Jenis tiket:</strong> Recovery/Preventive menerima GAMAS atau UNKNOWN. Preventive juga menerima INFRACARE. Relok Tiang memakai NON NUMBERING. INP manual dan Relok Utilitas tidak perlu pengecekan jenis tiket.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Program:</strong> QE Recovery, QE Preventive, QE Relok Utilitas, QE Relok Tiang. Huruf besar/kecil, spasi, underscore, dan tanda hubung diterima (contoh: qe_recovery, QE RELOK TIANG).</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Anggaran otomatis:</strong> Relok Utilitas = CAPEX; program lainnya = OPEX. Kolom budget_type boleh kosong dan inputnya akan disesuaikan dengan program.</p>
                 <p><strong class="text-ink-700 dark:text-ink-200">Segmen semua program:</strong> pilih 1–5 segmen, pisahkan dengan <code class="rounded bg-ink-100 px-1 dark:bg-ink-800">|</code>, contoh feeder|distribusi|odc|odp|tiang. Koma atau titik koma juga diterima.</p>
