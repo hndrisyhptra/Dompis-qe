@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **13 Oktober 2026**
+Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `afee345` (`feat: change password & softdel LOP`)
+HEAD dasar saat audit terbaru: `6b82630` (`feat: update resources/js/app.js locally`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -591,6 +591,41 @@ Pemilihan paket reservasi otomatis:
 - Tampilan matrix admin berupa tabel ringkas rounded-md, baris metadata lokasi, warna per metrik, sticky kolom identitas saat horizontal scroll mobile, footer Total Scope, dan empty state. Matrix Status LOP serta accordion Region/Branch/Program Super Admin tetap mengikuti desain existing. Tidak mengubah menu Program, Revenue, Inbox creator-only, Approval Saya per assigner, maupun approval umum.
 - Regression baru DashboardProgramScopeMatrixTest (9 cases) mencakup empat scope, multi-STO lintas Branch, legacy branch/STO dan scope legacy, seluruh status, weighted percentage, empat dropdown program, lokasi nol, archived LOP, query ID/program luar/malformed, baris STO belum terdata, rincian Unassign, preservasi tanggal/filter, serta Super Admin. **341 tests / 3196 assertions** Laravel dan **20 frontend tests** lulus; view:cache, build Vite, Pint seluruh file PHP task, serta diff check lulus. Tidak ada migration/write data operasional, commit/push, tes browser, restart worker, atau deployment. MySQL produksi belum diuji.
 
+### 7.26 Pemulihan build setelah konflik JavaScript — 14 Oktober 2026
+
+- Commit `6b82630` menyimpan tujuh blok konflik `Updated upstream` / `Stashed changes` pada `resources/js/app.js`; build Vite dan sembilan test frontend LOP/BOQ gagal karena sintaks tersebut. Resolusi mempertahankan guard sesi, budget otomatis, lima segmen semua program, dukungan Relok Tiang, serta batas item BOQ dari implementasi terbaru, dengan format kode lokal tetap dipertahankan.
+- Regression baru `tests/Frontend/app.test.mjs` memeriksa sintaks seluruh entry point sebagai modul JavaScript; gagal sebelum resolusi dan lulus sesudahnya. Verifikasi lokal: `npm run build`, seluruh **21 test frontend**, dan `git diff --check` lulus; tidak ada penanda konflik tersisa pada resources/tests.
+- Tidak ada perubahan schema, migration, database operasional, atau deployment. Suite Laravel dan browser/device tidak dijalankan pada perbaikan sintaks ini.
+
+### 7.27 Download Excel seluruh Data BOQ sesuai scope — 14 Oktober 2026
+
+- Tombol Download Excel ditempatkan di sebelah Import BOQ pada `master-data/boqs`. GET `master-data/boqs/export` memakai middleware auth/role ADMIN,SUPER_ADMIN serta Gate `export-data-boqs` di controller. ADMIN mengikuti `LopVisibilityService` untuk Area/Region/Branch/multi-Service Area dan fallback branch/STO legacy; SUPER_ADMIN mencakup seluruh wilayah. Query browser tidak memperluas scope.
+- File XLSX satu sheet Data BOQ mempunyai kolom Incident, Nama LOP, Designator, Item, Kategori, Reservasi, Aktual, Harga, Total. Seluruh LOP aktif dengan BOQ atau reservasi beritem diekspor tanpa batas pagination/pencarian. LOP/BOQ/item yang soft-deleted tidak diekspor. Setiap baris mengulang Incident/Nama LOP; teks disimpan eksplisit sebagai text untuk menjaga leading zero dan mencegah formula, sedangkan kuantitas/harga/total tetap numerik. Header dilengkapi filter dan freeze pane.
+- `DataBoqExportService` memakai eager loading dan pembacaan LOP per 100 record melalui generator. `LopBoqProjectionService::masterDataLines()` menggunakan aturan proyeksi existing: BOQ tersimpan, termasuk import Recovery, mempertahankan snapshot uraian/kategori/harga; Reservasi/Aktual mengikuti reservasi bila tersedia, dengan fallback qty BOQ sebelum reservasi. Tanpa BOQ, paket wilayah/referensi serta pasangan jasa virtual mengikuti laporan aktual existing. Total = Aktual × Harga; aktual/harga/total yang belum tersedia kosong, angka 0 tetap 0. Ini ekspor data operasional semua status, bukan nilai Revenue yang hanya menghitung Completed. Lifecycle dan aturan Recovery tanpa Plan di laporan existing tidak berubah.
+- Regression `DataBoqExportTest` memeriksa workbook XLSX nyata, header/tipe sel/leading zero/formula/zero/null, harga snapshot vs harga master terbaru, Recovery import tanpa reservasi, pasangan jasa/paket BALNUS, seluruh level scope dan legacy, manipulasi query, data lebih dari satu chunk, arsip/BOQ dihapus, dataset kosong, tombol UI, serta Gate tanpa middleware role. **347 tests / 3261 assertions** Laravel dan **21 frontend tests** lulus; Vite build, view:cache, Pint seluruh file PHP task, route registration, dan git diff --check lulus.
+- Tidak ada migration/schema/write database operasional, queue restart, commit/push, atau deployment. Perbaikan JavaScript dari task sebelumnya dipertahankan. Pengujian memakai SQLite memory; browser/device, volume produksi, dan MySQL produksi belum diverifikasi.
+
+### 7.28 Validasi incident sesuai program pada input dan Bulk LOP — 14 Oktober 2026
+
+- Input LOP Baru dan Bulk Import LOP memeriksa incident yang diisi terhadap `ticket.jenis_tiket_2` pada koneksi eksternal read-only `mysql_dompis`. Recovery/Preventive wajib mengandung GAMAS tanpa membedakan huruf besar/kecil; Relok Tiang wajib mengandung frasa NON NUMBERING, dengan normalisasi spasi/underscore/hyphen. Relok Utilitas tidak mensyaratkan jenis tiket. Aturan canonical berada di `ProgramType::incidentTicketType()` dan `IncidentTicketValidationService`.
+- Semua program dapat mengosongkan incident untuk menghasilkan INP otomatis. Input manual menggunakan tombol Generate Ticket Manual atau generate sebelum submit agar preview nama LOP memuat INP; backend `LopService::create()` juga menghasilkan INP setelah validasi lokasi ketika request dikirim tanpa JavaScript. INP manual tetap dikecualikan dari pemeriksaan jenis tiket eksternal; uniqueness, scope lokasi, histori, budget, dan lifecycle existing dipertahankan. Form edit dan Import BOQ tidak mendapat pemeriksaan jenis tiket baru pada task ini.
+- `StoreLopRequest` memvalidasi jenis tiket di server setelah validasi field/lokasi, tanpa mempercayai ticket_summary atau jenis tiket kiriman client. Incident yang tidak ditemukan, jenisnya kosong/tidak sesuai, atau sumber tiket tidak tersedia ditolak dengan pesan incident. Nomor yang belum tersedia dapat dikosongkan/diganti INP oleh user; incident yang salah tidak diganti diam-diam. Relok Utilitas/INP/incident kosong tidak memerlukan sumber tiket untuk disimpan.
+- Endpoint lookup menerima program_type opsional dan mengembalikan incident_validation; form menampilkan requirement/hasil, memeriksa ulang saat program berubah, memblokir submit hasil tidak valid, dan mengabaikan respons incident/program lama. Bulk import memprefetch jenis tiket per 500 incident unik, mencatat gagal per baris, serta mempertahankan progress, partial/failed, dan pesan duplikasi existing. Panduan halaman dan template Excel diperbarui tanpa mengubah header import.
+- `IncidentProgramValidationTest` (7 tests) memakai SQLite terpisah sebagai sumber ticket: GAMAS/NON NUMBERING/variasi label, tipe kosong/salah/ticket hilang, spoofed summary, semua program dengan incident kosong, INP existing/duplikat, lookup per program, gangguan sumber, partial import dan prefetch. Fixture regression lama dilengkapi sumber tiket melalui `InteractsWithIncidentTickets`; bukan bypass validasi. Lima regression frontend baru mencakup pergantian program, respons lama, generate sebelum submit/nama LOP, retry/invalid, serta preservasi edit.
+- Verifikasi lokal: **354 tests / 3345 assertions** Laravel dan **26 frontend tests** lulus; build Vite, view:cache, Pint file PHP task, serta git diff --check lulus. Tidak ada migration/schema/write database operasional, import nyata, queue restart, commit/push, atau deployment. Database tiket MySQL produksi dan browser/device belum diverifikasi; restart worker setelah deploy agar aturan import terbaru digunakan.
+
+### 7.29 Kunci Simpan LOP sampai incident tervalidasi — 14 Oktober 2026
+
+- Guard sebelumnya hanya memblokir incident_validation.valid = false, sehingga hasil kosong/belum dicek dapat mengaktifkan Simpan LOP. `lopForm.incidentValid` sekarang mensyaratkan hasil valid = true, ticket found, tanpa error, dan validationFor yang cocok dengan pasangan incident/program terkini untuk incident eksternal pada Recovery/Preventive/Relok Tiang. `canSubmitLop` dipakai bersama tombol dan submit handler; loading, duplikasi, program kosong, perubahan incident/program, payload tanpa validasi, dan gangguan jaringan tetap mengunci Simpan.
+- Tombol create mempunyai atribut disabled sejak HTML awal sampai Alpine memeriksa state; halaman edit tetap mengikuti perilaku existing. Hasil lookup sebelum memilih program ditampilkan sebagai Validasi belum selesai, bukan sukses hijau. Pengecualian incident kosong yang menghasilkan INP sebelum submit, INP manual, dan Relok Utilitas dipertahankan.
+- Regression memakai contoh user `INC47206386` dengan jenis REG: lookup tanpa program dapat menemukan tiket, tetapi memilih Recovery tetap menolak melalui UI dan backend. Empat test frontend baru memeriksa state tombol, validasi sesuai pasangan incident/program, request pending, respons tanpa validasi, kegagalan HTTP/jaringan, serta pengecualian INP/Utilitas. Ini fixture SQLite/DOM stub, bukan pemeriksaan incident produksi.
+- Verifikasi: **45 test Laravel terkait / 220 assertions**, **30 test frontend**, build Vite, view:cache, Pint file PHP test, dan git diff --check lulus. Full suite Laravel terakhir tetap baseline pada 7.28; tidak dijalankan ulang pada perbaikan guard UI ini. Tidak ada migration/write data operasional/deployment; browser dan sumber tiket produksi belum diverifikasi. Asset lokal sudah dibuild ulang.
+
+### 7.30 Pesan incident lebih ringkas — 14 Oktober 2026
+
+- Form memakai satu petunjuk bahwa incident kosong menghasilkan INP; label requirement yang berulang dihapus. Pesan mismatch menjadi Gunakan tiket GAMAS untuk QE Preventive. Tiket ini berjenis REG. Peringatan pemetaan segmen disembunyikan selama jenis tiket tidak valid; saat diperlukan pesannya diringkas menjadi Segmen tiket ... belum terpetakan. Pilih segmen secara manual. Aturan validasi dan guard Simpan tidak berubah.
+- Verifikasi: 21 test Laravel terkait / 130 assertions, build Vite, view:cache, Pint file PHP task, dan git diff --check lulus. Tidak ada perubahan schema, write database operasional, atau deployment.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -624,14 +659,16 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-341 tests passed
-3196 assertions
+354 tests passed
+3345 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Validasi incident/program: `IncidentProgramValidationTest` (8 tests); frontend `lop-form.test.mjs` (14 tests).
+- Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
 - Pembatalan/arsip LOP semua status dan Active LOP pembuat: `LopCancellationTest` (termasuk retensi BOQ/evidence/file, stale actions, dan exclusion Revenue).

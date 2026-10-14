@@ -1,5 +1,6 @@
 <form method="POST" action="{{ $formAction }}"
-      x-data="lopForm({ initial: @js($initial), template: @js($nameTemplate), maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }}, programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
+      x-data="lopForm({ validateIncident: {{ ($formMethod ?? 'POST') === 'POST' ? 'true' : 'false' }}, incidentTicketTypes: @js($incidentTicketTypes), initial: @js($initial), template: @js($nameTemplate), maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }}, programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
+      @submit="submitLop($event)"
       class="space-y-5">
     @csrf
     @isset($returnUrl)<input type="hidden" name="return_url" value="{{ old('return_url', $returnUrl) }}">@endisset
@@ -53,10 +54,12 @@
                         </button>
                     </div>
                     @error('incident')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                    <p class="mt-1.5 text-xs text-ink-500 dark:text-ink-400">Incident boleh kosong, nanti dibuatkan nomor INP.</p>
+                    <p x-show="!canSubmitLop && !lookup.loading && !manualGen.loading && !lookup.message && !lookup.duplicate" x-cloak class="mt-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300" x-text="form.program_type ? 'Klik Cari Tiket untuk mengecek incident.' : 'Pilih program, lalu klik Cari Tiket.'"></p>
                     <p x-show="lookup.message" x-cloak class="mt-1.5 text-xs"
                        :class="lookup.error ? 'text-brand-600 dark:text-brand-400' : 'text-emerald-600 dark:text-emerald-400'"
                        x-text="lookup.message"></p>
-                    <template x-for="(w, i) in lookup.warnings" :key="i">
+                    <template x-for="(w, i) in (lookup.validation?.valid === false ? [] : lookup.warnings)" :key="i">
                         <p class="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" x-text="w"></p>
                     </template>
 
@@ -74,19 +77,19 @@
                     {{-- Status pencarian tiket / nomor manual (ringkas) --}}
                     <div x-show="lookup.mode" x-cloak x-transition
                          class="mt-3 flex items-start gap-2 rounded-lg border p-2.5 text-xs"
-                         :class="lookup.mode === 'manual'
+                         :class="lookup.mode !== 'found'
                             ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30'
                             : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/30'">
                         <svg class="mt-0.5 h-3.5 w-3.5 shrink-0"
-                             :class="lookup.mode === 'manual' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
+                             :class="lookup.mode !== 'found' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
                              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                         <div class="min-w-0">
-                            <p class="font-bold" :class="lookup.mode === 'manual' ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'" x-text="lookup.summaryTitle"></p>
+                            <p class="font-bold" :class="lookup.mode !== 'found' ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'" x-text="lookup.summaryTitle"></p>
                             <p x-show="lookup.summaryText" class="mt-0.5 text-ink-500 dark:text-ink-400" x-text="lookup.summaryText"></p>
                         </div>
                     </div>
 
-                    <div x-show="lookup.notFound" x-cloak class="mt-2 rounded-lg border border-ink-200 bg-ink-50/70 p-3 dark:border-ink-700 dark:bg-ink-800/50">
+                    <div x-show="lookup.notFound || !form.incident" x-cloak class="mt-2 rounded-lg border border-ink-200 bg-ink-50/70 p-3 dark:border-ink-700 dark:bg-ink-800/50">
                         <button type="button" @click="generateManualIncident()" :disabled="!form.program_type || manualGen.loading"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
                             <svg x-show="!manualGen.loading" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -371,7 +374,7 @@
 
     <div class="sticky bottom-3 z-10 flex items-center justify-end gap-2 rounded-2xl border border-ink-200 bg-white/95 p-2.5 shadow-xl backdrop-blur dark:border-ink-700 dark:bg-ink-900/95 sm:static sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <a href="{{ $cancelUrl }}" class="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800 sm:px-5 sm:py-3">Batal</a>
-        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 sm:px-6 sm:py-3">
+        <button type="submit" @disabled(($formMethod ?? 'POST') === 'POST') :disabled="!canSubmitLop" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:py-3">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> {{ $submitLabel }}
         </button>
     </div>

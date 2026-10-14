@@ -8,6 +8,7 @@ use App\Enums\ProgramType;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
+use App\Services\IncidentTicketValidationService;
 use App\Services\LopVisibilityService;
 use App\Support\DatekRules;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,7 +24,7 @@ class StoreLopRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'incident' => ['required', 'string', 'max:100', 'unique:qe_lops,incident'],
+            'incident' => ['nullable', 'string', 'max:100', 'unique:qe_lops,incident'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
             'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],
@@ -83,6 +84,15 @@ class StoreLopRequest extends FormRequest
 
             if ($branch && $sa && ! app(LopVisibilityService::class)->canUseLocation($this->user(), $branch->id_branch, $sa->id_service_area)) {
                 $v->errors()->add('sto', 'Service Area berada di luar scope admin Anda.');
+            }
+
+            if ($v->errors()->isEmpty()) {
+                $validation = app(IncidentTicketValidationService::class)->inspect(
+                    (string) $this->input('incident'), ProgramType::from($this->input('program_type')),
+                );
+                if (! $validation['valid']) {
+                    $v->errors()->add('incident', $validation['message']);
+                }
             }
         });
     }

@@ -22,6 +22,23 @@ class LopBoqProjectionService
 {
     public function __construct(private readonly RegionalPackageResolver $regionalPackages) {}
 
+    /** @return array<int, array<string, mixed>> */
+    public function masterDataLines(QeLop $lop): array
+    {
+        $lop->loadMissing([
+            'package',
+            'boq.package',
+            'boq.items.designator.type',
+            'materialReservation.items.designator.type',
+        ]);
+
+        if ($lop->boq !== null) {
+            return $this->actualLines($lop, $lop->boq->package ?? $lop->package, true)->all();
+        }
+
+        return $this->report($lop, 'actual')['lines'];
+    }
+
     /** @return array<string, mixed> */
     public function report(QeLop $lop, string $report): array
     {

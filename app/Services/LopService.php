@@ -31,6 +31,7 @@ class LopService
     public function __construct(
         private readonly LopNamingService $namingService,
         private readonly BoqService $boqService,
+        private readonly ManualIncidentService $manualIncident,
     ) {}
 
     /**
@@ -64,6 +65,9 @@ class LopService
                 [$branch, $serviceArea] = $this->resolveLocation($data);
             }
             $program = ProgramType::from((string) $data['program_type']);
+            if (blank($data['incident'] ?? null)) {
+                $data['incident'] = $this->manualIncident->generate($branch, $program);
+            }
             $data['budget_type'] = $program->budgetType()->value;
 
             // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)

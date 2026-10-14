@@ -1,11 +1,7 @@
-<<<<<<< Updated upstream
-import './bootstrap';
-import { installAuthSessionGuard } from './auth-session';
+import "./bootstrap";
+import { installAuthSessionGuard } from "./auth-session";
 
 installAuthSessionGuard();
-=======
-import "./bootstrap";
->>>>>>> Stashed changes
 
 import Alpine from "alpinejs";
 import imageCompression from "browser-image-compression";
@@ -433,6 +429,9 @@ const normalizeDatek = (raw) => {
 };
 
 window.lopForm = (options = {}) => ({
+    validateIncident: options.validateIncident ?? false,
+    incidentTicketTypes: options.incidentTicketTypes ?? {},
+    lookupRequestId: 0,
     form: {
         incident: "",
         sto: "",
@@ -479,6 +478,30 @@ window.lopForm = (options = {}) => ({
             (sa) => String(sa.branch || "") === String(this.form.branch),
         );
     },
+
+    get incidentQueryKey() {
+        return `${String(this.form.incident ?? "").trim().toUpperCase()}|${this.form.program_type}`;
+    },
+
+    get incidentNeedsCheck() {
+        const incident = String(this.form.incident ?? "").trim().toUpperCase();
+        return this.validateIncident && incident !== "" && !incident.startsWith("INP") &&
+            this.incidentTicketTypes[this.form.program_type] !== null;
+    },
+
+    get incidentValid() {
+        if (!this.validateIncident) return true;
+        if (!this.form.program_type) return false;
+        if (!this.incidentNeedsCheck) return true;
+        return this.lookup.found === true && !this.lookup.error &&
+            this.lookup.validation?.valid === true && this.lookup.validationFor === this.incidentQueryKey;
+    },
+
+    get canSubmitLop() {
+        return !this.validateIncident || (!this.lookup.loading && !this.manualGen.loading &&
+            !this.lookup.duplicate && this.incidentValid);
+    },
+
     lookup: {
         loading: false,
         error: false,
@@ -490,6 +513,9 @@ window.lopForm = (options = {}) => ({
         summaryTitle: "",
         summaryText: "",
         duplicate: null,
+        validation: null,
+        validationFor: null,
+        found: false,
     },
     manualGen: { loading: false, message: "" },
 
@@ -517,17 +543,7 @@ window.lopForm = (options = {}) => ({
             this.form.segment = this.form.segments[0];
         }
 
-<<<<<<< Updated upstream
         this.syncProgramRules(false);
-        ['incident', 'sto', 'branch', 'area', 'segment', 'segments', 'program_type', 'budget_type', 'job_description']
-            .forEach((field) => this.$watch(`form.${field}`, () => this.regenerateName()));
-        // watcher khusus segments array deep
-        this.$watch('form.segments', () => this.regenerateName(), { deep: true });
-        this.$watch('form.area', () => this.onAreaChange());
-        this.$watch('form.branch', () => this.onBranchChange());
-        this.$watch('form.program_type', () => this.syncProgramRules());
-        this.$watch('segmentOpen', (v) => { if (v) this.$nextTick(() => this.updateSegmentPos()); });
-=======
         [
             "incident",
             "sto",
@@ -547,10 +563,22 @@ window.lopForm = (options = {}) => ({
         });
         this.$watch("form.area", () => this.onAreaChange());
         this.$watch("form.branch", () => this.onBranchChange());
+        this.$watch("form.program_type", () => {
+            this.syncProgramRules();
+            if (this.validateIncident) {
+                this.resetIncidentLookup();
+                this.lookupTicket();
+            }
+        });
+        if (this.validateIncident) {
+            this.$watch("form.incident", () => {
+                this.resetIncidentLookup();
+                if (String(this.form.incident).trim().toUpperCase().startsWith("INP")) this.markManualIncident();
+            });
+        }
         this.$watch("segmentOpen", (v) => {
             if (v) this.$nextTick(() => this.updateSegmentPos());
         });
->>>>>>> Stashed changes
         // update posisi dropdown saat resize/scroll (untuk teleport fixed)
         window.addEventListener("resize", () => {
             if (this.segmentOpen) this.updateSegmentPos();
@@ -564,6 +592,7 @@ window.lopForm = (options = {}) => ({
         );
         if (!this.form.nama_lop) this.regenerateName(true);
         this.hydrateDatekText();
+        if (this.validateIncident && this.form.incident) this.lookupTicket();
     },
 
     updateSegmentPos() {
@@ -609,23 +638,13 @@ window.lopForm = (options = {}) => ({
 
     regenerateName(force = false) {
         if (this.nameManuallyEdited && !force) return;
-<<<<<<< Updated upstream
 
         // Semua segmen terpilih ikut menjadi token nama LOP.
-        let segmentToken = '';
-        if (this.supportsMultipleSegments()) {
-            const segs = Array.isArray(this.form.segments) ? this.form.segments : [];
-=======
-        if (this.form.program_type !== "relok_utilitas")
-            this.form.budget_type = "";
-
-        // Gabungan segmen: untuk relok pakai array segments join _, else single segment
         let segmentToken = "";
-        if (this.form.program_type === "relok_utilitas") {
+        if (this.supportsMultipleSegments()) {
             const segs = Array.isArray(this.form.segments)
                 ? this.form.segments
                 : [];
->>>>>>> Stashed changes
             const tokens = [];
             const seen = new Set();
             for (const seg of segs) {
@@ -671,13 +690,17 @@ window.lopForm = (options = {}) => ({
     },
 
     async lookupTicket() {
-        const incident = String(this.form.incident ?? "").trim();
-        if (
-            !incident ||
-            this.lookup.loading ||
-            incident === this.lookup.lastQuery
-        )
+        const incident = String(this.form.incident ?? "").trim().toUpperCase();
+        const program = this.form.program_type;
+        const queryKey = this.incidentQueryKey;
+        if (!incident || queryKey === this.lookup.lastQuery) return;
+        if (incident.startsWith("INP")) {
+            this.markManualIncident();
             return;
+        }
+        const requestId = ++this.lookupRequestId;
+        const currentRequest = () => requestId === this.lookupRequestId &&
+            incident === String(this.form.incident ?? "").trim().toUpperCase() && program === this.form.program_type;
 
         this.lookup.loading = true;
         this.lookup.error = false;
@@ -685,16 +708,22 @@ window.lopForm = (options = {}) => ({
         this.lookup.message = "";
         this.lookup.warnings = [];
         this.lookup.duplicate = null;
+        this.lookup.validation = null;
+        this.lookup.validationFor = null;
+        this.lookup.found = false;
         this.resetLookupSummary();
         this.manualGen.message = "";
 
         try {
+            const params = new URLSearchParams({ incident });
+            if (program) params.set("program_type", program);
             const res = await fetch(
-                `/lop/ticket-lookup?incident=${encodeURIComponent(incident)}`,
+                `/lop/ticket-lookup?${params.toString()}`,
                 {
                     headers: { Accept: "application/json" },
                 },
             );
+            if (!currentRequest()) return;
 
             if (!res.ok) {
                 this.lookup.error = true;
@@ -704,14 +733,19 @@ window.lopForm = (options = {}) => ({
             }
 
             const json = await res.json();
-            this.lookup.lastQuery = incident;
+            if (!currentRequest()) return;
             this.lookup.duplicate = json.existing_lop || null;
+            this.lookup.validation = json.incident_validation ?? null;
+            this.lookup.validationFor = queryKey;
+            this.lookup.found = json.found === true;
+            this.lookup.error = Boolean(json.error);
+            if (!json.error && (!this.validateIncident || this.incidentValid)) this.lookup.lastQuery = queryKey;
 
             if (!json.found) {
-                this.lookup.error = Boolean(json.error);
+                this.lookup.error = Boolean(json.error) || this.lookup.validation?.valid === false;
                 this.lookup.notFound = !json.error;
                 this.lookup.message =
-                    json.message ||
+                    this.lookup.validation?.message || json.message ||
                     "Tiket tidak ditemukan di database. Buat nomor tiket manual di bawah.";
                 return;
             }
@@ -737,21 +771,14 @@ window.lopForm = (options = {}) => ({
                 this.form.sto = json.sto;
             }
             if (json.segment) {
-<<<<<<< Updated upstream
                 if (this.supportsMultipleSegments()) {
-                    // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
-                    const seg = String(json.segment).toLowerCase().trim();
-                    if (seg && !this.form.segments.includes(seg) && this.form.segments.length < this.maxSegments) {
-=======
-                if (this.form.program_type === "relok_utilitas") {
                     // Jika sudah ada, tambahkan tanpa duplikat (preserve order)
                     const seg = String(json.segment).toLowerCase().trim();
                     if (
                         seg &&
                         !this.form.segments.includes(seg) &&
-                        this.form.segments.length < 3
+                        this.form.segments.length < this.maxSegments
                     ) {
->>>>>>> Stashed changes
                         this.form.segments.push(seg);
                     }
                     // Sync single juga untuk kompatibilitas
@@ -766,31 +793,74 @@ window.lopForm = (options = {}) => ({
             this.lookup.warnings = Array.isArray(json.warnings)
                 ? json.warnings
                 : [];
+            if (this.lookup.validation?.valid === false) {
+                this.lookup.error = true;
+                this.lookup.message = this.lookup.validation.message;
+                return;
+            }
+            this.lookup.message = this.lookup.validation?.message || "";
+            if (this.validateIncident && !this.incidentValid) {
+                this.lookup.mode = "pending";
+                this.lookup.summaryTitle = "Tiket ditemukan, validasi belum selesai";
+                this.lookup.summaryText = this.form.program_type
+                    ? "Klik Cari Tiket untuk memvalidasi incident sesuai program terpilih."
+                    : "Pilih Program untuk memeriksa kesesuaian jenis tiket.";
+                return;
+            }
             this.lookup.mode = "found";
             this.lookup.summaryTitle = "Tiket ditemukan di database";
             this.lookup.summaryText =
                 "STO, Branch, dan Segmen terisi otomatis — masih bisa diubah.";
             this.regenerateName();
         } catch (e) {
+            if (!currentRequest()) return;
             this.lookup.error = true;
             this.lookup.message =
                 "Terjadi kesalahan jaringan saat mengambil data tiket.";
         } finally {
-            this.lookup.loading = false;
+            if (currentRequest()) this.lookup.loading = false;
+        }
+    },
+
+    resetIncidentLookup() {
+        this.lookupRequestId++;
+        Object.assign(this.lookup, {
+            loading: false, error: false, notFound: false, message: "",
+            warnings: [], duplicate: null, validation: null, lastQuery: null,
+            validationFor: null, found: false,
+        });
+        this.resetLookupSummary();
+    },
+
+    markManualIncident() {
+        this.lookup.validation = { valid: true };
+        this.lookup.mode = "manual";
+        this.lookup.summaryTitle = "Nomor INP manual";
+        this.lookup.summaryText = `${this.form.incident} · lengkapi STO, Branch, dan Segmen secara manual.`;
+    },
+
+    async submitLop(event) {
+        if (!this.validateIncident) return;
+        if (!this.canSubmitLop) {
+            event.preventDefault();
+            return;
+        }
+        if (!String(this.form.incident || "").trim()) {
+            event.preventDefault();
+            await this.generateManualIncident();
+            if (this.form.incident) this.$nextTick(() => event.target.requestSubmit());
         }
     },
 
     async generateManualIncident() {
         if (!this.form.program_type || this.manualGen.loading) return;
 
-<<<<<<< Updated upstream
-        if (['relok_utilitas', 'relok_tiang'].includes(this.form.program_type) && !this.form.branch) {
-            this.manualGen.message = 'Pilih Area → Branch → STO terlebih dahulu sebelum generate INP.';
-=======
-        if (this.form.program_type === "relok_utilitas" && !this.form.branch) {
+        if (
+            ["relok_utilitas", "relok_tiang"].includes(this.form.program_type) &&
+            !this.form.branch
+        ) {
             this.manualGen.message =
                 "Pilih Area → Branch → STO terlebih dahulu sebelum generate INP.";
->>>>>>> Stashed changes
             return;
         }
 
@@ -824,12 +894,9 @@ window.lopForm = (options = {}) => ({
             this.lookup.error = false;
             this.lookup.warnings = [];
             this.lookup.duplicate = null;
-            this.lookup.lastQuery = json.incident;
+            this.lookup.lastQuery = null;
             this.lookup.message = "";
-            this.lookup.mode = "manual";
-            this.lookup.summaryTitle =
-                "Tiket tidak ditemukan — nomor manual dibuat";
-            this.lookup.summaryText = `${json.incident} · lengkapi STO, Branch, dan Segmen secara manual.`;
+            this.markManualIncident();
             this.regenerateName();
         } catch (e) {
             this.manualGen.message =
@@ -1011,17 +1078,14 @@ window.lopForm = (options = {}) => ({
     },
 
     programLabel(value) {
-<<<<<<< Updated upstream
-        return { recovery: 'QE Recovery', preventive: 'QE Preventive', relok_utilitas: 'QE Relok Utilitas', relok_tiang: 'QE Relok Tiang' }[value] ?? '';
-=======
         return (
             {
                 recovery: "QE Recovery",
                 preventive: "QE Preventive",
                 relok_utilitas: "QE Relok Utilitas",
+                relok_tiang: "QE Relok Tiang",
             }[value] ?? ""
         );
->>>>>>> Stashed changes
     },
 });
 
@@ -1317,11 +1381,7 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
         },
 
         add() {
-<<<<<<< Updated upstream
             if (this.items.length >= this.maxItems) return;
-            this.items.forEach((item) => { item.open = false; });
-            this.items.push({ designator_id: '', qty: 1, unit_price: 0, search: '', open: true });
-=======
             this.items.forEach((item) => {
                 item.open = false;
             });
@@ -1332,7 +1392,6 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
                 search: "",
                 open: true,
             });
->>>>>>> Stashed changes
         },
 
         filteredOptions(search, selectedId) {

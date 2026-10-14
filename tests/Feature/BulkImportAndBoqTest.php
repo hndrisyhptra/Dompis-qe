@@ -28,11 +28,12 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class BulkImportAndBoqTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     private function branchData(): array
     {
@@ -56,6 +57,7 @@ class BulkImportAndBoqTest extends TestCase
 
     public function test_bulk_lop_upload_is_queued_and_blank_name_is_generated(): void
     {
+        $this->fakeIncidentTickets(['INC900001' => 'GAMAS ODP']);
         Storage::fake('local');
         Queue::fake();
         [, , $branch] = $this->branchData();

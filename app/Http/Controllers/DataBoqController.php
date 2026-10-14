@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
+use App\Exports\DataBoqExport;
 use App\Http\Requests\ResetBoqRequest;
 use App\Http\Requests\UpdateBoqRequest;
 use App\Http\Requests\UpdateReservationBoqRequest;
@@ -11,6 +12,7 @@ use App\Models\Package;
 use App\Models\QeBoq;
 use App\Models\QeLop;
 use App\Services\BoqService;
+use App\Services\DataBoqExportService;
 use App\Services\LopBoqValueService;
 use App\Services\LopService;
 use App\Services\LopVisibilityService;
@@ -19,6 +21,8 @@ use App\Support\MaterialReservationRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DataBoqController extends Controller
 {
@@ -82,6 +86,16 @@ class DataBoqController extends Controller
             'packages' => Package::query()->orderBy('code')->get(),
             'search' => $search ?? '',
         ]);
+    }
+
+    public function export(Request $request, DataBoqExportService $service): BinaryFileResponse
+    {
+        $this->authorize('export-data-boqs');
+
+        return Excel::download(
+            new DataBoqExport($service, $request->user()),
+            'data-boq-'.now()->format('Ymd-His').'.xlsx',
+        );
     }
 
     public function update(UpdateBoqRequest $request, QeBoq $boq): RedirectResponse

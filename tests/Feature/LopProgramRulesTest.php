@@ -25,11 +25,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class LopProgramRulesTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     public function test_program_labels_accept_case_separators_codes_and_containing_text_but_reject_ambiguity(): void
     {
@@ -50,6 +51,7 @@ class LopProgramRulesTest extends TestCase
 
     public function test_manual_create_and_edit_force_budget_and_preserve_multiple_tiang_segments(): void
     {
+        $this->fakeIncidentTickets(['INC-PROGRAM-0' => 'GAMAS', 'INC-PROGRAM-1' => 'GAMAS', 'INC-PROGRAM-3' => 'NON NUMBERING']);
         [$admin] = $this->actors();
         $this->actingAs($admin)->get(route('lop.create'))->assertOk()->assertSee('QE Relok Tiang')->assertDontSee('type="radio" name="budget_type"', false);
         foreach (ProgramType::cases() as $index => $program) {
@@ -91,6 +93,7 @@ class LopProgramRulesTest extends TestCase
         }
         $csv .= "INC-INVALID,SDA,SIDOARJO,3,QE Lainnya,odp,,Pekerjaan\n";
         $csv .= "INC-AMBIGUOUS,SDA,SIDOARJO,3,QE Recovery Preventive,odp,,Pekerjaan\n";
+        $this->fakeIncidentTickets(collect($expected)->map(fn (ProgramType $program) => $program->incidentTicketType() ?? 'GAMAS')->all());
         $this->actingAs($admin)->post(route('bulk-import.lop.store'), ['file' => UploadedFile::fake()->createWithContent('program.csv', $csv)])
             ->assertRedirect();
         $batch = QeImportBatch::firstOrFail();

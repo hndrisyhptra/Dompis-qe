@@ -11,14 +11,16 @@ use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class LopReturnNavigationTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     public function test_save_lop_returns_to_fresh_input_form_for_admin_and_superadmin(): void
     {
+        $this->fakeIncidentTickets(['INC-NEW-0' => 'GAMAS ODP', 'INC-NEW-1' => 'GAMAS ODP']);
         [$admin, , $lop] = $this->fixture();
         foreach ([$admin, User::factory()->role(UserRole::SUPER_ADMIN->value)->create()] as $index => $user) {
             $this->actingAs($user)->from(route('lop.create'))->post(route('lop.store'), [

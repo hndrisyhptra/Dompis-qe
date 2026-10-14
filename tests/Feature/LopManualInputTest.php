@@ -11,11 +11,12 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\LopNamingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class LopManualInputTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     private function seedAreaBranchServiceArea(): void
     {
@@ -38,6 +39,7 @@ class LopManualInputTest extends TestCase
 
     public function test_admin_can_create_lop_with_manual_input_flow_and_generated_name(): void
     {
+        $this->fakeIncidentTickets(['INC123456' => 'GAMAS ODP']);
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
         $this->seedAreaBranchServiceArea();

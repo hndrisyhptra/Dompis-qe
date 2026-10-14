@@ -24,7 +24,12 @@
             <h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">Data BOQ</h1>
             <p class="mt-2 text-sm text-ink-500">Kelola item designator dan sinkronkan kebutuhan material ke reservasi teknisi.</p>
         </div>
-        <a href="{{ route('bulk-import.boq.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white">Import BOQ</a>
+        <div class="flex flex-wrap items-center gap-2">
+            @can('export-data-boqs')
+                <a href="{{ route('data-boqs.export') }}" title="Download seluruh Data BOQ sesuai scope akses" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800">Download Excel</a>
+            @endcan
+            <a href="{{ route('bulk-import.boq.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white">Import BOQ</a>
+        </div>
     </div>
 
     <form method="GET" class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm dark:border-ink-700 dark:bg-ink-900">

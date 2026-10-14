@@ -10,11 +10,12 @@ use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class LopPermissionTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     private function seedAreaBranchServiceArea(string $code = 'SDA', string $name = 'SIDOARJO'): void
     {
@@ -41,6 +42,7 @@ class LopPermissionTest extends TestCase
 
     public function test_admin_can_create_lop(): void
     {
+        $this->fakeIncidentTickets(['LOP-100' => 'GAMAS ODP']);
         $admin = $this->scopedAdmin();
 
         $response = $this->actingAs($admin)->post(route('lop.store'), [

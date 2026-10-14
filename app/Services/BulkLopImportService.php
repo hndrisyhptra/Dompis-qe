@@ -27,6 +27,8 @@ class BulkLopImportService
         private readonly ManualIncidentService $manualIncident,
         private readonly LopVisibilityService $visibility,
         private readonly ImportRowWriter $rowWriter,
+        private readonly TicketLookupService $tickets,
+        private readonly IncidentTicketValidationService $incidentValidation,
     ) {}
 
     public function process(QeImportBatch $batch, User $actor): void
@@ -49,6 +51,12 @@ class BulkLopImportService
             'row_number' => $row['row_number'],
             'payload' => $this->normalizeRow($row['data']),
         ], $table['rows']);
+
+        $ticketTypes = $this->tickets->lookupTypes(collect($rows)->filter(function (array $row): bool {
+            $program = ProgramType::tryFrom($row['payload']['program_type']);
+
+            return $program !== null && $this->incidentValidation->requiresLookup($row['payload']['incident'], $program);
+        })->pluck('payload.incident')->all());
 
         $serviceAreas = ServiceArea::query()
             ->with('branch.regionRef.area')
@@ -96,6 +104,7 @@ class BulkLopImportService
                     $allowedBranchIds,
                     $allowedServiceAreaIds,
                     $usedIncidents,
+                    $ticketTypes,
                 );
                 $usedIncidents[mb_strtoupper($lop->incident)] = ['name' => $lop->nama_lop, 'deleted' => false, 'row_number' => $row['row_number']];
                 $resultRows[] = [
@@ -158,6 +167,7 @@ class BulkLopImportService
         Collection $allowedBranchIds,
         Collection $allowedServiceAreaIds,
         array $usedIncidents,
+        array $ticketTypes,
     ): QeLop {
         $serviceArea = $serviceAreas->get($data['sto']);
 
@@ -215,6 +225,13 @@ class BulkLopImportService
 
         if (isset($usedIncidents[mb_strtoupper($incident)])) {
             throw new \InvalidArgumentException($this->duplicateMessage($incident, $usedIncidents[mb_strtoupper($incident)]));
+        }
+
+        $validation = $this->incidentValidation->inspect(
+            $incident, ProgramType::from($data['program_type']), $ticketTypes[$incident] ?? ['found' => false],
+        );
+        if (! $validation['valid']) {
+            throw ValidationException::withMessages(['incident' => $validation['message']]);
         }
 
         $package = $data['package_code'] !== '' ? $packages->get($data['package_code']) : null;

@@ -24,14 +24,16 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class BulkLopLatestRulesTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     public function test_all_programs_create_and_edit_five_segments_and_reject_six_without_silent_truncation(): void
     {
+        $this->fakeIncidentTickets(['INC-FIVE-0' => 'GAMAS FEEDER', 'INC-FIVE-1' => 'GAMAS FEEDER', 'INC-FIVE-3' => 'NON NUMBERING']);
         [$admin] = $this->actors();
         $this->actingAs($admin)->get(route('lop.create'))->assertOk()->assertSee('maks 5')->assertSee('maxSegments: 5', false);
         $segments = ['feeder', 'distribusi', 'odc', 'odp', 'tiang'];
@@ -140,6 +142,7 @@ class BulkLopLatestRulesTest extends TestCase
             $this->assertSame('QE Relok Tiang', $table['rows'][3]['data']['program_type']);
             Storage::fake('local');
             $batch = app(ImportBatchService::class)->create('bulk_lop', new UploadedFile($path, 'latest.xlsx', null, null, true), $admin);
+            $this->fakeIncidentTickets(['INC-CONTOH-1' => 'GAMAS FEEDER', 'INC-CONTOH-2' => 'GAMAS FEEDER', 'INC-CONTOH-4' => 'NON NUMBERING']);
             app(BulkLopImportService::class)->process($batch, $admin);
             $this->assertSame(4, $batch->refresh()->success_rows, json_encode($batch->rows()->pluck('message')));
             $this->assertSame(0, $batch->failed_rows);
@@ -189,6 +192,8 @@ class BulkLopLatestRulesTest extends TestCase
 
     private function processRows(User $actor, array $rows): QeImportBatch
     {
+        $this->fakeIncidentTickets(collect($rows)->filter(fn ($row) => ProgramType::fromInput($row[4]) !== null)
+            ->mapWithKeys(fn ($row) => [mb_strtoupper($row[0]) => ProgramType::fromInput($row[4])->incidentTicketType() ?? 'GAMAS'])->all());
         Storage::fake('local');
         Queue::fake();
         $out = fopen('php://temp', 'r+');

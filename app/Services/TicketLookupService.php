@@ -18,6 +18,30 @@ class TicketLookupService
 {
     public function __construct(private readonly DatekParserService $datekParser) {}
 
+    public function lookupTypes(array $incidents): array
+    {
+        $incidents = array_values(array_unique(array_filter(array_map(fn ($incident) => mb_strtoupper(trim((string) $incident)), $incidents))));
+        $results = array_fill_keys($incidents, ['found' => false]);
+        try {
+            foreach (array_chunk($incidents, 500) as $chunk) {
+                $tickets = DB::connection('mysql_dompis')->table('ticket')
+                    ->whereIn('incident', $chunk)->get(['incident', 'jenis_tiket_2']);
+                foreach ($tickets as $ticket) {
+                    $results[mb_strtoupper(trim($ticket->incident))] = [
+                        'found' => true,
+                        'jenis_tiket_2' => $ticket->jenis_tiket_2,
+                    ];
+                }
+            }
+        } catch (Throwable $e) {
+            report($e);
+
+            return array_fill_keys($incidents, ['found' => false, 'error' => true]);
+        }
+
+        return $results;
+    }
+
     /**
      * @return array{
      *     found: bool,
@@ -75,7 +99,7 @@ class TicketLookupService
 
         if ($segment === null && $jenisTiket2 !== '') {
             $warnings[] = sprintf(
-                'Segmen tidak dapat ditentukan otomatis dari jenis tiket "%s". Pilih Segmen manual atau tambahkan pemetaannya di Master Data.',
+                'Segmen tiket %s belum terpetakan. Pilih segmen secara manual.',
                 $jenisTiket2,
             );
         }

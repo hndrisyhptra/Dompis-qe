@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\DatekParserService;
 use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceArchiveService;
+use App\Services\IncidentTicketValidationService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
 use App\Services\LopVisibilityService;
@@ -217,16 +218,20 @@ class LopController extends Controller
      * `dompis_qe` (termasuk yang sudah di-soft-delete, karena aturan unik
      * pada qe_lops.incident juga mencakupnya).
      */
-    public function ticketLookup(Request $request): JsonResponse
+    public function ticketLookup(Request $request, IncidentTicketValidationService $validation): JsonResponse
     {
         $this->authorize('create', QeLop::class);
 
         $data = $request->validate([
             'incident' => ['required', 'string', 'max:100'],
+            'program_type' => ['sometimes', 'nullable', Rule::enum(ProgramType::class)],
         ]);
 
         $incident = mb_strtoupper(trim($data['incident']));
         $result = $this->ticketLookup->lookup($incident);
+        if (filled($data['program_type'] ?? null)) {
+            $result['incident_validation'] = $validation->inspect($incident, ProgramType::from($data['program_type']), $result);
+        }
 
         $existing = QeLop::withTrashed()->where('incident', $incident)->first();
 
@@ -408,6 +413,7 @@ class LopController extends Controller
             'segments' => LopSegment::cases(),
             'budgetTypes' => LopBudgetType::cases(),
             'programTypes' => ProgramType::cases(),
+            'incidentTicketTypes' => collect(ProgramType::cases())->mapWithKeys(fn (ProgramType $type) => [$type->value => $type->incidentTicketType()]),
             'nameTemplate' => $this->namingService->activeTemplate(),
             'programCodes' => collect(ProgramType::cases())->mapWithKeys(
                 fn (ProgramType $type) => [$type->value => $type->code()]

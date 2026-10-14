@@ -113,6 +113,7 @@ Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
     Route::get('/master-data/lops', [DataLopController::class, 'index'])->name('data-lops.index');
     Route::delete('/master-data/lops/{qe_lop}', [DataLopController::class, 'destroy'])->name('data-lops.destroy');
     Route::get('/master-data/boqs', [DataBoqController::class, 'index'])->name('data-boqs.index');
+    Route::get('/master-data/boqs/export', [DataBoqController::class, 'export'])->name('data-boqs.export');
     Route::post('/master-data/boqs/lops/{qe_lop}/reset', [DataBoqController::class, 'reset'])->name('data-boqs.reset');
     Route::put('/master-data/boqs/reservations/{qe_lop}', [DataBoqController::class, 'updateReservation'])->name('data-boqs.reservations.update');
     Route::put('/master-data/boqs/{boq}', [DataBoqController::class, 'update'])->name('data-boqs.update');

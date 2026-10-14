@@ -54,6 +54,15 @@ enum ProgramType: string
         return $this === self::RELOK_UTILITAS ? LopBudgetType::CAPEX : LopBudgetType::OPEX;
     }
 
+    public function incidentTicketType(): ?string
+    {
+        return match ($this) {
+            self::RECOVERY, self::PREVENTIVE => 'GAMAS',
+            self::RELOK_TIANG => 'NON NUMBERING',
+            self::RELOK_UTILITAS => null,
+        };
+    }
+
     /** Terima label/canonical/kode dengan variasi huruf, spasi, underscore, dan tanda baca. */
     public static function fromInput(string $value): ?self
     {
