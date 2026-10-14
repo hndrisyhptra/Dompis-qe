@@ -57,7 +57,7 @@ function incidentForm(fetch, validateIncident = true) {
     vm.runInNewContext(component, { window, URLSearchParams, fetch });
     const model = window.lopForm({
         validateIncident,
-        incidentTicketTypes: { recovery: 'GAMAS', preventive: 'GAMAS', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
+        incidentTicketTypes: { recovery: 'GAMAS atau UNKNOWN', preventive: 'GAMAS atau UNKNOWN', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
         initial: { program_type: 'recovery', branch: 'SIDOARJO', sto: 'SDA', area: '3' },
     });
     const watchers = {};
@@ -157,7 +157,7 @@ test('REG ditemukan sebelum program dipilih, lalu Recovery tetap mengunci Simpan
         const selected = url.includes('program_type=recovery');
         return { ok: true, json: async () => ({
             found: true, jenis_tiket_2: 'REG', sto: 'KPS',
-            incident_validation: selected ? { valid: false, message: 'QE Recovery wajib memakai jenis tiket GAMAS. Jenis tiket incident ini: REG.' } : undefined,
+            incident_validation: selected ? { valid: false, message: 'Gunakan tiket GAMAS atau UNKNOWN untuk QE Recovery. Tiket ini berjenis REG.' } : undefined,
         }) };
     });
     model.form.program_type = '';
@@ -227,4 +227,18 @@ test('incident kosong, INP dan Utilitas mempertahankan pengecualian; program kos
     assert.equal(model.canSubmitLop, true);
     model.form.program_type = '';
     assert.equal(model.canSubmitLop, false);
+});
+
+test('UNKNOWN membuka Simpan untuk Recovery dan Preventive setelah hasil server menyatakan valid', async () => {
+    for (const program of ['recovery', 'preventive']) {
+        const { model } = incidentForm(async () => ({ ok: true, json: async () => ({
+            found: true, jenis_tiket_2: 'UNKNOWN', incident_validation: { valid: true, ticket_type: 'UNKNOWN', message: 'Tiket sesuai.' },
+        }) }));
+        model.form.program_type = program;
+        model.form.incident = 'INC-UNKNOWN';
+        assert.equal(model.canSubmitLop, false);
+        await model.lookupTicket();
+        assert.equal(model.canSubmitLop, true);
+        assert.equal(model.lookup.mode, 'found');
+    }
 });

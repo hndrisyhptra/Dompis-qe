@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `787f3e6` (`feat: download all boq in menu master boq`)
+HEAD dasar saat audit terbaru: `48a4d97` (`feat: download evidence and download format aiss in menu master lop, data lop`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -641,6 +641,13 @@ Pemilihan paket reservasi otomatis:
 - `AissBoqExportTest` (6 tests) membaca XLSX hasil unduhan dan memeriksa header/sheet/style, harga snapshot vs master, actual vs reservasi, pasangan jasa Recovery, paket regional, null/zero/leading zero/formula, fallback lokasi legacy, semua scope admin, role lain, delapan status, arsip, dan dataset kosong tanpa baris contoh. Hash template diverifikasi tetap sama. **363 tests / 3466 assertions** Laravel dan **30 frontend tests** lulus; build Vite, view:cache, Pint file PHP task, route registration, dan git diff --check lulus.
 - Tidak ada migration/schema/write database operasional, queue restart, commit/push, atau deployment. Perubahan Download Evidence dari task sebelumnya tetap dipertahankan. Penerimaan file oleh AISS, browser/device, dan data/MySQL produksi belum diverifikasi; field yang belum tersedia tidak diisi memakai nilai contoh.
 
+### 7.33 Recovery/Preventive menerima jenis tiket UNKNOWN — 14 Oktober 2026
+
+- Sesuai koreksi user, aturan 7.28 diperluas: Recovery dan Preventive menerima jenis tiket yang mengandung GAMAS atau persis UNKNOWN setelah trim/normalisasi huruf. UNKNOWN adalah nilai jenis_tiket_2 pada ticket yang ditemukan; jenis kosong, incident tidak ditemukan, sumber gagal, REG, dan label lain tetap ditolak. Relok Tiang tetap NON NUMBERING; pengecualian INP/incident kosong/Relok Utilitas dipertahankan.
+- `IncidentTicketValidationService` memilih aturan menurut enum program, bukan teks label requirement. `ProgramType::incidentTicketType()` serta pesan/panduan bulk/template menyebut GAMAS atau UNKNOWN. Berlaku untuk lookup, simpan create, dan bulk import. Guard Simpan tetap membutuhkan hasil true untuk incident/program terkini; UNKNOWN tidak membuat tombol aktif sebelum dicek.
+- Dua regression backend baru mencakup lookup/simpan Recovery/Preventive, huruf campuran/spasi, penolakan UNKNOWN untuk Relok Tiang/UNKNOWN CUSTOMER, serta partial/progress bulk import. Regression frontend memeriksa tombol UNKNOWN tetap terkunci sebelum hasil valid. **365 tests / 3489 assertions** Laravel dan **31 frontend tests** lulus; build Vite, view:cache, Pint file PHP task, dan git diff --check lulus.
+- Tidak ada migration/schema/write database operasional, import nyata, queue restart, commit/push, atau deployment. Worktree bersih pada awal task; browser/device dan sumber tiket MySQL produksi belum diverifikasi. Restart worker setelah deploy agar validasi import terbaru digunakan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -674,8 +681,8 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-363 tests passed
-3466 assertions
+365 tests passed
+3489 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -683,7 +690,7 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - BOQ AISS per Completed: `AissBoqExportTest` (6 tests, format template/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
-- Validasi incident/program: `IncidentProgramValidationTest` (8 tests); frontend `lop-form.test.mjs` (14 tests).
+- Validasi incident/program: `IncidentProgramValidationTest` (10 tests); frontend `lop-form.test.mjs` (15 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).

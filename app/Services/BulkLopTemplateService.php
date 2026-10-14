@@ -52,7 +52,7 @@ class BulkLopTemplateService
             ['Format file', 'XLSX, XLS, atau CSV UTF-8, maksimal 10 MB. File diproses melalui antrean; hasil sukses/gagal tersedia per baris.'],
             ['Kolom wajib', 'sto, program_type, segment, job_description. Kolom lain boleh kosong sesuai aturan di bawah.'],
             ['incident', 'Nomor unik diawali INC atau INP, maksimal 100 karakter. Kosong untuk generate INP otomatis. Nomor yang sudah dipakai, termasuk LOP dihapus, tidak boleh digunakan ulang.'],
-            ['Jenis tiket incident', 'Recovery/Preventive wajib mengandung GAMAS; Relok Tiang wajib NON NUMBERING (huruf besar/kecil diabaikan). Jenis tiket dibaca dari database tiket, bukan dari file. Incident yang tidak ditemukan/gagal dicek ditolak per baris.'],
+            ['Jenis tiket incident', 'Recovery/Preventive menerima tiket yang mengandung GAMAS atau berjenis UNKNOWN; Relok Tiang wajib NON NUMBERING (huruf besar/kecil diabaikan). Jenis tiket dibaca dari database tiket, bukan dari file. Incident yang tidak ditemukan/gagal dicek ditolak per baris.'],
             ['Tanpa incident', 'Semua program boleh mengosongkan incident untuk generate INP otomatis. INP manual dan Relok Utilitas tidak memerlukan pengecekan jenis tiket.'],
             ['Duplikat INCIDENT', 'Baris gagal menyebut nama LOP yang memakai INCIDENT. Duplikasi dalam file menyebut baris pembuatnya. LOP di luar scope hanya diberi keterangan tanpa nama.'],
             ['sto', 'Isi kode STO/workzone aktif dari Referensi Lokasi. Harus termasuk scope akun yang mengupload. Jangan isi nama Service Area.'],
