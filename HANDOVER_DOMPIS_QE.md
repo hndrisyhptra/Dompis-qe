@@ -670,6 +670,12 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Tiga regression backend memeriksa lookup/simpan Preventive, variasi huruf/spasi, status Draft/Usulan dan histori create, penolakan Recovery/Relok Tiang/label mirip/spoofed jenis client, serta partial/progress bulk import. Regression frontend memastikan INFRACARE membuka Simpan setelah validasi Preventive dan kembali terkunci saat beralih ke Recovery. Test penerimaan INFRACARE gagal sebelum perbaikan dan lulus sesudahnya.
 - Verifikasi: **369 tests / 3586 assertions** Laravel, **32 tests frontend**, build Vite, view:cache, Pint keempat file PHP task, dan git diff --check lulus. Worktree bersih saat mulai pada HEAD b1a1fc2. Tidak ada migration/schema/write data operasional, import nyata, queue restart, commit/push, atau deployment. Pengujian memakai SQLite memory dan DOM stub; browser/device serta sumber tiket MySQL produksi belum diverifikasi. Restart worker setelah deploy agar validasi bulk terbaru digunakan.
 
+### 7.37 Verifikasi validasi ticket pada upload Bulk LOP — 14 Oktober 2026
+
+- Audit pada HEAD `13a66f7` memastikan Bulk LOP sudah memakai `IncidentTicketValidationService` yang sama dengan create LOP. Tidak ada perubahan aturan runtime: Recovery menerima GAMAS/UNKNOWN, Preventive juga INFRACARE, Relok Tiang NON NUMBERING; incident kosong/INP/Relok Utilitas mengikuti pengecualian existing.
+- Regression tambahan `IncidentProgramValidationTest` menguji upload HTTP CSV/XLSX -> dispatch `ProcessBulkLopImport` -> handle job. Excel tetap membaca sheet LOP saat Panduan aktif. Jenis ticket dibaca dari sumber server ketika job berjalan, termasuk perubahan GAMAS menjadi REG setelah upload; field jenis/summary kiriman client tidak memengaruhi keputusan. Baris tidak valid gagal tanpa LOP/histori, baris valid tetap dibuat dengan histori, status batch partial dan progress 100%.
+- Perubahan hanya pada test dan handover; tidak ada migration/schema/write data operasional, import nyata, perubahan UI, restart worker, atau deployment. Verifikasi: **371 tests / 3636 assertions** Laravel, Pint file test, dan git diff --check lulus. Database ticket memakai SQLite sementara, Queue fake dengan eksekusi handle job; worker/MySQL produksi belum diuji. Worker perlu direstart sesudah deployment kode validasi terbaru agar tidak memakai class lama.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -704,8 +710,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-369 tests passed
-3586 assertions
+371 tests passed
+3636 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -713,7 +719,7 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 Pemetaan test utama:
 
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
-- Validasi incident/program: `IncidentProgramValidationTest` (13 tests, termasuk INFRACARE khusus Preventive); frontend `lop-form.test.mjs` (16 tests).
+- Validasi incident/program: `IncidentProgramValidationTest` (15 tests, termasuk INFRACARE khusus Preventive dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).

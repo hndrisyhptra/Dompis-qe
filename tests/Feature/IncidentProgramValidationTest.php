@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
+use App\Jobs\ProcessBulkLopImport;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\QeImportBatch;
@@ -19,6 +20,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
@@ -140,6 +144,86 @@ class IncidentProgramValidationTest extends TestCase
         $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-INFRA-PREV', 'program_type' => 'preventive']);
         $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-INFRA-REC']);
         $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-INFRA-TIANG']);
+    }
+
+    public static function bulkUploadFormats(): array
+    {
+        return ['CSV' => ['csv'], 'Excel' => ['xlsx']];
+    }
+
+    #[DataProvider('bulkUploadFormats')]
+    public function test_bulk_upload_job_validates_tickets_from_the_server_and_keeps_valid_rows(string $format): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $this->fakeIncidentTickets([
+            'INC-GAMAS' => 'GAMAS ODP', 'INC-UNKNOWN' => ' unknown ',
+            'INC-INFRA' => ' infracare ', 'INC-NON' => 'NON-NUMBERING TIANG',
+            'INC-INFRA-REC' => 'INFRACARE', 'INC-CHANGED' => 'GAMAS', 'INC-EMPTY' => null,
+        ]);
+        $rows = [
+            ['INC-GAMAS', 'QE Recovery'], ['INC-UNKNOWN', 'qe_recovery'],
+            ['INC-INFRA', 'QE Preventive'], ['INC-NON', 'QE RELOK TIANG'],
+            ['INC-INFRA-REC', 'recovery'], ['INC-CHANGED', 'preventive'],
+            ['INC-MISSING', 'relok_tiang'], ['INC-EMPTY', 'preventive'],
+            ['', 'preventive'], ['INP99999', 'relok_tiang'], ['INC-UTILITY', 'relok_utilitas'],
+        ];
+        $data = [BulkLopTemplateService::HEADERS];
+        foreach ($rows as [$incident, $program]) {
+            $data[] = [$incident, 'ICX', '', '', $program, 'odp', '', 'Pekerjaan incident', '', '', ''];
+        }
+        $path = tempnam(sys_get_temp_dir(), 'incident-bulk-');
+        try {
+            if ($format === 'xlsx') {
+                $book = new Spreadsheet;
+                try {
+                    $book->getActiveSheet()->setTitle('LOP')->fromArray($data);
+                    $book->createSheet()->setTitle('Panduan')->setCellValue('A1', 'Isi sheet LOP');
+                    $book->setActiveSheetIndex(1);
+                    (new Xlsx($book))->save($path);
+                } finally {
+                    $book->disconnectWorksheets();
+                }
+            } else {
+                $out = fopen($path, 'w');
+                foreach ($data as $row) {
+                    fputcsv($out, $row, ',', '"', '');
+                }
+                fclose($out);
+            }
+            $file = UploadedFile::fake()->createWithContent("incidents.{$format}", file_get_contents($path));
+        } finally {
+            unlink($path);
+        }
+
+        $this->actingAs($this->admin)->postJson(route('bulk-import.lop.store'), [
+            'file' => $file, 'jenis_tiket_2' => 'GAMAS', 'ticket_summary' => 'Jenis Tiket: GAMAS',
+        ])->assertStatus(202);
+        $batch = QeImportBatch::firstOrFail();
+        $this->assertSame('queued', $batch->status);
+        $this->assertDatabaseCount('qe_lops', 0);
+        DB::connection('mysql_dompis')->table('ticket')->where('incident', 'INC-CHANGED')
+            ->update(['jenis_tiket_2' => 'REG']);
+        Queue::assertPushed(ProcessBulkLopImport::class, fn (ProcessBulkLopImport $job): bool => $job->batchId === $batch->getKey());
+        $job = Queue::pushed(ProcessBulkLopImport::class)->sole();
+        app()->call([$job, 'handle']);
+
+        $batch->refresh();
+        $this->assertSame('partial', $batch->status);
+        $this->assertSame(11, $batch->total_rows);
+        $this->assertSame(7, $batch->success_rows);
+        $this->assertSame(4, $batch->failed_rows);
+        $this->assertSame(100, $batch->progressPercentage());
+        $this->assertDatabaseCount('qe_lops', 7);
+        $this->assertDatabaseCount('qe_lop_histories', 7);
+        foreach (['INC-INFRA-REC' => 'INFRACARE', 'INC-CHANGED' => 'REG', 'INC-MISSING' => 'tidak ditemukan', 'INC-EMPTY' => 'belum terisi'] as $incident => $message) {
+            $result = $batch->rows()->where('reference', $incident)->firstOrFail();
+            $this->assertSame('failed', $result->status);
+            $this->assertStringContainsString($message, $result->message);
+            $this->assertDatabaseMissing('qe_lops', ['incident' => $incident]);
+        }
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-INFRA', 'program_type' => 'preventive', 'status_lop' => 'draft', 'status_project' => 'usulan']);
+        $this->assertSame(1, QeLop::where('incident', 'like', 'INP%')->where('program_type', 'preventive')->count());
     }
 
     public function test_blank_incident_generates_inp_for_every_program_and_existing_inp_still_works(): void
