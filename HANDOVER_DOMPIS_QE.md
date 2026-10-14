@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `6b82630` (`feat: update resources/js/app.js locally`)
+HEAD dasar saat audit terbaru: `787f3e6` (`feat: download all boq in menu master boq`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -626,6 +626,21 @@ Pemilihan paket reservasi otomatis:
 - Form memakai satu petunjuk bahwa incident kosong menghasilkan INP; label requirement yang berulang dihapus. Pesan mismatch menjadi Gunakan tiket GAMAS untuk QE Preventive. Tiket ini berjenis REG. Peringatan pemetaan segmen disembunyikan selama jenis tiket tidak valid; saat diperlukan pesannya diringkas menjadi Segmen tiket ... belum terpetakan. Pilih segmen secara manual. Aturan validasi dan guard Simpan tidak berubah.
 - Verifikasi: 21 test Laravel terkait / 130 assertions, build Vite, view:cache, Pint file PHP task, dan git diff --check lulus. Tidak ada perubahan schema, write database operasional, atau deployment.
 
+### 7.31 Download evidence dari Master Data LOP — 14 Oktober 2026
+
+- Kolom Aksi pada `master-data/lops` menampilkan ikon Download evidence (.zip) hanya untuk status Completed, memakai komponen table-action dengan tooltip/title/aria-label dan route `lop.evidence-archive` existing. Daftar mengikuti scope `LopVisibilityService`; endpoint tetap memeriksa policy view serta status Completed. Tidak ada query authorization tambahan untuk tombol baru dalam loop Blade.
+- Unduhan memakai `EvidenceArchiveService` existing: arsip foto evidence per LOP dalam format ZIP; PDF tidak masuk arsip, dan LOP tanpa foto menghasilkan pesan 404 existing. Tidak mengubah file asli, layanan arsip, permission, status, atau schema.
+- Dua regression tambahan pada `EvidenceArchiveTest` memeriksa tombol pada delapan status, akses Admin sesuai lokasi, ZIP dalam scope dan penolakan di luar scope. Verifikasi: **16 tests / 69 assertions** (`EvidenceArchiveTest`, `LopPermissionTest`), build Vite, view:cache, Pint file test, dan git diff --check lulus. Tidak ada migration/write data operasional/deployment; browser/produksi belum diuji. Worktree bersih pada awal task, HEAD `787f3e6`.
+
+### 7.32 BOQ AISS per LOP Completed dari template — 14 Oktober 2026
+
+- File `plans/Format AISS BOQ AWAL.xlsx` diperiksa: satu sheet bernama PELIMPAHAN, header ID IHLD, DESIGNATOR, URAIAN PEKERJAAN, SATUAN, QTY, HARGA, TOTAL, PAKET, STO, WITEL, NAMA_PROYEK, BRANCH. `AissBoqExportService` memuat template asli, mempertahankan header/style/lebar kolom, menghapus baris contoh, dan mengisi satu baris per designator tanpa mengubah file sumber.
+- Kolom Aksi Master Data LOP menambahkan Download BOQ AISS (.xlsx) di sebelah Download Evidence, hanya untuk Completed. GET `master-data/lops/{qe_lop}/aiss-boq` memakai middleware auth/role ADMIN,SUPER_ADMIN, policy view yang menerapkan scope canonical, serta pemeriksaan Completed di backend; parent arsip tidak dapat dibuka. Unduhan AISS-{incident}-{nama_lop}.xlsx bersifat private/no-store. Spasi/karakter yang tidak aman pada nama LOP diganti tanda hubung; bila nama LOP kosong, filename tetap AISS-{incident}.xlsx.
+- QTY memakai qty_actual dan TOTAL memakai qty_actual × harga. Ini asumsi awal yang disampaikan kepada user; pilihan QTY aktual/reservasi ditanyakan melalui pertanyaan opsional dan belum mendapat jawaban saat implementasi. ID IHLD berasal dari ihld_id, NAMA_PROYEK dari nama_lop, STO dari master workzone dengan fallback legacy. WITEL dan BRANCH sama-sama memakai nama Branch, mengikuti contoh template dan definisi Branch sebagai cabang/witel di aplikasi. Paket-5/Paket-10 ditulis sebagai 5/10; kode paket lain dipertahankan.
+- `LopBoqProjectionService::masterData()` mengembalikan paket dan lines bersama; masterDataLines existing tetap menjadi wrapper dengan hasil yang sama. BOQ tersimpan mempertahankan snapshot uraian/satuan/harga, termasuk import Recovery; reservasi tanpa BOQ mengikuti paket regional/referensi dan jasa pasangan existing. Tidak mengubah lifecycle Recovery tanpa Plan pada laporan existing. Kuantitas/harga/total yang belum tersedia kosong; 0 tetap numerik 0. Identifier dan teks ditulis sebagai string untuk menjaga leading zero dan mencegah formula.
+- `AissBoqExportTest` (6 tests) membaca XLSX hasil unduhan dan memeriksa header/sheet/style, harga snapshot vs master, actual vs reservasi, pasangan jasa Recovery, paket regional, null/zero/leading zero/formula, fallback lokasi legacy, semua scope admin, role lain, delapan status, arsip, dan dataset kosong tanpa baris contoh. Hash template diverifikasi tetap sama. **363 tests / 3466 assertions** Laravel dan **30 frontend tests** lulus; build Vite, view:cache, Pint file PHP task, route registration, dan git diff --check lulus.
+- Tidak ada migration/schema/write database operasional, queue restart, commit/push, atau deployment. Perubahan Download Evidence dari task sebelumnya tetap dipertahankan. Penerimaan file oleh AISS, browser/device, dan data/MySQL produksi belum diverifikasi; field yang belum tersedia tidak diisi memakai nilai contoh.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -659,14 +674,15 @@ Pemilihan paket reservasi otomatis:
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-354 tests passed
-3345 assertions
+363 tests passed
+3466 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- BOQ AISS per Completed: `AissBoqExportTest` (6 tests, format template/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (8 tests); frontend `lop-form.test.mjs` (14 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.

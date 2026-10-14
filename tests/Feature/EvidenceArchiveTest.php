@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\LopStatus;
 use App\Enums\UserRole;
+use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
@@ -105,6 +107,48 @@ class EvidenceArchiveTest extends TestCase
         $response->assertOk();
         $this->assertStringContainsString('application/zip', $response->headers->get('content-type'));
         $this->assertStringContainsString('3PME_QEREC_INC50390302_DISTRIBUSI.zip', $response->headers->get('content-disposition'));
+    }
+
+    public function test_master_data_lops_only_shows_download_action_for_completed_status(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $lops = [];
+        foreach (LopStatus::cases() as $status) {
+            $lop = $this->completedLop($admin, 'LOP '.$status->value);
+            $lop->update(['status_lop' => $status]);
+            $lops[$status->value] = $lop;
+        }
+
+        $response = $this->actingAs($admin)->get(route('data-lops.index'))->assertOk();
+        foreach ($lops as $status => $lop) {
+            if ($status === LopStatus::COMPLETED->value) {
+                $response->assertSee(route('lop.evidence-archive', $lop), false)
+                    ->assertSee('Download evidence (.zip)');
+            } else {
+                $response->assertDontSee(route('lop.evidence-archive', $lop), false);
+            }
+        }
+    }
+
+    public function test_master_data_download_action_and_archive_follow_admin_location_scope(): void
+    {
+        Storage::fake('public');
+        $super = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $branch = Branch::create(['code' => 'ARCHIVE-A', 'name' => 'Archive A']);
+        $otherBranch = Branch::create(['code' => 'ARCHIVE-B', 'name' => 'Archive B']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['admin_scope_type' => 'branch', 'branch_id' => $branch->getKey()]);
+        $mine = $this->completedLop($super, 'LOP dalam scope');
+        $mine->update(['branch_id' => $branch->getKey(), 'branch' => $branch->name]);
+        $outside = $this->completedLop($super, 'LOP luar scope');
+        $outside->update(['branch_id' => $otherBranch->getKey(), 'branch' => $otherBranch->name]);
+        $this->evidence($mine, 'after', 'a.jpg');
+
+        $this->actingAs($admin)->get(route('data-lops.index'))->assertOk()
+            ->assertSee(route('lop.evidence-archive', $mine), false)
+            ->assertDontSee(route('lop.evidence-archive', $outside), false);
+        $this->get(route('lop.evidence-archive', $mine))->assertOk()
+            ->assertHeader('content-type', 'application/zip');
+        $this->get(route('lop.evidence-archive', $outside))->assertForbidden();
     }
 
     public function test_download_route_404_when_lop_not_completed(): void

@@ -111,6 +111,7 @@ Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
     Route::get('/import-results/{batch}/status', [ImportBatchController::class, 'status'])->name('imports.status');
 
     Route::get('/master-data/lops', [DataLopController::class, 'index'])->name('data-lops.index');
+    Route::get('/master-data/lops/{qe_lop}/aiss-boq', [DataLopController::class, 'aissBoq'])->name('data-lops.aiss-boq');
     Route::delete('/master-data/lops/{qe_lop}', [DataLopController::class, 'destroy'])->name('data-lops.destroy');
     Route::get('/master-data/boqs', [DataBoqController::class, 'index'])->name('data-boqs.index');
     Route::get('/master-data/boqs/export', [DataBoqController::class, 'export'])->name('data-boqs.export');

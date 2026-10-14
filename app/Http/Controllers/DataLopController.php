@@ -8,12 +8,15 @@ use App\Enums\UserRole;
 use App\Http\Requests\DeleteLopRequest;
 use App\Models\Branch;
 use App\Models\QeLop;
+use App\Services\AissBoqExportService;
 use App\Services\LopService;
 use App\Services\LopVisibilityService;
 use App\Support\LopReturnDestination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataLopController extends Controller
 {
@@ -55,6 +58,27 @@ class DataLopController extends Controller
             'statuses' => LopStatus::cases(),
             'branches' => $branchQuery->get(),
             'filters' => compact('search', 'status', 'program', 'branch'),
+        ]);
+    }
+
+    public function aissBoq(QeLop $qe_lop, AissBoqExportService $export): StreamedResponse
+    {
+        $this->authorize('view', $qe_lop);
+        abort_unless($qe_lop->status_lop === LopStatus::COMPLETED, 404);
+        $book = $export->workbook($qe_lop);
+        $safeIncident = preg_replace('/[^a-z0-9_-]/i', '_', $qe_lop->incident ?: (string) $qe_lop->getKey());
+        $safeLop = trim((string) preg_replace('/[^\p{L}\p{N}_-]+/u', '-', trim((string) $qe_lop->nama_lop)), '-');
+        $filename = 'AISS-'.$safeIncident.($safeLop !== '' ? '-'.$safeLop : '').'.xlsx';
+
+        return response()->streamDownload(function () use ($book): void {
+            try {
+                (new Xlsx($book))->save('php://output');
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 

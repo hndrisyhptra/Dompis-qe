@@ -25,6 +25,12 @@ class LopBoqProjectionService
     /** @return array<int, array<string, mixed>> */
     public function masterDataLines(QeLop $lop): array
     {
+        return $this->masterData($lop)['lines'];
+    }
+
+    /** @return array<string, mixed> */
+    public function masterData(QeLop $lop): array
+    {
         $lop->loadMissing([
             'package',
             'boq.package',
@@ -33,10 +39,12 @@ class LopBoqProjectionService
         ]);
 
         if ($lop->boq !== null) {
-            return $this->actualLines($lop, $lop->boq->package ?? $lop->package, true)->all();
+            $package = $lop->boq->package ?? $lop->package;
+
+            return ['package' => $package, 'lines' => $this->actualLines($lop, $package, true)->all()];
         }
 
-        return $this->report($lop, 'actual')['lines'];
+        return $this->report($lop, 'actual');
     }
 
     /** @return array<string, mixed> */
