@@ -60,8 +60,8 @@ class ReservationBoqManagementTest extends TestCase
         $added->update(['qty_actual' => 2]);
         $actual = app(LopBoqProjectionService::class)->report($lop->fresh(), 'actual');
         $this->assertFalse($actual['has_plan']);
-        $this->assertSame(['J-KEEP', 'J-NEW', 'M-KEEP', 'M-NEW'], collect($actual['lines'])->pluck('designator_code')->sort()->values()->all());
-        $this->assertSame(1610.0, $actual['grand']['total_actual']);
+        $this->assertSame(['M-KEEP', 'M-NEW'], collect($actual['lines'])->pluck('designator_code')->sort()->values()->all());
+        $this->assertSame(1100.0, $actual['grand']['total_actual']);
         $this->actingAs($tech)->get(route('technician.projects.show', ['qe_lop' => $lop, 'step' => 1]))->assertOk()->assertSee('M-NEW');
     }
 

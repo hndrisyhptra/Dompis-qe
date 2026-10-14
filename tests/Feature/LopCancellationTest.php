@@ -114,6 +114,7 @@ class LopCancellationTest extends TestCase
         $super = User::factory()->role('SUPER_ADMIN')->create();
         $lop = $this->lop($super, 'completed');
         $boq = QeBoq::create(['qe_lop_id' => $lop->getKey(), 'source' => 'manual', 'status' => 'ready', 'created_by' => $super->getKey(), 'grand_total' => 50000]);
+        $lop->update(['boq_snapshot' => ['material' => ['total' => 50000], 'grand_total' => 50000]]);
         $this->actingAs($super)->get(route('revenue.index'))->assertOk()->assertViewHas('stats', fn ($stats) => $stats['actual_value'] === 50000.0);
         $this->delete(route('data-lops.destroy', $lop), $this->verification($lop))->assertRedirect();
         $this->get(route('data-boqs.index'))->assertOk()->assertViewHas('boqs', fn ($boqs) => $boqs->isEmpty());

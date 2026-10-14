@@ -71,12 +71,15 @@ class TechnicianProjectReviewTest extends TestCase
                 ]);
             }
             $lop->update(['status_lop' => 'completed']);
+            $utilitas = $program === 'relok_utilitas';
             $this->actingAs($technician)->get(route('technician.projects.boq-review', [$lop, 'step' => 1]))
                 ->assertOk()->assertSee('Review BOQ Plan vs BOQ Actual')->assertSee('Qty Plan')->assertSee('Qty Actual')
-                ->assertSee('Rp 1.500')->assertSee('Rp 1.050')->assertSee($service->code)
-                ->assertViewHas('boqPlan', fn ($report) => $report['lines'][0]['qty'] === 10.0 && $report['grand']['total_plan'] === 1500.0)
+                ->assertSee($utilitas ? 'Rp 1.500' : 'Rp 1.000')->assertSee($utilitas ? 'Rp 1.050' : 'Rp 700')
+                ->assertViewHas('boqPlan', fn ($report) => $report['lines'][0]['qty'] === 10.0 && $report['grand']['total_plan'] === ($utilitas ? 1500.0 : 1000.0))
                 ->assertViewHas('boqActual', fn ($report) => $report['lines'][0]['qty'] === 12.0 && $report['lines'][0]['qty_actual'] === 7.0
-                    && $report['grand']['total_actual'] === 1050.0);
+                    && $report['grand']['total_actual'] === ($utilitas ? 1050.0 : 700.0));
+            $response = $this->get(route('technician.projects.boq-review', $lop));
+            $utilitas ? $response->assertSee($service->code) : $response->assertDontSee($service->code);
         }
     }
 
@@ -85,7 +88,7 @@ class TechnicianProjectReviewTest extends TestCase
         [$technician, $lop, , $service] = $this->project('RECOVERY', 'recovery');
         $lop->update(['status_lop' => 'completed']);
         $this->actingAs($technician)->get(route('technician.projects.boq-review', [$lop, 'step' => 1]))
-            ->assertOk()->assertSee('Review BOQ Actual')->assertSee('Rp 1.050')->assertSee($service->code)
+            ->assertOk()->assertSee('Review BOQ Actual')->assertSee('Rp 700')->assertDontSee($service->code)
             ->assertDontSee('BOQ Plan')->assertDontSee('Qty Plan')->assertDontSee('Nilai Plan');
         $otherTechnician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $this->actingAs($otherTechnician)->get(route('technician.projects.show', $lop))->assertForbidden();
@@ -185,6 +188,9 @@ class TechnicianProjectReviewTest extends TestCase
     {
         [$technician, $lop, $material, , $package] = $this->project('MISSING-PRICES', 'recovery');
         DesignatorPackagePrice::where('package_id', $package->getKey())->delete();
+
+        $extra = Designator::create(['code' => 'M-UNPRICED', 'item_name' => 'Material belum punya harga', 'unit' => 'pcs', 'designator_type_id' => $material->designator_type_id, 'created_by' => $technician->getKey()]);
+        $lop->materialReservation->items()->create(['designator_id' => $extra->getKey(), 'qty' => 1, 'qty_actual' => 1]);
 
         $response = $this->actingAs($technician)->get(route('technician.projects.boq-review', $lop))
             ->assertOk()->assertSee('Harga belum tersedia')->assertSee('Total tersedia')

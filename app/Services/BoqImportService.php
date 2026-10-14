@@ -99,7 +99,8 @@ class BoqImportService
             $rawQty = trim((string) ($row['qty'] ?? ''));
             $status = 'ready';
 
-            if ($rawQty === '' || ($qty !== null && $qty <= 0)) {
+            $excluded = ! $lop->program_type->allowsBoqType($row['type']);
+            if ($excluded || $rawQty === '' || ($qty !== null && $qty <= 0)) {
                 $status = 'skipped';
                 $totals['skipped_count']++;
             } else {
@@ -144,7 +145,7 @@ class BoqImportService
                 'total_price' => $total,
                 'status' => $status,
                 'exists' => $designators->has($code) && ! $designators->get($code)->trashed(),
-                'message' => $errors[$row['row_number']] ?? null,
+                'message' => $excluded ? 'Item JASA diabaikan: program ini hanya MATERIAL.' : ($errors[$row['row_number']] ?? null),
             ];
 
             $processedRows = $index + 1;
@@ -180,7 +181,7 @@ class BoqImportService
                     'status' => $isSkipped ? 'skipped' : 'failed',
                     'reference' => $row['designator'],
                     'message' => $isSkipped
-                        ? 'VOL kosong atau 0 — item tidak dipakai.'
+                        ? ($row['message'] ?? 'VOL kosong atau 0 — item tidak dipakai.')
                         : ($errors[$row['row_number']] ?? 'Import dibatalkan karena terdapat kesalahan pada baris lain.'),
                     'payload' => $row,
                 ];
@@ -233,7 +234,7 @@ class BoqImportService
                     'status' => $isSkipped ? 'skipped' : 'success',
                     'reference' => $row['designator'],
                     'message' => $isSkipped
-                        ? 'VOL kosong atau 0 — item tidak dipakai.'
+                        ? ($row['message'] ?? 'VOL kosong atau 0 — item tidak dipakai.')
                         : 'Item BOQ berhasil disimpan.',
                     'payload' => $row,
                     'result' => $isSkipped ? null : ['boq_id' => $boq->id_boq],

@@ -305,7 +305,7 @@ class RevenueDashboardTest extends TestCase
             'created_by' => $owner->id_user,
         ]);
 
-        QeBoq::create([
+        $boq = QeBoq::create([
             'qe_lop_id' => $lop->id_qe_lops,
             'source' => 'manual',
             'status' => 'ready',
@@ -314,6 +314,9 @@ class RevenueDashboardTest extends TestCase
             'created_by' => $owner->id_user,
             'updated_by' => $owner->id_user,
         ]);
+
+        $designator = Designator::create(['code' => 'M-'.$incident, 'item_name' => 'Material snapshot', 'unit' => 'pcs', 'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type'), 'created_by' => $owner->getKey()]);
+        $boq->items()->create(['designator_id' => $designator->getKey(), 'designator_code' => $designator->code, 'item_name' => 'Material snapshot', 'unit' => 'pcs', 'type' => 'MATERIAL', 'qty' => 1, 'unit_price' => $value, 'total_price' => $value]);
 
         return $lop;
     }

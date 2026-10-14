@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `e9687fc` (`fix: add id ihld in download excel boq`)
+HEAD dasar saat audit terbaru: `ba1f9bd` (`fix: import bulk lop jenis ticket`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -185,7 +185,8 @@ Saat Waiting Approval, Completed, atau Rejected, seluruh lima tahap tetap dapat 
 - Teknisi mengisi `qe_material_reservation_items.qty_actual` sebagai kuantitas realisasi; tidak ada tabel BOQ Plan terpisah.
 - Jika BOQ tidak ada, reservasi teknisi menjadi fallback Data BOQ dan perhitungan nilai sesuai aturan service.
 - Detail LOP dan Detail Data BOQ memisahkan tiga proyeksi: BOQ Plan dari snapshot import, BOQ Actual dari `qty_actual`, dan Sisa Material dari selisih reservasi dengan aktual.
-- QE Recovery tidak memiliki BOQ Plan. Teknisi hanya memilih item `MATERIAL`; pasangan `JASA` dicari otomatis memakai pola kode `M-...` -> `J-...` untuk perhitungan dan detail lengkap.
+- QE Recovery tidak memiliki BOQ Plan. Recovery, Preventive, dan Relok Tiang hanya menghitung/menampilkan `MATERIAL`; hanya Relok Utilitas boleh `MATERIAL` dan `JASA`. Aturan kategori canonical berada pada `ProgramType::allowsBoqType()` / `includesBoqServices()`.
+- Pasangan `JASA` otomatis berdasarkan kode `M-...` -> `J-...` hanya berlaku untuk fallback reservasi/tambahan material Relok Utilitas. Snapshot import tetap memakai item dan harga tersimpan.
 - Pasangan jasa virtual tidak disimpan ke `qe_material_reservation_items`, sehingga UI reservasi dan evidence tetap hanya per item material.
 - Qty aplikasi diperlakukan sebagai bilangan bulat meskipun beberapa kolom database masih decimal untuk kompatibilitas.
 - Harga disimpan pada snapshot BOQ; jangan menghitung ulang histori BOQ dari harga master terbaru.
@@ -361,6 +362,7 @@ Pemilihan paket reservasi otomatis:
 12. JATIM/JATENG DIY menggunakan Paket-5 dan BALNUS Paket-10 untuk fallback reservasi/nilai berbasis wilayah.
 13. File evidence asli harus mempertahankan ekstensi/MIME; thumbnail boleh WebP.
 14. Import multi-tabel harus transactional agar kegagalan tidak meninggalkan BOQ atau LOP parsial.
+15. BOQ Plan/Actual, ekspor, dan Revenue hanya MATERIAL untuk Recovery/Preventive/Relok Tiang; Relok Utilitas boleh MATERIAL + JASA. Data jasa historis tidak dihapus massal.
 
 ## 7. Perubahan Terakhir
 
@@ -675,6 +677,17 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Audit pada HEAD `13a66f7` memastikan Bulk LOP sudah memakai `IncidentTicketValidationService` yang sama dengan create LOP. Tidak ada perubahan aturan runtime: Recovery menerima GAMAS/UNKNOWN, Preventive juga INFRACARE, Relok Tiang NON NUMBERING; incident kosong/INP/Relok Utilitas mengikuti pengecualian existing.
 - Regression tambahan `IncidentProgramValidationTest` menguji upload HTTP CSV/XLSX -> dispatch `ProcessBulkLopImport` -> handle job. Excel tetap membaca sheet LOP saat Panduan aktif. Jenis ticket dibaca dari sumber server ketika job berjalan, termasuk perubahan GAMAS menjadi REG setelah upload; field jenis/summary kiriman client tidak memengaruhi keputusan. Baris tidak valid gagal tanpa LOP/histori, baris valid tetap dibuat dengan histori, status batch partial dan progress 100%.
 - Perubahan hanya pada test dan handover; tidak ada migration/schema/write data operasional, import nyata, perubahan UI, restart worker, atau deployment. Verifikasi: **371 tests / 3636 assertions** Laravel, Pint file test, dan git diff --check lulus. Database ticket memakai SQLite sementara, Queue fake dengan eksekusi handle job; worker/MySQL produksi belum diuji. Worker perlu direstart sesudah deployment kode validasi terbaru agar tidak memakai class lama.
+
+### 7.38 Kategori BOQ per program dan Revenue — 14 Oktober 2026
+
+- Requirement terbaru menggantikan aturan pasangan jasa Recovery pada histori sebelumnya: Recovery, Preventive, dan Relok Tiang hanya MATERIAL; Relok Utilitas tetap MATERIAL + JASA. `ProgramType` menjadi sumber aturan bersama untuk import/save/proyeksi/nilai dan SQL Revenue.
+- Import BOQ melewati baris JASA untuk program material-only dengan keterangan result yang jelas; qty/harga/duplikasi pada baris yang dikecualikan tidak menggagalkan material valid. Simpan manual menolak JASA pada program tersebut; dropdown editor hanya menawarkan material. Import legacy mengikuti aturan yang sama. Tidak menghapus atau mengubah massal snapshot lama.
+- Data BOQ, laporan/review per LOP dan teknisi, ekspor seluruh Data BOQ serta AISS per LOP memfilter kategori yang diizinkan dan mempertahankan harga snapshot. Recovery tidak menampilkan tab Plan pada detail BOQ lama. Sisa Material tetap hanya material.
+- Revenue pada semua scope tetap memakai filter/visibility existing, Recovery plan = 0, realisasi hanya Completed. Plan dihitung dari item snapshot yang diizinkan; realisasi memakai qty_actual × harga snapshot, ditambah material di luar snapshot dan jasa pasangan hanya untuk Utilitas. Qty actual terisi 0 tetap 0. Untuk data Completed legacy yang actual-nya null, fallback qty snapshot/reservasi existing dipertahankan.
+- Header grand_total lama tidak dipercaya jika ada rincian item (termasuk saat semua item dikecualikan). BOQ lama tanpa rincian pada program material-only hanya memakai metadata total material yang eksplisit; total gabungan yang tidak bisa dipisahkan tidak dihitung dan memunculkan peringatan Revenue. Lengkapi/import ulang rincian setelah membuka status jika Completed, jangan mengasumsikan total gabungan = material.
+- Tidak memerlukan migration, perubahan schema, backfill, atau write database operasional. Belum diuji di browser/MySQL/worker produksi. Setelah deploy, restart worker agar import memuat rule terbaru.
+- Regression `BoqProgramCategoryRulesTest` mencakup empat program, harga snapshot vs master, actual 0, material tambahan, paket regional, scope Area/Region/Branch/Service Area, total legacy tak terklasifikasi, save/import, serta kedua ekspor. Test existing diperbarui sesuai requirement kategori baru.
+- Verifikasi akhir: **386 tests / 3746 assertions** Laravel dan **32 tests frontend** lulus; Pint file PHP task, Vite build, Blade view:cache, dan git diff --check lulus. Perubahan rule ini belum di-commit saat handover diperbarui.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 

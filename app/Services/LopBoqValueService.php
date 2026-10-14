@@ -50,7 +50,7 @@ class LopBoqValueService
         ]);
 
         if ($lop->boq !== null && $lop->program_type !== ProgramType::RECOVERY) {
-            $items = $lop->boq->items->map(fn ($item): array => [
+            $items = $lop->boq->items->filter(fn ($item) => $lop->program_type->allowsBoqType($item->type))->map(fn ($item): array => [
                 'designator_id' => $item->designator_id,
                 'code' => $item->designator_code,
                 'name' => $item->item_name,
@@ -76,8 +76,8 @@ class LopBoqValueService
         $regionalPackage = $this->regionalPackages->forLop($lop);
         $projection = $this->projection->report($lop, 'actual');
         $package = $projection['package'];
-        $usesRegionalPackage = $regionalPackage !== null;
-        $usesReferencePackage = ! $usesRegionalPackage && $lop->package_id === null && $package !== null;
+        $usesRegionalPackage = $lop->boq === null && $regionalPackage !== null;
+        $usesReferencePackage = $lop->boq === null && ! $usesRegionalPackage && $lop->package_id === null && $package !== null;
         $items = collect($projection['lines'])->map(function (array $item): array {
             $qtyActual = $item['qty_actual'] === null ? null : (float) $item['qty_actual'];
 

@@ -512,22 +512,23 @@ class BulkImportAndBoqTest extends TestCase
         $batch->refresh();
         $this->assertSame('completed', $batch->status);
         $this->assertSame(4, $batch->total_rows);
-        $this->assertSame(2, $batch->success_rows);
+        $this->assertSame(1, $batch->success_rows);
         $this->assertSame('TIF-10', $batch->metadata['package_detected']);
-        $this->assertSame(2, $batch->metadata['skipped_count']);
+        $this->assertSame(3, $batch->metadata['skipped_count']);
         $this->assertSame(1, $batch->metadata['material_count']);
-        $this->assertSame(1, $batch->metadata['service_count']);
-        $this->assertEquals(280, $batch->metadata['grand_total']);
+        $this->assertSame(0, $batch->metadata['service_count']);
+        $this->assertEquals(200, $batch->metadata['grand_total']);
         $this->assertDatabaseHas('qe_boqs', [
             'qe_lop_id' => $lop->id_qe_lops,
             'package_id' => $package->id_package,
-            'item_count' => 2,
-            'grand_total' => 280,
+            'item_count' => 1,
+            'grand_total' => 200,
         ]);
         $this->assertDatabaseHas('designators', ['code' => 'M-ACTUAL', 'item_name' => 'Material terpakai']);
-        $this->assertDatabaseHas('designators', ['code' => 'J-ACTUAL', 'item_name' => 'Jasa terpakai']);
-        $this->assertDatabaseCount('qe_boq_items', 2);
-        $this->assertSame(2, $batch->rows()->where('status', 'skipped')->count());
+        $this->assertDatabaseMissing('designators', ['code' => 'J-ACTUAL', 'item_name' => 'Jasa terpakai']);
+        $this->assertDatabaseCount('qe_boq_items', 1);
+        $this->assertSame(3, $batch->rows()->where('status', 'skipped')->count());
+        $this->assertStringContainsString('program ini hanya MATERIAL', $batch->rows()->where('reference', 'J-ACTUAL')->value('message'));
 
         $this->actingAs($admin)->get(route('imports.show', $batch))
             ->assertOk()
@@ -537,7 +538,7 @@ class BulkImportAndBoqTest extends TestCase
             ->assertSee('Grand Total')
             ->assertSee('VOL')
             ->assertSee('M-ACTUAL')
-            ->assertSee('J-ACTUAL')
+            ->assertDontSee('J-ACTUAL')
             ->assertDontSee('M-BLANK')
             ->assertDontSee('J-ZERO');
     }

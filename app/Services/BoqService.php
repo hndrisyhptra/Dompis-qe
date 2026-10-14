@@ -38,6 +38,14 @@ class BoqService
             if (! MaterialReservationRules::editable($lop)) {
                 throw ValidationException::withMessages(['boq' => 'BOQ terkunci karena LOP Completed. Reset LOP terlebih dahulu.']);
             }
+            $eligible = array_values(array_filter($normalized, fn (array $item) => $lop->program_type->allowsBoqType($item['type'])));
+            if (count($eligible) !== count($normalized) && ! in_array($source, ['import', 'legacy_import'], true)) {
+                throw ValidationException::withMessages(['items' => 'Program ini hanya menerima item MATERIAL. Item JASA hanya untuk QE Relok Utilitas.']);
+            }
+            $normalized = $eligible;
+            if ($normalized === []) {
+                throw ValidationException::withMessages(['items' => 'Tidak ada item BOQ yang sesuai dengan program LOP.']);
+            }
             $boq = QeBoq::withTrashed()->firstOrNew(['qe_lop_id' => $lop->id_qe_lops]);
             $before = $boq->exists ? $this->snapshot($boq->load('items')) : null;
 

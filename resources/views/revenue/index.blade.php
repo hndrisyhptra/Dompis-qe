@@ -53,9 +53,13 @@
         </form>
     </section>
 
+    @if ($stats['unclassified_boq_count'] > 0)
+        <p role="alert" class="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">{{ $stats['unclassified_boq_count'] }} LOP memiliki BOQ lama dengan total gabungan tanpa rincian kategori. Total tersebut belum dihitung karena material dan jasa tidak dapat dipisahkan. Lengkapi/import ulang BOQ agar nilainya masuk sesuai aturan program.</p>
+    @endif
+    <p class="text-xs text-ink-500 dark:text-ink-400">Recovery, Preventive, dan Relok Tiang: material saja. Relok Utilitas: material + jasa. Realisasi hanya LOP Completed; qty aktual 0 tetap dihitung 0.</p>
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ([
-            ['Total Nilai Plan', $money($stats['plan_value']), 'Preventive + Relok Utilitas', 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'],
+            ['Total Nilai Plan', $money($stats['plan_value']), 'Preventive + Relok Utilitas + Relok Tiang', 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'],
             ['Total Nilai Realisasi', $money($stats['actual_value']), 'Seluruh program berstatus Completed', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'],
             ['GAP', $money($stats['gap_value']), 'Sisa plan program terencana', 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'],
             ['Rasio', $stats['realization_percentage'] === null ? '—' : $stats['realization_percentage'].'%', 'Realisasi Preventive + Relok terhadap plan', 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'],

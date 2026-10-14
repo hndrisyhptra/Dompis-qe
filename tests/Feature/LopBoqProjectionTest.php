@@ -44,13 +44,13 @@ class LopBoqProjectionTest extends TestCase
         $summary = app(LopBoqValueService::class)->summarize($lop->fresh());
 
         $this->assertFalse($actual['has_plan']);
-        $this->assertSame(['M-REC', 'J-REC'], collect($actual['lines'])->pluck('designator_code')->all());
-        $this->assertSame('auto_service', collect($actual['lines'])->firstWhere('type', 'JASA')['source']);
-        $this->assertSame(1050.0, $actual['grand']['total_actual']);
+        $this->assertSame(['M-REC'], collect($actual['lines'])->pluck('designator_code')->all());
+        $this->assertSame('reservation', $actual['lines'][0]['source']);
+        $this->assertSame(700.0, $actual['grand']['total_actual']);
         $this->assertCount(1, $sisa['lines']);
         $this->assertSame(3.0, $sisa['lines'][0]['sisa']);
         $this->assertCount(1, $reservation->fresh()->items);
-        $this->assertSame(350.0, $summary['service_total']);
+        $this->assertSame(0.0, $summary['service_total']);
         $this->assertSame(700.0, $summary['material_total']);
     }
 
@@ -91,9 +91,9 @@ class LopBoqProjectionTest extends TestCase
         $sisa = $projection->report($lop->fresh(), 'sisa');
 
         $this->assertTrue($plan['has_plan']);
-        $this->assertSame(700.0, $plan['grand']['total_plan']);
-        $this->assertSame(420.0, $actual['grand']['total_actual']);
-        $this->assertSame(3.0, collect($actual['lines'])->firstWhere('designator_code', 'J-PREV')['qty_actual']);
+        $this->assertSame(500.0, $plan['grand']['total_plan']);
+        $this->assertSame(300.0, $actual['grand']['total_actual']);
+        $this->assertCount(1, $actual['lines']);
         $this->assertCount(1, $sisa['lines']);
         $this->assertSame('M-PREV', $sisa['lines'][0]['designator_code']);
         $this->assertSame(2.0, $sisa['lines'][0]['sisa']);
@@ -103,17 +103,17 @@ class LopBoqProjectionTest extends TestCase
             ->getJson(route('reports.lop.boq-plan', $lop))
             ->assertOk()
             ->assertJsonPath('has_plan', true)
-            ->assertJsonPath('grand.total_plan', 700);
+            ->assertJsonPath('grand.total_plan', 500);
         $this->actingAs($owner)
             ->get(route('reports.lop.boq-plan', $lop))
             ->assertOk()
             ->assertSee('BOQ Plan')
-            ->assertSee('J-PREV');
+            ->assertDontSee('J-PREV');
         $this->actingAs($owner)
             ->getJson(route('reports.lop.boq-actual', $lop))
             ->assertOk()
-            ->assertJsonPath('grand.total_actual', 420)
-            ->assertJsonFragment(['designator_code' => 'J-PREV', 'qty_actual' => 3]);
+            ->assertJsonPath('grand.total_actual', 300)
+            ->assertJsonFragment(['designator_code' => 'M-PREV', 'qty_actual' => 3]);
     }
 
     /** @return array{Designator, Designator} */

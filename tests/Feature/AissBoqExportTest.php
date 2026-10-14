@@ -37,7 +37,7 @@ class AissBoqExportTest extends TestCase
             $this->assertSame('PELIMPAHAN', $sheet->getTitle());
             $this->assertSame('ID IHLD', $sheet->getCell('A1')->getValue());
             $this->assertSame('BRANCH', $sheet->getCell('L1')->getValue());
-            $this->assertSame(3, $sheet->getHighestDataRow());
+            $this->assertSame(2, $sheet->getHighestDataRow());
             $this->assertSame('0010513828', $sheet->getCell('A2')->getValue());
             $this->assertSame('M-AISS', $sheet->getCell('B2')->getValue());
         } finally {
@@ -47,7 +47,7 @@ class AissBoqExportTest extends TestCase
 
     public function test_export_matches_template_headers_and_preserves_snapshot_prices_and_actual_quantities(): void
     {
-        [$owner, $lop, $material, $service, $package] = $this->fixture('preventive');
+        [$owner, $lop, $material, $service, $package] = $this->fixture('relok_utilitas');
         $boq = QeBoq::create(['qe_lop_id' => $lop->getKey(), 'package_id' => $package->getKey(), 'source' => 'import', 'status' => 'ready', 'created_by' => $owner->getKey(), 'updated_by' => $owner->getKey()]);
         $boq->items()->createMany([
             ['designator_id' => $material->getKey(), 'designator_code' => 'M-AISS', 'item_name' => 'Snapshot material', 'unit' => 'meter', 'type' => 'MATERIAL', 'qty' => 10, 'unit_price' => 100, 'total_price' => 1000],
@@ -84,16 +84,16 @@ class AissBoqExportTest extends TestCase
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
     }
 
-    public function test_recovery_uses_regional_package_and_includes_paired_service_without_saving_it(): void
+    public function test_recovery_uses_regional_package_and_only_material_without_saving_a_boq(): void
     {
         [$owner, $lop] = $this->fixture('recovery');
         $sheet = $this->download($owner, $lop);
-        $rows = $sheet->rangeToArray('A2:L3', null, false, false);
-        $this->assertEquals(['M-AISS', 'J-AISS'], array_column($rows, 1));
-        $this->assertEquals([3, 3], array_column($rows, 4));
-        $this->assertEquals([999, 250], array_column($rows, 5));
-        $this->assertEquals([2997, 750], array_column($rows, 6));
-        $this->assertEquals([5, 5], array_column($rows, 7));
+        $rows = $sheet->rangeToArray('A2:L2', null, false, false);
+        $this->assertEquals(['M-AISS'], array_column($rows, 1));
+        $this->assertEquals([3], array_column($rows, 4));
+        $this->assertEquals([999], array_column($rows, 5));
+        $this->assertEquals([2997], array_column($rows, 6));
+        $this->assertEquals([5], array_column($rows, 7));
         $this->assertDatabaseCount('qe_boqs', 0);
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
     }

@@ -33,7 +33,7 @@ class DataBoqExportTest extends TestCase
         foreach ([$material, $service] as $designator) {
             DesignatorPackagePrice::create(['designator_id' => $designator->getKey(), 'package_id' => $package->getKey(), 'price' => 9999]);
         }
-        $plan = $this->lop($owner, '000123', ['nama_lop' => '=1+1', 'ihld_id' => '000987654321', 'program_type' => 'preventive', 'package_id' => $package->getKey()]);
+        $plan = $this->lop($owner, '000123', ['nama_lop' => '=1+1', 'ihld_id' => '000987654321', 'program_type' => 'relok_utilitas', 'package_id' => $package->getKey()]);
         $this->boq($plan, $owner, $material, $service);
         $this->reserve($plan, $owner, $material, 10, 3);
 
@@ -59,7 +59,7 @@ class DataBoqExportTest extends TestCase
         $unassignedRow = $rows->first(fn ($row) => $row[1] === 'REC-IMPORT' && $row[3] === 'M-EXPORT');
         $this->assertSame([5.0, null, 100.0, null], array_slice($unassignedRow, 6));
         $this->assertSame('A2', $sheet->getFreezePane());
-        $this->assertSame('A1:J5', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('A1:J4', $sheet->getAutoFilter()->getRange());
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
         $this->assertDatabaseHas('qe_boq_items', ['qe_boq_id' => $plan->boq->getKey(), 'designator_code' => 'M-EXPORT', 'qty' => 5, 'unit_price' => 100]);
     }
@@ -72,7 +72,7 @@ class DataBoqExportTest extends TestCase
         DesignatorPackagePrice::create(['designator_id' => $material->getKey(), 'package_id' => $package->getKey(), 'price' => 25]);
         $region = Region::where('code', 'BALNUS')->firstOrFail();
         $branch = Branch::create(['code' => 'EXPORT-DPS', 'name' => 'EXPORT DPS', 'region_id' => $region->getKey(), 'region' => $region->name]);
-        $lop = $this->lop($owner, 'RES-ONLY', ['branch_id' => $branch->getKey(), 'branch' => $branch->name]);
+        $lop = $this->lop($owner, 'RES-ONLY', ['program_type' => 'relok_utilitas', 'branch_id' => $branch->getKey(), 'branch' => $branch->name]);
         $this->reserve($lop, $owner, $material, 10, 0);
         $sheet = $this->download($owner);
         $this->assertSame([null, 'RES-ONLY', 'LOP RES-ONLY', 'M-EXPORT', 'Material export', 'MATERIAL', 10.0, 0.0, 25.0, 0.0], $sheet->rangeToArray('A2:J2', null, false, false)[0]);

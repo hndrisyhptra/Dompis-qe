@@ -104,25 +104,25 @@
                             $status = $boq->lop->status_lop->value;
                             $editable = \App\Support\MaterialReservationRules::editable($boq->lop);
                             $deletable = in_array($status, ['draft', 'assigned'], true);
-                            $initialItems = $boq->items->map(fn ($item) => [
+                            $initialItems = $boq->program_items->map(fn ($item) => [
                                 'designator_id' => (string) $item->designator_id,
                                 'qty' => (int) round((float) $item->qty),
                                 'unit_price' => (float) $item->unit_price,
                             ])->values();
-                            $serviceTotal = $boq->items->where('type', 'JASA')->sum('total_price');
-                            $materialTotal = $boq->items->where('type', 'MATERIAL')->sum('total_price');
+                            $serviceTotal = $boq->program_items->where('type', 'JASA')->sum('total_price');
+                            $materialTotal = $boq->program_items->where('type', 'MATERIAL')->sum('total_price');
                         @endphp
 
-                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}')" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}', null, { materialOnly: {{ $boq->lop->program_type->includesBoqServices() ? 'false' : 'true' }} })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                             <td class="px-5 py-4">
                                 <p class="font-bold">{{ $boq->lop->incident }}</p>
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
                                 <span class="mt-2 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[9px] font-bold text-ink-500 dark:bg-ink-800">{{ $boq->lop->status_lop->label() }}</span>
                             </td>
-                            <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $boq->item_count }} item</p></td>
+                            <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material saja' }}</p></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $materialTotal, 0, ',', '.') }}</td>
-                            <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format((float) $boq->grand_total, 0, ',', '.') }}</td>
+                            <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</td>
                             <td class="px-5 py-4">
                                 <div class="flex justify-end gap-1.5">
                                     <x-table-action label="Lihat detail BOQ" @click="detail=true">
@@ -149,9 +149,11 @@
                                             <div><p class="text-xs font-bold uppercase text-brand-600">Detail BOQ</p><h3 class="mt-1 text-xl font-extrabold">{{ $boq->lop->incident }}</h3></div>
                                             <button type="button" aria-label="Tutup detail BOQ" title="Tutup detail BOQ" @click="detail=false" class="grid h-9 w-9 place-items-center rounded-full border border-ink-200 bg-ink-50 dark:border-ink-700 dark:bg-ink-800">×</button>
                                         </div>
-                                        <div x-data="detailLaporanTab({{ $boq->lop->id_qe_lops }}, true)" class="mt-5 space-y-4">
+                                        <div x-data="detailLaporanTab({{ $boq->lop->id_qe_lops }}, {{ $boq->lop->program_type->usesProjectStatus() ? 'true' : 'false' }})" x-init="$watch('detail', value => { if (value && type !== 'plan') fetchIfNeeded(type) })" class="mt-5 space-y-4">
                                             <div class="flex w-fit rounded-full bg-ink-100 p-1 dark:bg-ink-800">
-                                                <button type="button" @click="type='plan'; error=''" :class="type==='plan' ? 'bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-ink-500'" class="rounded-full px-3 py-1.5 text-[11px] font-bold">BOQ Plan</button>
+                                                @if ($boq->lop->program_type->usesProjectStatus())
+                                                    <button type="button" @click="type='plan'; error=''" :class="type==='plan' ? 'bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-ink-500'" class="rounded-full px-3 py-1.5 text-[11px] font-bold">BOQ Plan</button>
+                                                @endif
                                                 <button type="button" @click="switchType('actual')" :class="type==='actual' ? 'bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-ink-500'" class="rounded-full px-3 py-1.5 text-[11px] font-bold">BOQ Actual</button>
                                                 <button type="button" @click="switchType('sisa')" :class="type==='sisa' ? 'bg-white text-ink-900 shadow-sm dark:bg-ink-700 dark:text-white' : 'text-ink-500'" class="rounded-full px-3 py-1.5 text-[11px] font-bold">Sisa Material</button>
                                             </div>
@@ -161,7 +163,7 @@
                                                 <table class="min-w-full text-sm">
                                                     <thead class="bg-ink-50 text-left text-xs text-ink-500 dark:bg-ink-950"><tr><th class="px-4 py-3">Designator</th><th class="px-4 py-3">Item</th><th class="px-4 py-3">Kategori</th><th class="px-4 py-3 text-right" x-text="type==='plan' ? 'Qty Plan' : 'Reservasi'"></th><th x-show="type!=='plan'" class="px-4 py-3 text-right" x-text="type==='sisa' ? 'Sisa' : 'Aktual'"></th><th class="px-4 py-3 text-right">Harga</th><th class="px-4 py-3 text-right">Total</th></tr></thead>
                                                     <tbody x-show="type==='plan'" class="divide-y divide-ink-100 dark:divide-ink-800">
-                                                        @foreach ($boq->items as $item)
+                                                        @foreach ($boq->program_items as $item)
                                                             <tr><td class="px-4 py-3 font-bold">{{ $item->designator_code }}</td><td class="px-4 py-3 text-xs text-ink-500">{{ $item->item_name }}</td><td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-[9px] font-bold {{ $item->type === 'JASA' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700' }}">{{ $item->type }}</span></td><td class="px-4 py-3 text-right">{{ (int) round((float) $item->qty) }}</td><td class="whitespace-nowrap px-4 py-3 text-right">Rp {{ number_format((float) $item->unit_price, 0, ',', '.') }}</td><td class="whitespace-nowrap px-4 py-3 text-right font-semibold">Rp {{ number_format((float) $item->total_price, 0, ',', '.') }}</td></tr>
                                                         @endforeach
                                                     </tbody>
@@ -170,7 +172,7 @@
                                                     </tbody>
                                                 </table>
                                             </div>
-                                            <div x-show="type==='plan'" class="flex justify-end"><div class="rounded-xl bg-ink-50 px-5 py-3 text-right dark:bg-ink-800"><p class="text-[10px] font-bold uppercase text-ink-400">Total Plan</p><p class="mt-1 text-lg font-extrabold">Rp {{ number_format((float) $boq->grand_total, 0, ',', '.') }}</p></div></div>
+                                            <div x-show="type==='plan'" class="flex justify-end"><div class="rounded-xl bg-ink-50 px-5 py-3 text-right dark:bg-ink-800"><p class="text-[10px] font-bold uppercase text-ink-400">Total Plan</p><p class="mt-1 text-lg font-extrabold">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</p></div></div>
                                             <div x-show="type!=='plan' && !loading && !error && lines.length" class="flex justify-end"><div class="rounded-xl bg-ink-50 px-5 py-3 text-right dark:bg-ink-800"><p class="text-[10px] font-bold uppercase text-ink-400" x-text="type==='actual' ? 'Total Actual' : 'Nilai Sisa'"></p><p class="mt-1 text-lg font-extrabold" x-text="formatMoney(type==='actual' ? grand.total_actual : grand.nilai_sisa)"></p></div></div>
                                         </div>
                                     </div>

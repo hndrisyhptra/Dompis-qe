@@ -14,8 +14,8 @@ use Illuminate\Support\Collection;
 /**
  * Membentuk tampilan read-only BOQ Plan, BOQ Actual, dan Sisa Material per LOP.
  *
- * Reservasi teknisi tetap hanya berisi MATERIAL. Untuk QE Recovery, baris JASA
- * pasangannya dibentuk secara virtual dari pola M-... -> J-... sehingga tidak
+ * Reservasi teknisi tetap hanya berisi MATERIAL. Hanya Relok Utilitas memakai JASA
+ * pasangan virtual dari pola M-... -> J-... sehingga tidak
  * mengotori reservasi dan evidence per material.
  */
 class LopBoqProjectionService
@@ -58,29 +58,30 @@ class LopBoqProjectionService
             'materialReservation.items.designator.type',
         ]);
 
-        $hasPlan = $lop->program_type !== ProgramType::RECOVERY && $lop->boq !== null;
-        $package = $hasPlan
+        $hasSnapshot = $lop->boq !== null;
+        $hasPlan = $lop->program_type !== ProgramType::RECOVERY && $hasSnapshot;
+        $package = $hasSnapshot
             ? ($lop->boq?->package ?? $lop->package)
             : ($this->regionalPackages->forLop($lop) ?? $lop->package ?? $this->referencePackage());
 
         $lines = match ($report) {
             'plan' => $hasPlan ? $this->planLines($lop) : collect(),
-            'sisa' => $this->actualLines($lop, $package, $hasPlan)
+            'sisa' => $this->actualLines($lop, $package, $hasSnapshot)
                 ->where('type', 'MATERIAL')->values(),
-            default => $this->actualLines($lop, $package, $hasPlan),
+            default => $this->actualLines($lop, $package, $hasSnapshot),
         };
 
         $priced = $report === 'plan'
             ? $lines->isNotEmpty()
-            : $package !== null || ($hasPlan && $lines->contains(fn (array $line): bool => $line['price'] !== null));
+            : $package !== null || ($hasSnapshot && $lines->contains(fn (array $line): bool => $line['price'] !== null));
 
         return [
             'report' => $report,
             'has_plan' => $hasPlan,
             'priced' => $priced,
             'package' => $package,
-            'package_label' => $package?->code ?? ($hasPlan ? 'Snapshot BOQ import' : 'Harga belum tersedia'),
-            'uses_regional_package' => ! $hasPlan && $this->regionalPackages->forLop($lop) !== null,
+            'package_label' => $package?->code ?? ($hasSnapshot ? 'Snapshot BOQ import' : 'Harga belum tersedia'),
+            'uses_regional_package' => ! $hasSnapshot && $this->regionalPackages->forLop($lop) !== null,
             'lines' => $lines->all(),
             'grand' => $this->totals($lines, $priced),
         ];
@@ -89,7 +90,7 @@ class LopBoqProjectionService
     /** @return Collection<int, array<string, mixed>> */
     private function planLines(QeLop $lop): Collection
     {
-        return ($lop->boq?->items ?? collect())->map(fn (QeBoqItem $item): array => [
+        return ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type))->map(fn (QeBoqItem $item): array => [
             'designator_id' => $item->designator_id,
             'designator_code' => $item->designator_code,
             'designator_name' => $item->item_name,
@@ -110,13 +111,14 @@ class LopBoqProjectionService
     /** @return Collection<int, array<string, mixed>> */
     private function actualLines(QeLop $lop, ?Package $package, bool $hasPlan): Collection
     {
-        $reservationItems = ($lop->materialReservation?->items ?? collect())->values();
+        $reservationItems = ($lop->materialReservation?->items ?? collect())
+            ->filter(fn (QeMaterialReservationItem $item) => ($item->designator?->type?->code ?? 'MATERIAL') === 'MATERIAL')->values();
         $reservationByBase = $reservationItems->keyBy(
             fn (QeMaterialReservationItem $item): string => $this->baseCode($item->designator?->code),
         );
 
         if ($hasPlan) {
-            $planItems = $lop->boq?->items ?? collect();
+            $planItems = ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type));
             $coveredBases = $planItems
                 ->map(fn (QeBoqItem $item): string => $this->baseCode($item->designator_code))
                 ->filter()->unique();
@@ -142,12 +144,10 @@ class LopBoqProjectionService
             $extra = $reservationItems->filter(fn (QeMaterialReservationItem $item): bool => ! $coveredBases->contains($this->baseCode($item->designator?->code))
             );
 
-            return $lines->concat($this->reservationLines($extra, $package, false))->values();
+            return $lines->concat($this->reservationLines($extra, $package, $lop->program_type->includesBoqServices()))->values();
         }
 
-        // QE Recovery tidak memiliki BOQ Plan. Tampilkan material reservasi
-        // beserta pasangan jasa sebagai BOQ Actual virtual.
-        return $this->reservationLines($reservationItems, $package, true);
+        return $this->reservationLines($reservationItems, $package, $lop->program_type->includesBoqServices());
     }
 
     /**

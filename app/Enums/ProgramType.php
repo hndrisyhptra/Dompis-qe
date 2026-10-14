@@ -54,6 +54,16 @@ enum ProgramType: string
         return $this === self::RELOK_UTILITAS ? LopBudgetType::CAPEX : LopBudgetType::OPEX;
     }
 
+    public function includesBoqServices(): bool
+    {
+        return $this === self::RELOK_UTILITAS;
+    }
+
+    public function allowsBoqType(string $type): bool
+    {
+        return in_array(mb_strtoupper(trim($type)), $this->includesBoqServices() ? ['MATERIAL', 'JASA'] : ['MATERIAL'], true);
+    }
+
     public function incidentTicketType(): ?string
     {
         return match ($this) {

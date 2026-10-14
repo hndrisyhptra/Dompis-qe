@@ -41,6 +41,7 @@ class RevenueService
         $gapValue = (float) max(0, $planValue - $plannedActualValue);
 
         $stats = [
+            'unclassified_boq_count' => (int) $programRows->sum('unclassified_boq_count'),
             'plan_value' => $planValue,
             'actual_value' => $actualValue,
             'planned_actual_value' => $plannedActualValue,
@@ -250,6 +251,7 @@ class RevenueService
         $rows = $this->withBoq($query)
             ->select('qe_lops.program_type')
             ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_lops')
+            ->selectRaw('SUM(CASE WHEN '.$this->unclassifiedBoqSql().' THEN 1 ELSE 0 END) as unclassified_boq_count')
             ->selectRaw("SUM(CASE WHEN qe_lops.program_type <> ? THEN {$boqValue} ELSE 0 END) as plan_value", [ProgramType::RECOVERY->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? THEN {$actualValue} ELSE 0 END) as actual_value", [LopStatus::COMPLETED->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? AND qe_lops.program_type <> ? THEN {$actualValue} ELSE 0 END) as planned_actual_value", [LopStatus::COMPLETED->value, ProgramType::RECOVERY->value])
@@ -276,6 +278,7 @@ class RevenueService
             'program' => $program->value,
             'label' => $program->label(),
             'total_lops' => (int) ($row?->total_lops ?? 0),
+            'unclassified_boq_count' => (int) ($row?->unclassified_boq_count ?? 0),
             'plan_value' => $plan,
             'actual_value' => $actual,
             'planned_actual_value' => $plannedActual,
@@ -330,11 +333,25 @@ class RevenueService
 
     private function withBoq(Builder $query): Builder
     {
-        $itemTotals = DB::table('qe_boq_items')
-            ->select('qe_boq_id')
-            ->selectRaw('SUM(total_price) as item_total')
-            ->whereNull('deleted_at')
-            ->groupBy('qe_boq_id');
+        $usage = DB::table('qe_material_reservation_items as usage_items')
+            ->join('qe_material_reservations as usage_reservations', 'usage_reservations.id_reservation', '=', 'usage_items.reservation_id')
+            ->leftJoin('designators as usage_designators', 'usage_designators.id_designator', '=', 'usage_items.designator_id')
+            ->leftJoin('designator_types as usage_types', 'usage_types.id_designator_type', '=', 'usage_designators.designator_type_id')
+            ->whereNull('usage_reservations.deleted_at')
+            ->whereRaw("COALESCE(UPPER(usage_types.code), 'MATERIAL') = 'MATERIAL'")
+            ->select(['usage_reservations.qe_lop_id', 'usage_items.designator_id', 'usage_items.qty_actual', 'usage_designators.code']);
+        $eligible = $this->eligibleTypeSql('item_lops.program_type', 'value_boq_items.type');
+        $baseMatch = $this->baseCodeSql('value_usage.code').' = '.$this->baseCodeSql('value_boq_items.designator_code');
+        $itemTotals = DB::table('qe_boq_items as value_boq_items')
+            ->join('qe_boqs as item_boqs', 'item_boqs.id_boq', '=', 'value_boq_items.qe_boq_id')
+            ->join('qe_lops as item_lops', 'item_lops.id_qe_lops', '=', 'item_boqs.qe_lop_id')
+            ->leftJoinSub($usage, 'value_usage', fn ($join) => $join->on('value_usage.qe_lop_id', '=', 'item_lops.id_qe_lops')->whereRaw($baseMatch))
+            ->select('value_boq_items.qe_boq_id')
+            ->selectRaw('COUNT(value_boq_items.id_boq_item) as raw_item_count')
+            ->selectRaw("SUM(CASE WHEN {$eligible} THEN value_boq_items.total_price ELSE 0 END) as item_total")
+            ->selectRaw("SUM(CASE WHEN {$eligible} THEN COALESCE(value_usage.qty_actual, value_boq_items.qty) * value_boq_items.unit_price ELSE 0 END) as actual_total")
+            ->whereNull('value_boq_items.deleted_at')->whereNull('item_boqs.deleted_at')->whereNull('item_lops.deleted_at')
+            ->groupBy('value_boq_items.qe_boq_id');
         $referencePackageId = $this->boqValues->referencePackageId() ?? 0;
         $package5Id = $this->regionalPackages->package5()?->id_package ?? 0;
         $package10Id = $this->regionalPackages->package10()?->id_package ?? 0;
@@ -346,9 +363,19 @@ class RevenueService
                 THEN COALESCE(NULLIF({$package10Id}, 0), value_lops.package_id, NULLIF({$referencePackageId}, 0))
             ELSE COALESCE(value_lops.package_id, NULLIF({$referencePackageId}, 0))
         END";
+        $packageSql = "CASE WHEN value_boqs.id_boq IS NOT NULL THEN COALESCE(value_boqs.package_id, value_lops.package_id) ELSE {$regionalPackageSql} END";
+        $servicePair = $this->baseCodeSql('value_services.code').' = '.$this->baseCodeSql('value_designators.code');
+        $coveredBase = $this->baseCodeSql('covered_items.designator_code').' = '.$this->baseCodeSql('value_designators.code');
+        $servicePrograms = $this->serviceProgramsSql();
         $reservationTotals = DB::table('qe_material_reservations as value_reservations')
             ->join('qe_material_reservation_items as value_items', 'value_items.reservation_id', '=', 'value_reservations.id_reservation')
             ->join('qe_lops as value_lops', 'value_lops.id_qe_lops', '=', 'value_reservations.qe_lop_id')
+            ->leftJoin('qe_boqs as value_boqs', fn ($join) => $join->on('value_boqs.qe_lop_id', '=', 'value_lops.id_qe_lops')->whereNull('value_boqs.deleted_at'))
+            ->leftJoin('designators as value_designators', 'value_designators.id_designator', '=', 'value_items.designator_id')
+            ->leftJoin('designator_types as value_types', 'value_types.id_designator_type', '=', 'value_designators.designator_type_id')
+            ->leftJoin('designators as value_services', fn ($join) => $join->whereRaw("value_lops.program_type IN ({$servicePrograms})")
+                ->whereRaw("SUBSTR(UPPER(TRIM(value_designators.code)), 1, 2) = 'M-' AND SUBSTR(UPPER(TRIM(value_services.code)), 1, 2) = 'J-'")
+                ->whereRaw($servicePair)->whereNull('value_services.deleted_at'))
             ->leftJoin('branches as value_branches', function ($join): void {
                 $join->on('value_branches.id_branch', '=', 'value_lops.branch_id')
                     ->orOn(function ($legacy): void {
@@ -356,13 +383,20 @@ class RevenueService
                             ->on('value_branches.name', '=', 'value_lops.branch');
                     });
             })
-            ->leftJoin('designator_package_prices as value_prices', function ($join) use ($regionalPackageSql): void {
+            ->leftJoin('designator_package_prices as value_prices', function ($join) use ($packageSql): void {
                 $join->on('value_prices.designator_id', '=', 'value_items.designator_id')
-                    ->whereRaw("value_prices.package_id = {$regionalPackageSql}")
+                    ->whereRaw("value_prices.package_id = {$packageSql}")
                     ->whereNull('value_prices.deleted_at');
             })
+            ->leftJoin('designator_package_prices as service_prices', fn ($join) => $join->on('service_prices.designator_id', '=', 'value_services.id_designator')
+                ->whereRaw("service_prices.package_id = {$packageSql}")->whereNull('service_prices.deleted_at'))
             ->select('value_reservations.qe_lop_id')
-            ->selectRaw('SUM(COALESCE(value_items.qty_actual, value_items.qty) * COALESCE(value_prices.price, 0)) as actual_total')
+            ->selectRaw('COUNT(value_items.id_reservation_item) as extra_count')
+            ->selectRaw('SUM(COALESCE(value_items.qty_actual, value_items.qty) * (COALESCE(value_prices.price, 0) + COALESCE(service_prices.price, 0))) as actual_total')
+            ->whereRaw("COALESCE(UPPER(value_types.code), 'MATERIAL') = 'MATERIAL'")
+            ->whereNotExists(fn ($covered) => $covered->selectRaw('1')->from('qe_boq_items as covered_items')
+                ->whereColumn('covered_items.qe_boq_id', 'value_boqs.id_boq')->whereNull('covered_items.deleted_at')
+                ->whereRaw($this->eligibleTypeSql('value_lops.program_type', 'covered_items.type'))->whereRaw($coveredBase))
             ->whereNull('value_reservations.deleted_at')
             ->whereNull('value_lops.deleted_at')
             ->groupBy('value_reservations.qe_lop_id');
@@ -378,20 +412,59 @@ class RevenueService
     }
 
     /**
-     * Nilai BOQ utama, dengan fallback untuk data lama yang grand_total-nya
-     * belum tersinkron tetapi masih memiliki item atau snapshot import.
+     * Nilai Plan sesuai kategori program. Snapshot legacy tanpa rincian harus
+     * mempunyai total material eksplisit, kecuali Utilitas yang boleh keduanya.
      */
     private function boqValueSql(): string
     {
-        $snapshotValue = DB::connection()->getDriverName() === 'mysql'
-            ? "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(qe_lops.boq_snapshot, '$.grand_total')) AS DECIMAL(18,2)), CAST(JSON_UNQUOTE(JSON_EXTRACT(qe_lops.boq_snapshot, '$.totals.grand_total')) AS DECIMAL(18,2)))"
-            : "COALESCE(CAST(json_extract(qe_lops.boq_snapshot, '$.grand_total') AS REAL), CAST(json_extract(qe_lops.boq_snapshot, '$.totals.grand_total') AS REAL))";
+        $material = $this->snapshotSql(['material.total', 'totals.material_total', 'material_total']);
+        $grand = $this->snapshotSql(['grand_total', 'totals.grand_total']);
+        $services = $this->serviceProgramsSql();
 
-        return "COALESCE(NULLIF(revenue_boqs.grand_total, 0), NULLIF(revenue_item_totals.item_total, 0), {$snapshotValue}, 0)";
+        // Total lama tanpa kategori tidak dapat dianggap material secara otomatis.
+        return "CASE WHEN revenue_item_totals.raw_item_count IS NOT NULL THEN COALESCE(revenue_item_totals.item_total, 0)
+            WHEN qe_lops.program_type IN ({$services}) THEN COALESCE(NULLIF(revenue_boqs.grand_total, 0), {$grand}, 0)
+            ELSE COALESCE({$material}, 0) END";
     }
 
     private function actualValueSql(): string
     {
-        return "COALESCE(NULLIF({$this->boqValueSql()}, 0), NULLIF(revenue_reservations.actual_total, 0), 0)";
+        return "CASE WHEN revenue_item_totals.raw_item_count IS NOT NULL
+            THEN COALESCE(revenue_item_totals.actual_total, 0) + COALESCE(revenue_reservations.actual_total, 0)
+            WHEN revenue_reservations.extra_count IS NOT NULL THEN COALESCE(revenue_reservations.actual_total, 0)
+            ELSE {$this->boqValueSql()} END";
+    }
+
+    private function serviceProgramsSql(): string
+    {
+        return collect(ProgramType::cases())->filter(fn (ProgramType $program) => $program->includesBoqServices())->map(fn (ProgramType $program) => "'{$program->value}'")->implode(',');
+    }
+
+    private function eligibleTypeSql(string $program, string $type): string
+    {
+        return "(UPPER(TRIM({$type})) = 'MATERIAL' OR ({$program} IN ({$this->serviceProgramsSql()}) AND UPPER(TRIM({$type})) = 'JASA'))";
+    }
+
+    private function baseCodeSql(string $column): string
+    {
+        return "CASE WHEN SUBSTR(UPPER(TRIM({$column})), 1, 2) IN ('M-', 'J-') THEN SUBSTR(UPPER(TRIM({$column})), 3) ELSE UPPER(TRIM({$column})) END";
+    }
+
+    private function snapshotSql(array $paths): string
+    {
+        $expressions = array_map(fn (string $path) => DB::connection()->getDriverName() === 'mysql'
+            ? "CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(qe_lops.boq_snapshot, '$.{$path}')), 'null') AS DECIMAL(18,2))"
+            : "CAST(json_extract(qe_lops.boq_snapshot, '$.{$path}') AS REAL)", $paths);
+
+        return 'COALESCE('.implode(', ', $expressions).')';
+    }
+
+    private function unclassifiedBoqSql(): string
+    {
+        $material = $this->snapshotSql(['material.total', 'totals.material_total', 'material_total']);
+        $grand = $this->snapshotSql(['grand_total', 'totals.grand_total']);
+
+        return "qe_lops.program_type NOT IN ({$this->serviceProgramsSql()}) AND revenue_item_totals.raw_item_count IS NULL
+            AND {$material} IS NULL AND COALESCE(revenue_boqs.grand_total, {$grand}, 0) > 0";
     }
 }

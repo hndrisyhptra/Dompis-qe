@@ -79,8 +79,15 @@ class DataBoqController extends Controller
             ])->values());
         });
 
+        $boqs = $query->latest()->paginate(15)->withQueryString();
+        $boqs->getCollection()->each(function (QeBoq $boq): void {
+            $items = $boq->items->filter(fn ($item) => $boq->lop->program_type->allowsBoqType($item->type))->values();
+            $boq->setAttribute('program_items', $items);
+            $boq->setAttribute('program_total', (float) $items->sum('total_price'));
+        });
+
         return view('data-boqs.index', [
-            'boqs' => $query->latest()->paginate(15)->withQueryString(),
+            'boqs' => $boqs,
             'reservationBoqs' => $reservationBoqs,
             'designators' => Designator::query()->with('type')->orderBy('code')->get(),
             'packages' => Package::query()->orderBy('code')->get(),
