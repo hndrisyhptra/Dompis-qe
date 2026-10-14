@@ -5,11 +5,24 @@ namespace App\Services;
 use App\Models\QeLop;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class AissBoqExportService
 {
+    private const HEADERS = [
+        'ID IHLD', 'DESIGNATOR', 'URAIAN PEKERJAAN', 'SATUAN', 'QTY', 'HARGA',
+        'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH',
+    ];
+
+    // Layout captured from the original AISS workbook; no runtime template needed.
+    private const COLUMN_WIDTHS = [
+        'A' => 9,
+        'B' => 36.1796875,
+        'C' => 53.453125,
+        'D' => 20.453125,
+        'E' => 10.453125,
+    ];
+
     public function __construct(private readonly LopBoqProjectionService $projection) {}
 
     public function workbook(QeLop $lop): Spreadsheet
@@ -23,14 +36,15 @@ class AissBoqExportService
         $sto = $lop->serviceArea?->workzone ?? $lop->sto;
         $branch = $lop->branchRef?->name ?? $lop->serviceArea?->branch?->name ?? $lop->branch;
 
-        $book = IOFactory::load(base_path('plans/Format AISS BOQ AWAL.xlsx'));
+        $book = new Spreadsheet;
+        $book->getDefaultStyle()->getFont()->setName('Aptos Narrow')->setSize(11);
         $sheet = $book->getActiveSheet();
-        $styles = [];
-        foreach (range('A', 'L') as $column) {
-            $styles[$column] = clone $sheet->getStyle($column.'2')->getSharedComponent();
+        $sheet->setTitle('PELIMPAHAN');
+        foreach (self::HEADERS as $columnIndex => $header) {
+            $sheet->setCellValueExplicit(Coordinate::stringFromColumnIndex($columnIndex + 1).'1', $header, DataType::TYPE_STRING);
         }
-        if ($sheet->getHighestRow() > 1) {
-            $sheet->removeRow(2, $sheet->getHighestRow() - 1);
+        foreach (self::COLUMN_WIDTHS as $column => $width) {
+            $sheet->getColumnDimension($column)->setWidth($width);
         }
 
         foreach ($payload['lines'] as $index => $line) {
@@ -51,7 +65,6 @@ class AissBoqExportService
             foreach ($row as $columnIndex => $value) {
                 $column = Coordinate::stringFromColumnIndex($columnIndex + 1);
                 $coordinate = $column.($index + 2);
-                $sheet->duplicateStyle($styles[$column], $coordinate);
                 if ($value !== null) {
                     $sheet->setCellValueExplicit($coordinate, $value, is_string($value) ? DataType::TYPE_STRING : DataType::TYPE_NUMERIC);
                 }

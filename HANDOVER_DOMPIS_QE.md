@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `56f8033` (`fix: jenis ticket for create lop`)
+HEAD dasar saat audit terbaru: `e9687fc` (`fix: add id ihld in download excel boq`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -634,6 +634,8 @@ Pemilihan paket reservasi otomatis:
 
 ### 7.32 BOQ AISS per LOP Completed dari template — 14 Oktober 2026
 
+Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari kode pada bagian 7.35; file template tidak lagi diperlukan saat ekspor.
+
 - File `plans/Format AISS BOQ AWAL.xlsx` diperiksa: satu sheet bernama PELIMPAHAN, header ID IHLD, DESIGNATOR, URAIAN PEKERJAAN, SATUAN, QTY, HARGA, TOTAL, PAKET, STO, WITEL, NAMA_PROYEK, BRANCH. `AissBoqExportService` memuat template asli, mempertahankan header/style/lebar kolom, menghapus baris contoh, dan mengisi satu baris per designator tanpa mengubah file sumber.
 - Kolom Aksi Master Data LOP menambahkan Download BOQ AISS (.xlsx) di sebelah Download Evidence, hanya untuk Completed. GET `master-data/lops/{qe_lop}/aiss-boq` memakai middleware auth/role ADMIN,SUPER_ADMIN, policy view yang menerapkan scope canonical, serta pemeriksaan Completed di backend; parent arsip tidak dapat dibuka. Unduhan AISS-{incident}-{nama_lop}.xlsx bersifat private/no-store. Spasi/karakter yang tidak aman pada nama LOP diganti tanda hubung; bila nama LOP kosong, filename tetap AISS-{incident}.xlsx.
 - QTY memakai qty_actual dan TOTAL memakai qty_actual × harga. Ini asumsi awal yang disampaikan kepada user; pilihan QTY aktual/reservasi ditanyakan melalui pertanyaan opsional dan belum mendapat jawaban saat implementasi. ID IHLD berasal dari ihld_id, NAMA_PROYEK dari nama_lop, STO dari master workzone dengan fallback legacy. WITEL dan BRANCH sama-sama memakai nama Branch, mengikuti contoh template dan definisi Branch sebagai cabang/witel di aplikasi. Paket-5/Paket-10 ditulis sebagai 5/10; kode paket lain dipertahankan.
@@ -653,6 +655,14 @@ Pemilihan paket reservasi otomatis:
 - Download Excel pada `master-data/boqs` kini berurutan ID IHLD, Incident, Nama LOP, Designator, Item, Kategori, Reservasi, Aktual, Harga, Total. ID IHLD mengambil `qe_lops.ihld_id`, diulang pada setiap baris item LOP, dan dibiarkan kosong jika belum tersedia. Disimpan sebagai teks agar nol depan tidak hilang. Format angka, lebar kolom, wrap text, dan auto-filter digeser mengikuti sepuluh kolom; scope dan perhitungan existing dipertahankan.
 - Regression `DataBoqExportTest` memeriksa ID pada seluruh item, null tanpa ID, leading zero, header/kolom numerik/filter yang bergeser, dan scope existing. **6 tests / 71 assertions**, Pint file PHP task, dan git diff --check lulus. Tidak ada perubahan UI/schema, migration, write database operasional, atau deployment; full suite dan browser/produksi tidak dijalankan ulang untuk penambahan kolom ini.
 
+### 7.35 Ekspor AISS tanpa ketergantungan file template — 14 Oktober 2026
+
+- User melaporkan endpoint AISS produksi gagal 500 karena `plans/Format AISS BOQ AWAL.xlsx` tidak ada atau tidak dapat dibaca. Regression HTTP dengan base path sementara tanpa file tersebut mereproduksi Reader Exception yang sama sebelum perbaikan. File lokal tersedia dan tracked; penyebab file tidak tersedia/permission di server belum diaudit langsung.
+- `AissBoqExportService` sekarang membuat `Spreadsheet` baru, bukan memuat file. Nama sheet PELIMPAHAN, dua belas header AISS, font Aptos Narrow 11, serta lebar kolom A–E diambil dari template yang diperiksa. Kolom lainnya memakai layout default seperti sumber. Format tanggal yang tidak sesuai pada kolom SATUAN di template dinormalkan menjadi General; nilai satuan tetap string. File contoh asli dipertahankan sebagai referensi dan tidak dibutuhkan di produksi.
+- Data, nama unduhan AISS-{incident}-{nama_lop}.xlsx, snapshot harga, actual/null/zero, paket regional, pasangan jasa, status Completed, role, serta scope lokasi tidak berubah. Test format memakai kontrak header/lebar/font literal, bukan membaca template. Regression baru membuktikan unduhan XLSX dapat dibaca kembali saat template tidak tersedia, tanpa memindahkan/menghapus file asli.
+- **24 tests / 277 assertions** (`AissBoqExportTest` 7 tests, `DataBoqExportTest`, `LopBoqProjectionTest`, `LopPermissionTest`), Pint kedua file PHP task, dan git diff --check lulus. Full suite, build frontend, dan browser/AISS produksi tidak dijalankan ulang karena perubahan hanya pada pembentukan workbook, bukan service domain bersama atau UI.
+- Tidak ada migration/schema/write database operasional, perubahan dependency, commit/push, atau deployment. Setelah kode baru di-deploy, jalankan `php artisan optimize:clear` dan uji endpoint AISS pada LOP Completed sesuai scope; tidak perlu mengunggah template atau menjalankan migration. Worktree bersih saat mulai pada HEAD e9687fc; perbaikan ini masih lokal hingga di-deploy.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -661,6 +671,7 @@ Pemilihan paket reservasi otomatis:
 - Migration Relok Tiang sudah terverifikasi pada lokal (batch 17, enum empat nilai); status server produksi belum diverifikasi.
 - Jangan menambahkan kembali tabel `qe_boq_plans` atau kolom `file_hash`; keduanya tidak diperlukan oleh alur Import BOQ canonical.
 - Pastikan worker queue produksi hidup. Batch berhenti di `queued` bila worker tidak berjalan.
+- Deploy dan verifikasi perbaikan ekspor AISS tanpa template (7.35); keberhasilan di server belum dikonfirmasi.
 
 ### Prioritas menengah
 
@@ -694,7 +705,7 @@ Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konf
 
 Pemetaan test utama:
 
-- BOQ AISS per Completed: `AissBoqExportTest` (6 tests, format template/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
+- BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (10 tests); frontend `lop-form.test.mjs` (15 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.

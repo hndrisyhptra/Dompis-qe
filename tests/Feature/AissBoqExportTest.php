@@ -25,6 +25,26 @@ class AissBoqExportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_download_works_without_a_template_file_in_the_project(): void
+    {
+        [$owner, $lop] = $this->fixture('recovery');
+        $originalBasePath = $this->app->basePath();
+        $this->app->setBasePath(sys_get_temp_dir().'/aiss-no-template-'.bin2hex(random_bytes(8)));
+
+        try {
+            $this->assertFileDoesNotExist(base_path('plans/Format AISS BOQ AWAL.xlsx'));
+            $sheet = $this->download($owner, $lop, 'AISS-INC-AISS-LOP-AISS.xlsx');
+            $this->assertSame('PELIMPAHAN', $sheet->getTitle());
+            $this->assertSame('ID IHLD', $sheet->getCell('A1')->getValue());
+            $this->assertSame('BRANCH', $sheet->getCell('L1')->getValue());
+            $this->assertSame(3, $sheet->getHighestDataRow());
+            $this->assertSame('0010513828', $sheet->getCell('A2')->getValue());
+            $this->assertSame('M-AISS', $sheet->getCell('B2')->getValue());
+        } finally {
+            $this->app->setBasePath($originalBasePath);
+        }
+    }
+
     public function test_export_matches_template_headers_and_preserves_snapshot_prices_and_actual_quantities(): void
     {
         [$owner, $lop, $material, $service, $package] = $this->fixture('preventive');
@@ -33,11 +53,12 @@ class AissBoqExportTest extends TestCase
             ['designator_id' => $material->getKey(), 'designator_code' => 'M-AISS', 'item_name' => 'Snapshot material', 'unit' => 'meter', 'type' => 'MATERIAL', 'qty' => 10, 'unit_price' => 100, 'total_price' => 1000],
             ['designator_id' => $service->getKey(), 'designator_code' => 'J-AISS', 'item_name' => 'Snapshot jasa', 'unit' => 'meter', 'type' => 'JASA', 'qty' => 10, 'unit_price' => 40, 'total_price' => 400],
         ]);
-        $templateHash = hash_file('sha256', base_path('plans/Format AISS BOQ AWAL.xlsx'));
-        $template = IOFactory::load(base_path('plans/Format AISS BOQ AWAL.xlsx'))->getActiveSheet();
         $sheet = $this->download($owner, $lop, 'AISS-INC-AISS-LOP-AISS.xlsx');
         $this->assertSame('PELIMPAHAN', $sheet->getTitle());
-        $this->assertSame($template->rangeToArray('A1:L1'), $sheet->rangeToArray('A1:L1'));
+        $this->assertSame([[
+            'ID IHLD', 'DESIGNATOR', 'URAIAN PEKERJAAN', 'SATUAN', 'QTY', 'HARGA',
+            'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH',
+        ]], $sheet->rangeToArray('A1:L1'));
         $this->assertSame('L', $sheet->getHighestDataColumn());
         $this->assertSame(3, $sheet->getHighestDataRow());
         $rows = collect($sheet->rangeToArray('A2:L3', null, false, false));
@@ -49,8 +70,16 @@ class AissBoqExportTest extends TestCase
         foreach (['E', 'F', 'G', 'H'] as $column) {
             $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell($column.'2')->getDataType());
         }
-        $this->assertSame($template->getColumnDimension('B')->getWidth(), $sheet->getColumnDimension('B')->getWidth());
-        $this->assertSame($templateHash, hash_file('sha256', base_path('plans/Format AISS BOQ AWAL.xlsx')));
+        foreach (['A' => 9, 'B' => 36.1796875, 'C' => 53.453125, 'D' => 20.453125, 'E' => 10.453125] as $column => $width) {
+            $this->assertEquals($width, $sheet->getColumnDimension($column)->getWidth());
+        }
+        foreach (['A1', 'C2'] as $coordinate) {
+            $font = $sheet->getStyle($coordinate)->getFont();
+            $this->assertSame('Aptos Narrow', $font->getName());
+            $this->assertEquals(11, $font->getSize());
+            $this->assertFalse($font->getBold());
+        }
+        $this->assertSame('General', $sheet->getStyle('D2')->getNumberFormat()->getFormatCode());
         $this->assertDatabaseHas('qe_boq_items', ['qe_boq_id' => $boq->getKey(), 'designator_code' => 'M-AISS', 'unit_price' => 100, 'qty' => 10]);
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
     }
@@ -152,6 +181,7 @@ class AissBoqExportTest extends TestCase
     private function download(User $user, QeLop $lop, ?string $filename = null): Worksheet
     {
         $response = $this->actingAs($user)->get(route('data-lops.aiss-boq', $lop))->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         if ($filename !== null) {
             $response->assertDownload($filename);
         }
