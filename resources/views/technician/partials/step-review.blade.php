@@ -53,7 +53,7 @@
         @foreach ($evidenceFor('after')->filter(fn ($e) => ! $reservedIds->contains($e->designator_id))->groupBy('designator_id') as $group)
             <x-technician-evidence-uploader :$lop category="after" :designator-id="$group->first()->designator_id" :title="'After · '.($group->first()->designator?->code ?? 'Dokumentasi umum / item lama')" description="Dokumentasi tersimpan di luar item reservasi saat ini." :existing="$group" :allow-upload="false" :allow-replace="$canReplace" />
         @endforeach
-        <x-technician-evidence-uploader :$lop category="slot_port" title="Slot Port" description="Lihat foto posisi slot port dan status review." :existing="$evidenceFor('slot_port')" :allow-upload="false" :allow-replace="$canReplace" />
+        <x-technician-evidence-uploader :$lop category="slot_port" title="Capture Logic Slot Port" description="Screenshot Detail Slot Port OLT" :existing="$evidenceFor('slot_port')" :allow-upload="false" :allow-replace="$canReplace" />
         <p class="rounded-2xl border border-ink-100 bg-white p-4 text-xs leading-5 text-ink-500 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-400">{{ $showBoqReview ? 'Klik tombol Review BOQ di bawah informasi LOP untuk melihat rekap pemakaian dan nilai pekerjaan.' : 'Rekap quantity actual belum lengkap. Review BOQ tersedia setelah seluruh actual disimpan pada Step After.' }}</p>
     @endif
 </section>

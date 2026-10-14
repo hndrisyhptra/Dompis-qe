@@ -72,6 +72,8 @@ window.evidenceUploader = (options = {}) => ({
     expanded: options.expanded ?? true,
     endpoint: options.endpoint ?? null, // set => mode antrean async per-file
     maxFiles: options.maxFiles ?? 12,
+    optional: options.optional ?? false,
+    optionalSkipped: false,
     selectionError: "",
     meta: {
         category: options.category ?? null,
@@ -112,7 +114,14 @@ window.evidenceUploader = (options = {}) => ({
 
     // ---- mode antrean (endpoint) --------------------------------------
 
+    skipOptional() {
+        if (!this.optional || this.queueActive) return;
+        this.optionalSkipped = true;
+        this.selectionError = "";
+    },
+
     async selectQueue(event) {
+        this.optionalSkipped = false;
         this.selectionError = "";
         const available = Math.max(0, this.maxFiles - this.queue.length);
         const allPicked = Array.from(event.target.files);

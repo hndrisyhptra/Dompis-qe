@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `ba1f9bd` (`fix: import bulk lop jenis ticket`)
+HEAD dasar saat audit terbaru: `4f76633` (`fx: Item BOQ only Material, kecuali Relok utilitas`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -166,9 +166,9 @@ Workflow mobile teknisi aktual terdiri dari lima langkah:
 
 1. Reservasi material.
 2. Evidence material tiba.
-3. Evidence pra: Surat Permintaan opsional untuk Preventive/Relok, lokasi, foto kondisi awal, dan capture ticket Insera.
+3. Evidence pra: Surat Permintaan opsional untuk Preventive/Relok, lokasi dan foto kondisi awal wajib, Capture Ticket Insera opsional.
 4. Evidence progress per designator reservasi.
-5. Evidence after per designator, evidence slot/port, dan `qty_actual`.
+5. Evidence after per designator dan `qty_actual` wajib; Capture Logic Slot Port (Screenshot Detail Slot Port OLT) opsional.
 
 LOP baru dapat diajukan bila semua checklist wajib lengkap. Rejected evidence dapat diganti pada record yang sama, bukan membuat evidence baru.
 
@@ -220,6 +220,7 @@ Pemilihan paket reservasi otomatis:
 - File asli dikompresi tanpa mengganti nama, MIME, atau ekstensi; thumbnail terpisah boleh WebP.
 - File ditampilkan melalui route terautentikasi, bukan mengandalkan URL storage publik langsung.
 - Preview dan hapus sebelum upload tersedia.
+- Capture Ticket Insera dan Capture Logic Slot Port opsional pada semua program. Card kosong menyediakan Upload jika ada/Tidak Ada; pilihan Tidak Ada hanya presentasi tanpa evidence dummy atau penanda wajib di database. File yang sudah diupload tetap mengikuti pending/approve/reject dan harus direview sebelum Completed.
 - QE Preventive/Relok mempunyai dokumen pendukung multi-file `request_letter` (PDF/foto). Admin mengelolanya dari aksi LOP; teknisi melihatnya pada Step 3 dan dapat upload sendiri hanya bila admin belum menyediakan file.
 - Surat Permintaan tetap disimpan di `qe_evidences`, tetapi dikecualikan dari progres dan antrean approval karena bukan evidence hasil pekerjaan.
 - Galeri menampilkan pending, approved, rejected, serta alasan reject.
@@ -363,6 +364,7 @@ Pemilihan paket reservasi otomatis:
 13. File evidence asli harus mempertahankan ekstensi/MIME; thumbnail boleh WebP.
 14. Import multi-tabel harus transactional agar kegagalan tidak meninggalkan BOQ atau LOP parsial.
 15. BOQ Plan/Actual, ekspor, dan Revenue hanya MATERIAL untuk Recovery/Preventive/Relok Tiang; Relok Utilitas boleh MATERIAL + JASA. Data jasa historis tidak dihapus massal.
+16. Capture Insera dan Capture Logic Slot Port tidak wajib untuk kelengkapan Pra/After. Jika diupload, keduanya tetap evidence reviewable, bukan dokumen exempt seperti Surat Permintaan.
 
 ## 7. Perubahan Terakhir
 
@@ -689,6 +691,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Regression `BoqProgramCategoryRulesTest` mencakup empat program, harga snapshot vs master, actual 0, material tambahan, paket regional, scope Area/Region/Branch/Service Area, total legacy tak terklasifikasi, save/import, serta kedua ekspor. Test existing diperbarui sesuai requirement kategori baru.
 - Verifikasi akhir: **386 tests / 3746 assertions** Laravel dan **32 tests frontend** lulus; Pint file PHP task, Vite build, Blade view:cache, dan git diff --check lulus. Perubahan rule ini belum di-commit saat handover diperbarui.
 
+### 7.39 Capture Insera dan Logic Slot Port opsional — 14 Oktober 2026
+
+- `TechnicianWorkflowService` dan `ProjectProgressService` tidak lagi mensyaratkan kategori insera/slot_port untuk kelengkapan Pra/After. Lokasi, foto kondisi awal, material tiba, Progress/After per designator, dan rekap actual tetap wajib. Progress dapat 100% tanpa dua capture tersebut.
+- Enum `EvidenceCategory::isOptionalCapture()` menandai dua card opsional; label slot_port menjadi Capture Logic Slot Port. UI aktif/review teknisi memakai keterangan Screenshot Detail Slot Port OLT. ID kategori/step dan file lama tetap sama; admin approval/notifikasi mengikuti label enum baru.
+- Uploader memberi badge Opsional, empty state netral, serta tombol Upload jika ada/Tidak Ada pada card kosong. Tidak Ada hanya menyembunyikan picker di sesi halaman, bukan menyimpan flag atau file kosong. Tanpa file tetap opsional sesudah reload. Antrean dengan file dipilih/processing/error/done memblokir Tidak Ada; foto tersimpan/ditolak tetap terlihat dan tidak dapat dihapus/dilewati lewat pilihan tersebut. Preview, hapus sebelum upload, multi-file, retry, dan reupload existing dipertahankan.
+- File opsional yang diupload tetap masuk approval; pending/rejected tidak boleh diselesaikan sebagai Completed. Request Letter tetap satu-satunya kategori pendukung exempt existing. Tidak ada migration/schema atau perubahan database operasional/file nyata.
+- Regression diperbarui dan direproduksi gagal sebelum perubahan: Pra tanpa Insera, After tanpa slot_port, dan alur submit. Full workflow ke Completed tanpa capture diuji pada empat program; test lain melindungi mandatory actual, visibility/reupload reject, serta completion guard. Frontend menguji pilihan Tidak Ada, proteksi antrean, dan kembali memilih foto.
+- Verifikasi: **390 tests / 3841 assertions** Laravel dan **35 frontend tests** lulus; Pint file PHP task, Vite build, Blade view:cache, dan git diff --check lulus. Tidak ada commit/push/deployment atau uji browser/device/produksi. Worktree bersih pada awal task; rule BOQ sebelumnya sudah di-commit pada 4f76633.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -723,8 +734,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-371 tests passed
-3636 assertions
+390 tests passed
+3841 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.

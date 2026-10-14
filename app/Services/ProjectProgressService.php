@@ -42,16 +42,13 @@ class ProjectProgressService
             1 => $items->isNotEmpty(),
             2 => $items->isNotEmpty()
                 && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty(),
-            // Step 3 Pra: tag lokasi + foto kondisi awal + capture tiket Insera
-            // (semua global, bukan per designator).
+            // Pra wajib lokasi dan foto kondisi awal; capture Insera opsional.
             3 => $items->isNotEmpty()
                 && $lop->survey !== null
-                && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty()
-                && $evidences->where('category', EvidenceCategory::INSERA)->isNotEmpty(),
+                && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty(),
             4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()
-                && $evidences->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty()
                 && $items->every(fn ($item) => $item->qty_actual !== null),
         ];
 

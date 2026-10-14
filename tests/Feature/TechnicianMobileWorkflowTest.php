@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Designator;
@@ -12,25 +13,28 @@ use App\Models\QeLop;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceService;
 use App\Services\ProjectProgressService;
+use App\Services\TechnicianWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class TechnicianMobileWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function assignedProject(): array
+    private function assignedProject(string $program = 'recovery'): array
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $lop = QeLop::create([
             'incident' => 'LOP-MOBILE-01',
             'nama_lop' => 'Project Mobile Teknisi',
-            'program_type' => 'recovery',
+            'program_type' => $program,
             'status_lop' => 'assigned',
             'created_by' => $admin->id_user,
         ]);
@@ -220,7 +224,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertSee('aria-disabled="true"', false); // stepper step berikutnya terkunci
     }
 
-    public function test_step_pra_needs_location_pre_and_insera_not_per_designator(): void
+    public function test_step_pra_requires_location_and_pre_but_insera_is_optional(): void
     {
         Storage::fake('public');
         [, $technician, $lop] = $this->assignedProject();
@@ -248,12 +252,16 @@ class TechnicianMobileWorkflowTest extends TestCase
         // Lokasi ada, foto pra belum -> step 3 belum lengkap.
         $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
 
-        // Foto pra global saja belum cukup -> masih butuh capture Insera.
+        // Foto pra global dan lokasi cukup, tanpa capture Insera.
         $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
             'category' => 'pre', 'type' => 'PHOTO',
             'files' => [UploadedFile::fake()->image('pra.jpg')],
         ]);
-        $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
+        $this->assertTrue($progress->summary($lop->fresh())['steps'][3]);
+        $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 3]))
+            ->assertOk()->assertSee('Capture Ticket Insera')->assertSee('Opsional')->assertSee('Tidak Ada');
+        $this->actingAs($technician)->post(route('technician.projects.survey-complete', $lop))->assertSessionHasNoErrors();
+        $this->assertSame('progress', $lop->fresh()->status_lop->value);
 
         // + capture tiket Insera (global, tanpa designator) -> step 3 lengkap.
         $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
@@ -369,7 +377,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertTrue(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][4]);
     }
 
-    public function test_step_after_requires_slot_port_evidence(): void
+    public function test_step_after_requires_item_evidence_and_actual_but_slot_port_is_optional(): void
     {
         Storage::fake('public');
         [, $technician, $lop] = $this->assignedProject();
@@ -384,12 +392,14 @@ class TechnicianMobileWorkflowTest extends TestCase
             'category' => 'after', 'type' => 'PHOTO', 'designator_id' => $d->id_designator,
             'files' => [UploadedFile::fake()->image('after.jpg')],
         ]);
+        $this->assertFalse(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][5]);
         $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
             'usage' => [['designator_id' => $d->id_designator, 'qty_actual' => 1]],
         ]);
 
-        // After + rekap lengkap tapi belum ada foto slot port -> step 5 belum lengkap.
-        $this->assertFalse(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][5]);
+        // After + rekap lengkap cukup, meskipun capture slot port tidak tersedia.
+        $this->assertTrue(app(ProjectProgressService::class)->summary($lop->fresh())['steps'][5]);
+        $this->assertTrue(app(TechnicianWorkflowService::class)->state($lop->fresh())['step5Complete']);
 
         // slot_port bersifat global (tanpa designator_id) -> step 5 lengkap.
         $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
@@ -520,10 +530,16 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame('Reject', $summary['review_label']);
     }
 
-    public function test_complete_five_step_workflow_can_be_submitted_for_approval(): void
+    public static function optionalCapturePrograms(): array
+    {
+        return array_map(fn (ProgramType $program) => [$program->value], ProgramType::cases());
+    }
+
+    #[DataProvider('optionalCapturePrograms')]
+    public function test_complete_five_step_workflow_can_be_submitted_for_approval_without_optional_captures(string $program): void
     {
         Storage::fake('public');
-        [$admin, $technician, $lop] = $this->assignedProject();
+        [$admin, $technician, $lop] = $this->assignedProject($program);
         $designator = Designator::create([
             'code' => 'M-MOBILE-03',
             'item_name' => 'Kabel Distribusi',
@@ -544,7 +560,6 @@ class TechnicianMobileWorkflowTest extends TestCase
 
         foreach ([
             ['pre', null],
-            ['insera', null],
             ['material_arrival', null],
             ['before', $designator->id_designator],
         ] as [$category, $designatorId]) {
@@ -564,7 +579,6 @@ class TechnicianMobileWorkflowTest extends TestCase
         foreach ([
             ['progress', $designator->id_designator],
             ['after', $designator->id_designator],
-            ['slot_port', null],
         ] as [$category, $designatorId]) {
             $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
                 'category' => $category,
@@ -597,7 +611,8 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 5]))
             ->assertOk()
-            ->assertSee('Ajukan Approval');
+            ->assertSee('Ajukan Approval')->assertSee('Capture Logic Slot Port')
+            ->assertSee('Screenshot Detail Slot Port OLT')->assertSee('Opsional')->assertSee('Tidak Ada');
 
         $this->actingAs($technician)
             ->post(route('technician.projects.submit', $lop))
@@ -612,5 +627,8 @@ class TechnicianMobileWorkflowTest extends TestCase
         $summary = app(ProjectProgressService::class)->summary($lop->fresh());
         $this->assertSame('approved', $summary['review_key']);
         $this->assertSame('Approve', $summary['review_label']);
+        app(EvidenceApprovalService::class)->completeReview($lop->fresh(), $admin);
+        $this->assertSame('completed', $lop->fresh()->status_lop->value);
+        $this->assertFalse($lop->evidences()->whereIn('category', ['insera', 'slot_port'])->exists());
     }
 }

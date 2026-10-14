@@ -233,7 +233,7 @@ class TechnicianWorkflowService
         $state = $this->state($lop);
 
         if (! $state['step3Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan, foto kondisi awal, dan capture tiket Insera.']);
+            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan dan foto kondisi awal. Capture Ticket Insera opsional.']);
         }
 
         if ($lop->status_lop === LopStatus::SURVEY) {
@@ -288,13 +288,11 @@ class TechnicianWorkflowService
             && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
         $step3 = $step2
             && $lop->survey !== null
-            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty()
-            && $validEvidence->where('category', EvidenceCategory::INSERA)->isNotEmpty();
+            && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
         $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
         $step5 = $step1
             && $reservedIds->diff($afterIds)->isEmpty()
-            && $validEvidence->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty()
             && $materialUsageComplete;
 
         $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : (! $step4 ? 4 : 5)));

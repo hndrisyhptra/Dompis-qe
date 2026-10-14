@@ -168,7 +168,7 @@
         </section>
     @elseif ($step === 3)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Tag lokasi pekerjaan, foto sebab/kondisi awal pekerjaan, dan capture tiket Insera.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi tag lokasi dan foto kondisi awal. Capture Ticket Insera opsional.</p></div>
 
             @if ($lop->program_type->usesProjectStatus())
                 <div>
@@ -215,14 +215,14 @@
         </section>
     @elseif ($step === 5)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 5</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir untuk setiap material yang digunakan, foto slot port, dan rekap material.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 5</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir setiap material dan rekap aktual. Capture Logic Slot Port opsional.</p></div>
             @foreach ($state['items'] as $item)
                 <x-technician-evidence-uploader :lop="$lop" category="after" :designator-id="$item->designator_id"
                     :title="'After · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(int) round((float) $item->qty).' '.$item->designator->unit"
                     :existing="$evidenceFor('after', $item->designator_id)" />
             @endforeach
 
-            <x-technician-evidence-uploader :lop="$lop" category="slot_port" title="Slot Port" description="Foto posisi slot port pada ODP/ODC tempat koneksi diterminasi. Minimal 1 foto." :existing="$evidenceFor('slot_port')" />
+            <x-technician-evidence-uploader :lop="$lop" category="slot_port" title="Capture Logic Slot Port" description="Screenshot Detail Slot Port OLT" :existing="$evidenceFor('slot_port')" />
 
             {{-- Rekap qty material aktual yang terpakai per designator --}}
             @php
@@ -276,7 +276,7 @@
 
             @php $canSubmit = $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] && $state['step5Complete']; @endphp
             <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900" x-data="{ showSubmitConfirm: false }">
-                <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Foto slot port lengkap.' : 'Foto slot port belum ada.' }} {{ $state['materialUsageComplete'] ? 'Rekap material lengkap.' : 'Rekap qty material belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
+                <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Capture slot port tersedia.' : 'Capture slot port opsional — belum diupload.' }} {{ $state['materialUsageComplete'] ? 'Rekap material lengkap.' : 'Rekap qty material belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
                 <button type="button" @click="showSubmitConfirm = true" @disabled(! $canSubmit)
                         class="mt-4 min-h-12 w-full rounded-2xl text-sm font-extrabold {{ $canSubmit ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">Ajukan Approval</button>
 

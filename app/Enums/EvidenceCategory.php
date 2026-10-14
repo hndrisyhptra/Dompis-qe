@@ -22,8 +22,13 @@ enum EvidenceCategory: string
             self::BEFORE => 'Before',
             self::PROGRESS => 'Progress',
             self::AFTER => 'After',
-            self::SLOT_PORT => 'Slot Port',
+            self::SLOT_PORT => 'Capture Logic Slot Port',
             self::REQUEST_LETTER => 'Surat Permintaan',
         };
+    }
+
+    public function isOptionalCapture(): bool
+    {
+        return in_array($this, [self::INSERA, self::SLOT_PORT], true);
     }
 }

@@ -1,6 +1,7 @@
 @props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'allowReplace' => true, 'type' => 'PHOTO', 'showStatus' => true])
 
 @php
+    $optionalCapture = \App\Enums\EvidenceCategory::tryFrom($category)?->isOptionalCapture() ?? false;
     $startsExpanded = $existing->isEmpty();
     $pendingCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING)->count();
     $approvedCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::APPROVED)->count();
@@ -9,6 +10,7 @@
 
 <div x-data="evidenceUploader({
         expanded: @js($startsExpanded),
+        optional: @js($optionalCapture && $allowUpload && $existing->isEmpty()),
         endpoint: @js($allowUpload ? route('technician.projects.evidence.file', $lop, false) : null),
         category: @js($category),
         type: @js($type),
@@ -18,7 +20,7 @@
     <button type="button" @click="expanded = !expanded" :aria-expanded="expanded"
             class="flex w-full items-center justify-between gap-3 p-4 text-left transition active:bg-ink-50 dark:active:bg-ink-800/60">
         <span class="min-w-0 flex-1">
-            <span class="block text-sm font-bold text-ink-900 dark:text-white">{{ $title }}</span>
+            <span class="block text-sm font-bold text-ink-900 dark:text-white">{{ $title }}@if ($optionalCapture)<span class="ml-1 inline-block rounded-md bg-ink-100 px-2 py-0.5 text-[9px] font-semibold text-ink-500 dark:bg-ink-800 dark:text-ink-300">Opsional</span>@endif</span>
             <span class="mt-1 block line-clamp-1 text-xs leading-5 text-ink-500 dark:text-ink-400">{{ $description }}</span>
             @if ($showStatus && $existing->isNotEmpty())
                 <span class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold">
@@ -31,6 +33,8 @@
         <span class="flex shrink-0 items-center gap-2">
             @if ($existing->isNotEmpty())
                 <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $existing->count() }} file</span>
+            @elseif ($optionalCapture)
+                <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-500 dark:bg-ink-800 dark:text-ink-300">Tidak ada</span>
             @else
                 <span class="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">Belum ada</span>
             @endif
@@ -41,6 +45,17 @@
     </button>
 
     <div x-show="expanded" x-cloak x-transition.opacity class="border-t border-ink-100 p-4 dark:border-ink-800">
+
+    @if ($optionalCapture)
+        <p class="mb-3 text-[11px] leading-5 text-ink-500 dark:text-ink-400">Upload jika tersedia. Tanpa file, step tetap bisa dilanjutkan. File yang sudah diupload tetap direview.</p>
+        @if ($allowUpload && $existing->isEmpty())
+            <div class="mb-3 grid grid-cols-2 gap-2">
+                <button type="button" @click="optionalSkipped = false" :aria-pressed="!optionalSkipped" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold" :class="!optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Upload jika ada</button>
+                <button type="button" @click="skipOptional()" :disabled="queueActive" :aria-pressed="optionalSkipped" title="Hapus file pilihan terlebih dahulu jika ingin memilih Tidak Ada" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50" :class="optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Tidak Ada</button>
+            </div>
+            <p x-show="optionalSkipped" role="status" class="mb-3 rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">Tidak ada file. Anda dapat melanjutkan step tanpa upload ini.</p>
+        @endif
+    @endif
 
     @if ($existing->isNotEmpty())
         <div class="mt-3">
@@ -140,7 +155,7 @@
     @endif
 
     @if ($allowUpload)
-    <div class="{{ $existing->isNotEmpty() ? 'mt-4' : '' }} space-y-3">
+    <div x-show="!optionalSkipped" class="{{ $existing->isNotEmpty() ? 'mt-4' : '' }} space-y-3">
         <div class="rounded-xl border-2 border-dashed border-ink-200 bg-ink-50 p-3 dark:border-ink-700 dark:bg-ink-800/60">
             <div class="flex items-center gap-3">
                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-300">

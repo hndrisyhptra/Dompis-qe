@@ -9,7 +9,10 @@ use App\Models\DesignatorType;
 use App\Models\Package;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Services\EvidenceApprovalService;
+use App\Services\ProjectProgressService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class TechnicianProjectReviewTest extends TestCase
@@ -204,6 +207,29 @@ class TechnicianProjectReviewTest extends TestCase
             ->assertOk()->assertSee('Harga belum tersedia')->assertSee('Rp 700')
             ->assertSee('Total tersedia hanya mencakup item yang sudah direkap dan memiliki harga.')
             ->assertViewHas('boqActual', fn ($report) => $report['grand']['total_actual'] === 700.0);
+    }
+
+    public function test_uploaded_optional_captures_still_require_review_and_rejected_files_remain_visible(): void
+    {
+        [$technician, $lop, $material] = $this->project('OPTIONAL', 'recovery');
+        $lop->update(['status_lop' => 'waiting_approval']);
+        $this->evidence($lop, $technician, 'after', 'approved', $material->getKey());
+        $this->evidence($lop, $technician, 'insera', 'pending');
+        $this->evidence($lop, $technician, 'slot_port', 'rejected', null, 'Screenshot OLT tidak terbaca');
+        $summary = app(EvidenceApprovalService::class)->summary($lop->fresh());
+        $this->assertSame(3, $summary['total']);
+        $this->assertSame(1, $summary['pending']);
+        $this->assertSame(1, $summary['rejected']);
+        $this->assertSame('rejected', app(ProjectProgressService::class)->summary($lop->fresh())['review_key']);
+        $lop->update(['status_lop' => 'rejected']);
+        $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 5]))
+            ->assertOk()->assertSee('Capture Logic Slot Port')->assertSee('Screenshot Detail Slot Port OLT')
+            ->assertSee('Opsional')->assertSee('Screenshot OLT tidak terbaca')->assertSee('Reupload')
+            ->assertDontSee('>Tidak Ada</button>', false);
+        $lop->update(['status_lop' => 'waiting_approval']);
+        $admin = User::findOrFail($lop->created_by);
+        $this->expectException(ValidationException::class);
+        app(EvidenceApprovalService::class)->completeReview($lop->fresh(), $admin);
     }
 
     private function project(string $code, string $program): array
