@@ -32,6 +32,7 @@ class DataBoqExportService
         foreach ($query->lazyById(100) as $lop) {
             foreach ($this->projection->masterDataLines($lop) as $line) {
                 yield [
+                    $lop->ihld_id,
                     $lop->incident,
                     $lop->nama_lop,
                     $line['designator_code'],

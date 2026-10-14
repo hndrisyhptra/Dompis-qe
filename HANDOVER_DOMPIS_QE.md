@@ -3,7 +3,7 @@
 Terakhir diaudit: **14 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `48a4d97` (`feat: download evidence and download format aiss in menu master lop, data lop`)
+HEAD dasar saat audit terbaru: `56f8033` (`fix: jenis ticket for create lop`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -647,6 +647,11 @@ Pemilihan paket reservasi otomatis:
 - `IncidentTicketValidationService` memilih aturan menurut enum program, bukan teks label requirement. `ProgramType::incidentTicketType()` serta pesan/panduan bulk/template menyebut GAMAS atau UNKNOWN. Berlaku untuk lookup, simpan create, dan bulk import. Guard Simpan tetap membutuhkan hasil true untuk incident/program terkini; UNKNOWN tidak membuat tombol aktif sebelum dicek.
 - Dua regression backend baru mencakup lookup/simpan Recovery/Preventive, huruf campuran/spasi, penolakan UNKNOWN untuk Relok Tiang/UNKNOWN CUSTOMER, serta partial/progress bulk import. Regression frontend memeriksa tombol UNKNOWN tetap terkunci sebelum hasil valid. **365 tests / 3489 assertions** Laravel dan **31 frontend tests** lulus; build Vite, view:cache, Pint file PHP task, dan git diff --check lulus.
 - Tidak ada migration/schema/write database operasional, import nyata, queue restart, commit/push, atau deployment. Worktree bersih pada awal task; browser/device dan sumber tiket MySQL produksi belum diverifikasi. Restart worker setelah deploy agar validasi import terbaru digunakan.
+
+### 7.34 ID IHLD pada kolom pertama ekspor Data BOQ — 14 Oktober 2026
+
+- Download Excel pada `master-data/boqs` kini berurutan ID IHLD, Incident, Nama LOP, Designator, Item, Kategori, Reservasi, Aktual, Harga, Total. ID IHLD mengambil `qe_lops.ihld_id`, diulang pada setiap baris item LOP, dan dibiarkan kosong jika belum tersedia. Disimpan sebagai teks agar nol depan tidak hilang. Format angka, lebar kolom, wrap text, dan auto-filter digeser mengikuti sepuluh kolom; scope dan perhitungan existing dipertahankan.
+- Regression `DataBoqExportTest` memeriksa ID pada seluruh item, null tanpa ID, leading zero, header/kolom numerik/filter yang bergeser, dan scope existing. **6 tests / 71 assertions**, Pint file PHP task, dan git diff --check lulus. Tidak ada perubahan UI/schema, migration, write database operasional, atau deployment; full suite dan browser/produksi tidak dijalankan ulang untuk penambahan kolom ini.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 

@@ -32,12 +32,12 @@ class DataBoqExport extends DefaultValueBinder implements FromGenerator, WithCol
 
     public function headings(): array
     {
-        return ['Incident', 'Nama LOP', 'Designator', 'Item', 'Kategori', 'Reservasi', 'Aktual', 'Harga', 'Total'];
+        return ['ID IHLD', 'Incident', 'Nama LOP', 'Designator', 'Item', 'Kategori', 'Reservasi', 'Aktual', 'Harga', 'Total'];
     }
 
     public function bindValue(Cell $cell, mixed $value): bool
     {
-        if ($value !== null && in_array($cell->getColumn(), ['A', 'B', 'C', 'D', 'E'], true)) {
+        if ($value !== null && in_array($cell->getColumn(), ['A', 'B', 'C', 'D', 'E', 'F'], true)) {
             $cell->setValueExplicit((string) $value, DataType::TYPE_STRING);
 
             return true;
@@ -48,23 +48,23 @@ class DataBoqExport extends DefaultValueBinder implements FromGenerator, WithCol
 
     public function columnFormats(): array
     {
-        return ['F' => '#,##0', 'G' => '#,##0', 'H' => '#,##0.00', 'I' => '#,##0.00'];
+        return ['G' => '#,##0', 'H' => '#,##0', 'I' => '#,##0.00', 'J' => '#,##0.00'];
     }
 
     public function columnWidths(): array
     {
-        return ['A' => 24, 'B' => 45, 'C' => 28, 'D' => 65, 'E' => 16, 'F' => 16, 'G' => 16, 'H' => 20, 'I' => 22];
+        return ['A' => 22, 'B' => 24, 'C' => 45, 'D' => 28, 'E' => 65, 'F' => 16, 'G' => 16, 'H' => 16, 'I' => 20, 'J' => 22];
     }
 
     public function styles(Worksheet $sheet): array
     {
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:I'.$sheet->getHighestRow());
+        $sheet->setAutoFilter('A1:J'.$sheet->getHighestRow());
 
         return [
             1 => ['font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']], 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '1E293B']]],
-            'B' => ['alignment' => ['wrapText' => true]],
-            'D' => ['alignment' => ['wrapText' => true]],
+            'C' => ['alignment' => ['wrapText' => true]],
+            'E' => ['alignment' => ['wrapText' => true]],
         ];
     }
 
