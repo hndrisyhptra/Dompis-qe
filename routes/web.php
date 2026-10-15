@@ -15,6 +15,7 @@ use App\Http\Controllers\DesignatorTypeController;
 use App\Http\Controllers\EvidenceApprovalController;
 use App\Http\Controllers\EvidenceController;
 use App\Http\Controllers\ImportBatchController;
+use App\Http\Controllers\IncidentMonitoringController;
 use App\Http\Controllers\LopAssignmentController;
 use App\Http\Controllers\LopController;
 use App\Http\Controllers\LopImportController;
@@ -74,6 +75,12 @@ Route::get('/dashboard/monitoring-activities/{lopId}', [DashboardController::cla
 Route::get('/revenue', [RevenueController::class, 'index'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('revenue.index');
+Route::get('/incident-monitoring', [IncidentMonitoringController::class, 'index'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.index');
+Route::get('/incident-monitoring/tickets', [IncidentMonitoringController::class, 'tickets'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.tickets');
 
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {

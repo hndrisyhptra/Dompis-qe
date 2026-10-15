@@ -19,6 +19,8 @@ trait InteractsWithIncidentTickets
             $table->string('incident');
             $table->string('jenis_tiket_2')->nullable();
             $table->string('workzone')->nullable();
+            $table->string('reported_date')->nullable();
+            $table->dateTime('reported_date_dt')->nullable();
         });
         foreach ($types as $incident => $type) {
             $connection->table('ticket')->insert(['incident' => $incident, 'jenis_tiket_2' => $type]);

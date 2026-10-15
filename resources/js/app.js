@@ -1,5 +1,8 @@
 import "./bootstrap";
 import { installAuthSessionGuard } from "./auth-session";
+import { copyableValue } from "./copyable-value";
+
+window.copyableValue = copyableValue;
 
 installAuthSessionGuard();
 

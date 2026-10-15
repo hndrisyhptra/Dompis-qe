@@ -86,6 +86,20 @@
             </div>
             @endif
 
+            @can('view-incident-monitoring')
+            <a href="{{ route('incident-monitoring.tickets') }}"
+               @if(request()->routeIs('incident-monitoring.*')) aria-current="page" @endif
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200 font-semibold' : $navLinkInactive }}">
+                @if (request()->routeIs('incident-monitoring.*'))
+                    <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                @endif
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-200' : $navIcon }}">
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M9 3h6v4H9zM8 12h5M8 16h8m1-13v8m-3-4 3 4 3-4"/></svg>
+                </span>
+                Monitoring Incident
+            </a>
+            @endcan
+
             @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
             <a href="{{ route('revenue.index') }}"
                class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('revenue.*') ? $navLinkActive : $navLinkInactive }}">
