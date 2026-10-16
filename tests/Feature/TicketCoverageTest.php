@@ -9,8 +9,11 @@ use App\Models\QeLop;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
+use DOMDocument;
+use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -324,7 +327,52 @@ class TicketCoverageTest extends TestCase
         $this->assertCount(0, $source->getQueryLog());
     }
 
-    public function test_month_filter_handles_leap_day_and_intersects_date_range_for_kpi_chart_and_rows(): void
+    public function test_download_and_filter_actions_remain_same_origin_when_backend_detects_http(): void
+    {
+        $this->ticket('INC-DOWNLOAD', reportedDate: '2026-10-16');
+        $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);
+        URL::forceRootUrl('http://internal.example');
+        try {
+            foreach (['http', 'https'] as $scheme) {
+                URL::forceScheme($scheme);
+                foreach ([$this->super, $admin] as $user) {
+                    $html = $this->actingAs($user)->get('/incident-monitoring/tickets')->assertOk()->getContent();
+                    $document = new DOMDocument;
+                    $document->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
+                    $xpath = new DOMXPath($document);
+                    $this->assertSame('/incident-monitoring/tickets', $xpath->query('//form[@id="ticket-filters"]')->item(0)->getAttribute('action'));
+                    $buttons = $xpath->query('//button[@data-ticket-download]');
+                    $this->assertSame(3, $buttons->length);
+                    foreach ($buttons as $button) {
+                        $this->assertSame('/incident-monitoring/tickets/download', $button->getAttribute('formaction'));
+                        $this->assertSame('ticket-filters', $button->getAttribute('form'));
+                        $this->assertSame('GET', $button->getAttribute('formmethod'));
+                    }
+                }
+            }
+        } finally {
+            URL::forceRootUrl(null);
+            URL::forceScheme(null);
+        }
+    }
+
+    public function test_month_filter_is_removed_and_old_month_parameter_does_not_limit_page_or_download(): void
+    {
+        for ($i = 1; $i <= 26; $i++) {
+            $this->ticket('INC-'.$i, reportedDate: '2026-10-16');
+        }
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['month' => '2026-09']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 26)
+            ->assertViewHas('filters', fn ($filters) => ! array_key_exists('month', $filters))
+            ->assertViewHas('tickets', fn ($rows) => ! str_contains($rows->url(2), 'month'))
+            ->assertDontSee('name="month"', false)->assertDontSee('Bulan laporan');
+        $sheet = $this->downloadSheet($this->super, ['month' => '2026-09']);
+        $this->assertCount(26, $this->exportedIncidents($sheet));
+        $this->assertSame('Dasar tanggal', $sheet->getCell('A3')->getValue());
+        $this->assertSame('reported_date tiket Dompis', $sheet->getCell('B3')->getValue());
+    }
+
+    public function test_date_range_handles_leap_day_for_kpi_chart_and_rows(): void
     {
         $this->ticket('INC-JAN', reportedDate: '2024-01-31 23:59:59');
         $this->ticket('INC-FEB-START', reportedDate: '2024-02-01 00:00:00');
@@ -332,14 +380,14 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC-MAR', reportedDate: '2024-03-01 00:00:00');
         $this->ticket('INC-NO-DATE');
         $this->lop('INC-FEB-START');
-        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'usage' => 'all']))->assertOk()
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['date_from' => '2024-02-01', 'date_to' => '2024-02-29', 'usage' => 'all']))->assertOk()
             ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1])
             ->assertViewHas('chartRows', fn ($rows) => $rows->sum('count') === 2)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2)
-            ->assertSee('Bulan laporan')->assertSee('Download Excel')->assertDontSee('INC-JAN')->assertDontSee('INC-MAR')->assertDontSee('INC-NO-DATE');
-        $this->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'date_from' => '2024-02-28', 'date_to' => '2024-03-15']))->assertOk()
+            ->assertDontSee('Bulan laporan')->assertSee('Download Excel')->assertDontSee('INC-JAN')->assertDontSee('INC-MAR')->assertDontSee('INC-NO-DATE');
+        $this->get(route('incident-monitoring.tickets', ['date_from' => '2024-02-28', 'date_to' => '2024-02-29']))->assertOk()
             ->assertViewHas('stats', ['total' => 1, 'without_lop' => 1, 'with_lop' => 0])->assertSee('INC-FEB-END')->assertDontSee('INC-FEB-START');
-        $this->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'date_from' => '2024-03-01']))->assertOk()
+        $this->get(route('incident-monitoring.tickets', ['date_from' => '2024-03-02', 'date_to' => '2024-03-31']))->assertOk()
             ->assertViewHas('stats', ['total' => 0, 'without_lop' => 0, 'with_lop' => 0]);
     }
 
@@ -367,7 +415,7 @@ class TicketCoverageTest extends TestCase
         }
         $this->ticket('INC-OUTSIDE-DATE', reportedDate: '2026-11-01');
         foreach (['all' => 31, 'without_lop' => 16, 'with_lop' => 15] as $usage => $count) {
-            $sheet = $this->downloadSheet($this->super, ['month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'usage' => $usage, 'page' => 2]);
+            $sheet = $this->downloadSheet($this->super, ['date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'usage' => $usage, 'page' => 2]);
             $this->assertSame([31, 16, 15], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
             $incidents = $this->exportedIncidents($sheet);
             $this->assertCount($count, $incidents);
@@ -419,13 +467,13 @@ class TicketCoverageTest extends TestCase
         ] as [$attributes, $count, $pivot]) {
             $admin = User::factory()->role('ADMIN')->create($attributes);
             $admin->serviceAreas()->sync($pivot);
-            $sheet = $this->downloadSheet($admin, ['month' => '2026-10', 'usage' => 'all']);
+            $sheet = $this->downloadSheet($admin, ['usage' => 'all']);
             $this->assertCount($count, $this->exportedIncidents($sheet));
             $this->assertSame($count, $sheet->getCell('B12')->getValue());
             $this->assertNotContains('INC-OUT-A', $this->exportedIncidents($sheet));
         }
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $l['branches']['SBY']->getKey()]);
-        $sheet = $this->downloadSheet($admin, ['month' => '2026-10', 'usage' => 'with_lop']);
+        $sheet = $this->downloadSheet($admin, ['usage' => 'with_lop']);
         $this->assertSame([2, 0, 2], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
         foreach ($sheet->rangeToArray('G17:J18', null, false, false) as $row) {
             $this->assertSame([null, null, null, 'Detail LOP tidak tersedia'], $row);
@@ -440,12 +488,12 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC0-OTHER', 'GAMAS', 'SBY-A', '2026-10-16');
         $this->ticket('INC0-REGION', 'INFRACARE', 'DPS-A', '2026-10-16');
         $l = $this->locations;
-        $sheet = $this->downloadSheet($this->super, ['month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'region' => $l['jatim']->name, 'branch' => $l['branches']['SBY']->getKey(), 'service_area' => $l['areas']['SBY-A']->getKey(), 'kind' => 'infracare', 'q' => '0']);
+        $sheet = $this->downloadSheet($this->super, ['date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'region' => $l['jatim']->name, 'branch' => $l['branches']['SBY']->getKey(), 'service_area' => $l['areas']['SBY-A']->getKey(), 'kind' => 'infracare', 'q' => '0']);
         $this->assertSame(['INC0'], $this->exportedIncidents($sheet));
         $this->assertSame('0', $sheet->getCell('B8')->getValue());
         $source = DB::connection('mysql_dompis');
         $source->enableQueryLog();
-        foreach ([['month' => '2026-13'], ['month' => ['2026-10']], ['date_from' => '2026-02-30'], ['date_from' => '2026-10-16', 'date_to' => '2026-10-15'], ['usage' => 'bad']] as $filters) {
+        foreach ([['kind' => 'bad'], ['date_from' => ['2026-10-16']], ['date_from' => '2026-02-30'], ['date_from' => '2026-10-16', 'date_to' => '2026-10-15'], ['usage' => 'bad']] as $filters) {
             $this->getJson(route('incident-monitoring.tickets.download', $filters))->assertUnprocessable();
         }
         $this->assertCount(0, $source->getQueryLog());
@@ -465,20 +513,20 @@ class TicketCoverageTest extends TestCase
         $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee('Sumber tiket belum tersedia');
     }
 
-    public function test_download_button_category_overrides_current_list_and_submits_current_month_and_dates(): void
+    public function test_download_button_category_overrides_current_list_and_submits_current_dates(): void
     {
         $this->ticket('INC-FREE', reportedDate: '2026-10-16');
         $this->ticket('INC-USED', reportedDate: '2026-10-16');
         $this->ticket('INC-OTHER-MONTH', reportedDate: '2026-09-16');
         $this->lop('INC-USED');
-        $sheet = $this->downloadSheet($this->super, ['usage' => 'without_lop', 'download_usage' => 'with_lop', 'month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16']);
+        $sheet = $this->downloadSheet($this->super, ['usage' => 'without_lop', 'download_usage' => 'with_lop', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16']);
         $this->assertSame(['INC-USED'], $this->exportedIncidents($sheet));
         $this->assertSame('Sudah Memiliki LOP', $sheet->getCell('B9')->getValue());
-        $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee('form="ticket-filters"', false)->assertSee('data-ticket-download', false)->assertSee('type="month"', false);
+        $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee('form="ticket-filters"', false)->assertSee('data-ticket-download', false)->assertDontSee('type="month"', false);
         $this->getJson(route('incident-monitoring.tickets.download', ['download_usage' => 'bad']))->assertUnprocessable()->assertJsonValidationErrors('download_usage');
     }
 
-    public function test_download_more_than_one_chunk_has_no_duplicates_and_respects_month_year_end(): void
+    public function test_download_more_than_one_chunk_has_no_duplicates_and_respects_date_range_at_year_end(): void
     {
         $rows = [];
         for ($i = 0; $i < 505; $i++) {
@@ -486,7 +534,7 @@ class TicketCoverageTest extends TestCase
         }
         DB::connection('mysql_dompis')->table('ticket')->insert($rows);
         $this->ticket('INC-NEXT-YEAR', reportedDate: '2027-01-01');
-        $sheet = $this->downloadSheet($this->super, ['month' => '2026-12', 'page' => 3]);
+        $sheet = $this->downloadSheet($this->super, ['date_from' => '2026-12-01', 'date_to' => '2026-12-31', 'page' => 3]);
         $incidents = $this->exportedIncidents($sheet);
         $this->assertCount(505, $incidents);
         $this->assertCount(505, array_unique($incidents));
@@ -498,7 +546,7 @@ class TicketCoverageTest extends TestCase
     public function test_empty_scope_and_conflicting_filters_produce_true_zero_without_dummy_rows(): void
     {
         $this->ticket('INC1', reportedDate: '2026-10-16');
-        $sheet = $this->downloadSheet($this->super, ['month' => '2026-11']);
+        $sheet = $this->downloadSheet($this->super, ['date_from' => '2026-11-01', 'date_to' => '2026-11-30']);
         $this->assertSame([0, 0, 0], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
         $this->assertSame(16, $sheet->getHighestRow());
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);

@@ -44,7 +44,7 @@ class IncidentMonitoringController extends Controller
         $category = match ($filters['usage']) {
             'without_lop' => 'belum-memiliki-lop', 'with_lop' => 'sudah-memiliki-lop', default => 'total-tiket'
         };
-        $period = implode('_', array_filter([$filters['month'] ?? null, $filters['date_from'] ?? null, $filters['date_to'] ?? null])) ?: 'semua-periode';
+        $period = implode('_', array_filter([$filters['date_from'] ?? null, $filters['date_to'] ?? null])) ?: 'semua-periode';
         try {
             return Excel::download(new TicketCoverageExport($data), "monitoring-incident-{$category}-{$period}.xlsx", headers: ['Cache-Control' => 'private, no-store']);
         } catch (Throwable $exception) {

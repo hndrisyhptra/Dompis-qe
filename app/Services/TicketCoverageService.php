@@ -29,7 +29,6 @@ class TicketCoverageService
             'usage' => $input['usage'] ?? 'without_lop',
             'date_from' => $input['date_from'] ?? '',
             'date_to' => $input['date_to'] ?? '',
-            'month' => $input['month'] ?? '',
             'q' => trim((string) ($input['q'] ?? '')),
         ];
         $branches = Branch::query()->with('regionRef:id_region,name')
@@ -173,11 +172,6 @@ class TicketCoverageService
         }
 
         $reportedDate = $this->reportedDateExpression($source->getDriverName());
-        if ($filters['month'] !== '') {
-            $month = Carbon::createFromFormat('!Y-m', $filters['month']);
-            $query->whereRaw("{$reportedDate} >= ?", [$month->format('Y-m-d')])
-                ->whereRaw("{$reportedDate} < ?", [$month->copy()->addMonth()->format('Y-m-d')]);
-        }
         if ($filters['date_from'] !== '') {
             $query->whereRaw("{$reportedDate} >= ?", [$filters['date_from']]);
         }

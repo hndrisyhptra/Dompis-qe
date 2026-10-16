@@ -3,7 +3,7 @@
 Terakhir diaudit: **16 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `a86ed89` (`feat: monitoring incident`)
+HEAD dasar saat audit terbaru: `e1ea9f0` (`feat: Bulk Data Status AiSS & Download Monitoring Ticket`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -47,6 +47,8 @@ Stack utama:
 ### 2.2 Perubahan lokal yang belum di-commit
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
+
+Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; worktree bersih saat memulai perbaikan form download HTTPS. Perubahan kerja terbaru terbatas pada form download/filter same-origin dan penghapusan filter bulan Monitoring Incident (7.45), beserta regression test dan dokumentasi. Status migration/konfigurasi server tidak diverifikasi ulang.
 
 ### 2.3 Status migration lokal
 
@@ -760,6 +762,14 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Verifikasi: **449 tests / 4531 assertions** Laravel dan **41 frontend tests** lulus. TicketCoverageTest kini 26 tests mencakup pembacaan XLSX nyata, tiga kategori, semua scope/legacy/arsip, nol depan/formula/date/count, gabungan filter, leap day/tahun baru, data melebihi 500 record, halaman kedua, form download, validasi, role/Gate, outage, dan hasil kosong. Full suite diulang sendiri setelah percobaan awal berbenturan dengan proses view:cache yang berjalan bersamaan; seluruhnya lulus. Pint file PHP task, Vite build, view:cache, route registration, serta git diff --check lulus. Tampilan Excel/browser dan MySQL/volume produksi belum diverifikasi.
 - Tidak menambah schema atau menjalankan migration/database write operasional, import nyata, restart worker, commit/push, maupun deploy. Perubahan Import AISS 7.43 tetap dipertahankan di worktree; migration AISS tetap belum dijalankan dan memerlukan izin terpisah.
 
+### 7.45 Download same-origin dan hapus filter bulan — 16 Oktober 2026
+
+- Melanjutkan commit `e1ea9f0`, form filter Tiket Dompis dan tiga tombol Download Excel kini memakai `route(..., [], false)`. URL relatif mempertahankan protokol/domain halaman browser, tanpa membawa HTTP hasil deteksi backend ke form HTTPS. Tidak mengubah trusted proxies, APP_URL, sertifikat, redirect server, atau pemaksaan HTTPS global; konfigurasi server tetap perlu diperiksa bila ada redirect HTTP lanjutan.
+- Filter Bulan laporan dihapus dari Blade, validasi, service query, metadata filter, dan nama file download. Parameter month dari bookmark lama diabaikan serta tidak diteruskan ke pagination. Rentang date_from/date_to existing tetap memakai reported_date dan berlaku pada ringkasan/grafik/daftar/download. Metadata XLSX baris ketiga menjadi Dasar tanggal: reported_date tiket Dompis; posisi header dan rincian tetap sama.
+- Tiga kategori download, isian filter terkini, seluruh baris lintas pagination, scope canonical, kerahasiaan detail LOP luar scope/arsip, tipe sel Excel, dan penanganan sumber gagal dipertahankan. Tidak ada perubahan database atau dependency.
+- Dua regression direproduksi gagal sebelum perbaikan: form absolut membawa HTTP internal, dan month lama masih membatasi data. Sesudah perbaikan, DOM form/ketiga tombol diperiksa dengan deteksi HTTP dan HTTPS untuk ADMIN/SUPER_ADMIN; parameter bulan lama tidak memengaruhi halaman/XLSX dan tidak muncul lagi di filter/pagination. Regression leap day/tahun baru serta ekspor diperbarui memakai rentang tanggal.
+- Verifikasi: **451 tests / 4591 assertions** Laravel dan **41 frontend tests** lulus; regression monitoring **41 tests / 611 assertions** mencakup TicketCoverageTest (28) dan IncidentMonitoringTest (13). Pint file PHP task, Vite build, view:cache, serta git diff --check lulus. Tidak ada tes browser/server aaPanel nyata, migration/write database operasional, commit/push, restart worker, atau deployment. Setelah commit/push dan pull, clear/rebuild Blade view cache di server agar form baru digunakan. Tidak perlu migration untuk perbaikan ini; izin migration AISS tetap terpisah.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -794,15 +804,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-449 tests passed
-4531 assertions
+451 tests passed
+4591 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
-- Monitoring tiket dan download Excel: `TicketCoverageTest` (26 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
+- Monitoring tiket dan download Excel: `TicketCoverageTest` (28 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (15 tests, termasuk INFRACARE khusus Preventive dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).

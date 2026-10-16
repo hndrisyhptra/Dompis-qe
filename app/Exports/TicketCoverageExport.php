@@ -29,7 +29,7 @@ class TicketCoverageExport extends DefaultValueBinder implements FromGenerator, 
         $filters = $this->data['filters'];
         yield ['Monitoring Incident'];
         yield ['Scope', $this->data['scopeLabel']];
-        yield ['Bulan laporan', $filters['month'] ?: 'Semua bulan'];
+        yield ['Dasar tanggal', 'reported_date tiket Dompis'];
         yield ['Tanggal mulai', $filters['date_from'] ?: 'Tanpa batas'];
         yield ['Tanggal akhir', $filters['date_to'] ?: 'Tanpa batas'];
         yield ['Wilayah', $this->data['locationLabel']];
