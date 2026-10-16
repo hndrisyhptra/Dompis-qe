@@ -162,8 +162,8 @@
         </section>
     @elseif ($step === 2)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 2</p><h2 class="mt-1 text-lg font-extrabold">Evidence Material Tiba</h2><p class="mt-1 text-xs leading-5 text-ink-500">Foto material yang sudah tiba di lokasi sebelum pekerjaan dimulai. Minimal 1 foto.</p></div>
-            <x-technician-evidence-uploader :lop="$lop" category="material_arrival" title="Material tiba" description="Foto material yang sudah tersedia di lokasi. Cukup 1 foto." :existing="$evidenceFor('material_arrival')" />
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 2</p><h2 class="mt-1 text-lg font-extrabold">Evidence Material Tiba</h2><p class="mt-1 text-xs leading-5 text-ink-500">Foto material yang sudah tiba di lokasi sebelum pekerjaan dimulai.</p></div>
+            @include('technician.partials.material-arrival', ['arrivalReadOnly' => false, 'arrivalAllowReplace' => true])
             <a href="{{ route('technician.projects.show', [$lop, 'step' => 3]) }}" @unless ($state['step2Complete']) aria-disabled="true" @endunless class="grid min-h-12 place-items-center rounded-2xl text-sm font-extrabold {{ $state['step2Complete'] ? 'bg-brand-600 text-white' : 'pointer-events-none cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">{{ $state['step2Complete'] ? 'Lanjut Evidence Pra' : 'Lengkapi step ini untuk lanjut' }}</a>
         </section>
     @elseif ($step === 3)

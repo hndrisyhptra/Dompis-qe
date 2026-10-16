@@ -17,7 +17,7 @@
         @endforelse
     @elseif ($step === 2)
         <div><p class="text-[10px] font-bold uppercase text-brand-600">Step 2</p><h2 class="mt-1 text-lg font-extrabold">Evidence Material Tiba</h2></div>
-        <x-technician-evidence-uploader :$lop category="material_arrival" title="Material tiba" description="Lihat foto, status review, dan alasan reject." :existing="$evidenceFor('material_arrival')" :allow-upload="false" :allow-replace="$canReplace" />
+        @include('technician.partials.material-arrival', ['arrivalReadOnly' => true, 'arrivalAllowReplace' => $canReplace])
     @elseif ($step === 3)
         <div><p class="text-[10px] font-bold uppercase text-brand-600">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2></div>
         @if ($lop->program_type->usesProjectStatus())

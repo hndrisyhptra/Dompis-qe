@@ -8,7 +8,7 @@
     <div class="grid gap-5 lg:grid-cols-2">
         <form method="POST" action="{{ route('bulk-import.aiss.store', [], false) }}" enctype="multipart/form-data" x-data="importUploadForm(@js(route('bulk-import.aiss.store', [], false)))" @submit.prevent="submit($event)" class="rounded-md border border-ink-200 bg-white p-5 dark:border-ink-700 dark:bg-ink-900">
             @csrf
-            <h2 class="text-sm font-bold">Upload ekspor AISS</h2><p class="mt-1 text-xs leading-5 text-ink-500">XLSX atau XLS, maksimal 10 MB dan 10.000 baris. Gunakan susunan kolom asli.</p>
+            <h2 class="text-sm font-bold">Upload ekspor AISS</h2><p class="mt-1 text-xs leading-5 text-ink-500">XLSX atau XLS, maksimal 10 MB dan 10.000 baris. Gunakan susunan kolom asli. Khusus Superadmin dan Admin Area; perubahan tetap mengikuti scope lokasi akun.</p>
             <label for="aiss-file" class="mt-4 block text-xs font-semibold">File Excel AISS</label>
             <input id="aiss-file" name="file" type="file" accept=".xlsx,.xls" required @disabled(! $schemaReady) @change="selectFile($event)" class="mt-2 block min-h-11 w-full rounded-md border border-ink-300 p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-ink-600 dark:bg-ink-800">
             <p class="mt-2 truncate text-xs text-ink-500" x-text="fileName || 'Belum ada file dipilih'"></p>

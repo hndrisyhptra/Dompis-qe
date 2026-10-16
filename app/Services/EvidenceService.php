@@ -11,6 +11,7 @@ use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
 use App\Notifications\TechnicianActivityNotification;
+use App\Support\MaterialArrivalRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -55,6 +56,9 @@ class EvidenceService
         // Upload yang sudah berjalan tidak boleh menulis setelah LOP diarsipkan.
         // Caller selalu membuka transaction; lock ini sejalan dengan LopService::delete.
         $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+        if (($data['category'] ?? null) === EvidenceCategory::MATERIAL_ARRIVAL || ($data['category'] ?? null) === EvidenceCategory::MATERIAL_ARRIVAL->value) {
+            MaterialArrivalRules::validateDesignator($lop, $data['designator_id'] ?? null);
+        }
         $step = $data['step'] instanceof EvidenceStep ? $data['step']->value : $data['step'];
         $dir = "evidences/{$lop->id_qe_lops}/{$step}";
         // Filename aman: UUID + ekstensi asli, bukan nama file mentah dari user.

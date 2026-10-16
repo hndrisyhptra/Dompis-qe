@@ -45,7 +45,8 @@
                 @php
                     $evidenceItems = $stepEvidence[$number];
                     $hasPending = $evidenceItems->contains(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING);
-                    $complete = $number === 1 ? ($lop->materialReservation !== null && $lop->survey !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending);
+                    $complete = $number === 1 ? ($lop->materialReservation !== null && $lop->survey !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending && ! $evidenceItems->contains('status', \App\Enums\EvidenceStatus::REJECTED));
+                    if ($number === 2 && $materialArrivalPerItem) $complete = $materialArrivalApproved;
                 @endphp
                 <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
                     <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm {{ $currentStep === $number ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/20' : ($complete ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-ink-200 bg-white text-ink-400 dark:border-ink-700 dark:bg-ink-900') }}">{{ $complete && $currentStep !== $number ? '✓' : $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
@@ -85,6 +86,22 @@
         <section>
             <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[.14em] text-brand-600">Step {{ $currentStep }}</p><h2 class="mt-1 text-xl font-extrabold">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Buka kelompok evidence untuk melihat seluruh foto, lalu approve, reject, atau reset review per foto.</p></div><p class="text-xs font-bold text-ink-500">{{ $currentGroups->count() }} kelompok · {{ $currentEvidence->count() }} file</p></div>
             <div class="space-y-3">
+                @if ($currentStep === 2 && $materialArrivalPerItem)
+                    <div class="rounded-md border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
+                        <p class="text-sm font-bold">Checklist material BOQ Plan</p>
+                        <p class="mt-1 text-xs text-ink-500">Setiap item material ber-volume wajib memiliki foto yang approved. Foto global lama tidak menggantikan foto per item.</p>
+                        <div class="mt-3 space-y-2">
+                            @forelse ($materialArrivalItems as $arrivalItem)
+                                @php
+                                    $arrivalApproved = $arrivalItem->designator_id && $stepEvidence[2]->where('designator_id', $arrivalItem->designator_id)->contains('status', \App\Enums\EvidenceStatus::APPROVED);
+                                @endphp
+                                <div class="flex items-start justify-between gap-3 text-xs"><div class="min-w-0"><p class="font-bold">{{ $arrivalItem->designator_code }}</p><p class="mt-1 text-ink-500">{{ $arrivalItem->item_name }}</p></div><x-badge :variant="$arrivalApproved ? 'success' : 'warning'">{{ $arrivalApproved ? 'Approved' : 'Belum lengkap' }}</x-badge></div>
+                            @empty
+                                <p class="text-xs text-amber-700 dark:text-amber-300">Belum ada item material ber-volume. Lengkapi BOQ Plan terlebih dahulu.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                @endif
                 @if ($optionalChoice)
                     <div class="rounded-xl border border-ink-200 bg-white p-4 text-sm dark:border-ink-700 dark:bg-ink-900">
                         <p class="font-bold">{{ \App\Enums\EvidenceCategory::from($optionalCategory)->label() }}</p>
@@ -95,9 +112,9 @@
                     @php
                         $first = $items->first();
                         $groupTitle = $first->category?->label() ?? $first->step->label();
-                        if (in_array($first->category, [\App\Enums\EvidenceCategory::BEFORE, \App\Enums\EvidenceCategory::PROGRESS, \App\Enums\EvidenceCategory::AFTER], true)) $groupTitle = 'Evidence '.$groupTitle;
+                        if (in_array($first->category, [\App\Enums\EvidenceCategory::MATERIAL_ARRIVAL, \App\Enums\EvidenceCategory::BEFORE, \App\Enums\EvidenceCategory::PROGRESS, \App\Enums\EvidenceCategory::AFTER], true)) $groupTitle = 'Evidence '.$groupTitle;
                         if ($first->designator) $groupTitle .= ' · '.$first->designator->code;
-                        $groupDescription = $first->designator?->item_name ?? 'Evidence global untuk step ini';
+                        $groupDescription = $first->designator?->item_name ?? ($currentStep === 2 && $materialArrivalPerItem ? 'Dokumentasi global lama — tidak memenuhi checklist per item BOQ Plan' : 'Evidence global untuk step ini');
                     @endphp
                     <x-approval-evidence-group :items="$items" :lop="$lop" :title="$groupTitle" :description="$groupDescription" />
                 @empty
@@ -116,7 +133,7 @@
         $pendingLeft = $approvalSummary['pending'];
         $rejectedLeft = $approvalSummary['rejected'];
         // "Selesai Review" hanya untuk kondisi semua evidence sudah disetujui.
-        $allApproved = $totalEvidence > 0 && $approvalSummary['approved'] === $totalEvidence;
+        $allApproved = $totalEvidence > 0 && $approvalSummary['approved'] === $totalEvidence && (! $materialArrivalPerItem || $materialArrivalApproved);
     @endphp
     <div class="flex flex-col gap-3 border-t border-ink-100 pt-5 dark:border-ink-800 sm:flex-row sm:items-center sm:justify-between">
         @if ($currentStep > 1)
@@ -154,6 +171,8 @@
                 <p class="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
                     @if ($pendingLeft > 0)
                         {{ $pendingLeft }} evidence belum diperiksa.
+                    @elseif ($materialArrivalPerItem && ! $materialArrivalApproved)
+                        Checklist Material Tiba per item BOQ Plan belum lengkap. Periksa Step 2.
                     @else
                         {{ $rejectedLeft }} evidence ditolak.
                     @endif

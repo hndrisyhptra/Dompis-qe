@@ -6,6 +6,7 @@ use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\LopStatus;
 use App\Models\QeLop;
+use App\Support\MaterialArrivalRules;
 use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Collection;
 
@@ -42,7 +43,7 @@ class ProjectProgressService
         $steps = [
             1 => $items->isNotEmpty() && $items->every(fn ($item) => $item->exists),
             2 => $items->isNotEmpty()
-                && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty(),
+                && MaterialArrivalRules::complete($lop, $evidences),
             // Pra wajib lokasi dan foto kondisi awal; capture Insera opsional.
             3 => $items->isNotEmpty()
                 && $lop->survey !== null

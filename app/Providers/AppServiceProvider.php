@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\AdminScopeType;
 use App\Enums\UserRole;
 use App\Listeners\UpdateQueueLastProcessedAt;
 use App\Models\QeEvidence;
@@ -38,7 +39,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(QeEvidence::class, EvidencePolicy::class);
         Gate::define('export-data-boqs', fn (User $user) => $user->hasRole(...UserRole::adminLevel()));
         Gate::define('view-incident-monitoring', fn (User $user) => $user->hasRole(...UserRole::adminLevel()));
-        Gate::define('import-aiss', fn (User $user) => $user->isActive() && $user->hasRole(...UserRole::adminLevel()));
+        Gate::define('import-aiss', fn (User $user) => $user->isActive() && (
+            $user->hasRole(UserRole::SUPER_ADMIN)
+            || ($user->hasRole(UserRole::ADMIN) && $user->admin_scope_type === AdminScopeType::AREA)
+        ));
         Gate::define('view-my-approvals', fn (User $user) => $user->hasRole(UserRole::ADMIN) && $user->hasPermission('approve_evidence'));
 
         View::composer('layouts.app', function ($view): void {

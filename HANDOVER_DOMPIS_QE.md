@@ -3,7 +3,7 @@
 Terakhir diaudit: **16 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `e4e5601` (`feat: Button Download di Data LOP`)
+HEAD dasar saat audit terbaru: `03d50b2` (`fix: Del & Reupload eviden Teknisi`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -48,7 +48,7 @@ Stack utama:
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
-Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Worktree bersih saat memulai aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47). Perubahan task tersebut beserta migration yang belum dijalankan, regression test dan dokumentasi menjadi perubahan kerja terbaru.
+Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47) sudah masuk `03d50b2`. Worktree bersih saat memulai task Material Tiba per material BOQ Plan khusus Relok Utilitas dan pembatasan Import AISS ke Superadmin/Admin Area (7.48); perubahan task ini belum di-commit.
 
 ### 2.3 Status migration lokal
 
@@ -171,7 +171,7 @@ draft -> assigned -> picked_up -> survey -> progress
 Workflow mobile teknisi aktual terdiri dari lima langkah:
 
 1. Reservasi material.
-2. Evidence material tiba.
+2. Evidence material tiba. Khusus QE Relok Utilitas wajib per item MATERIAL ber-volume pada BOQ Plan; program lain tetap global. Minimal satu foto non-rejected per item, boleh multiple. Tanpa BOQ Plan/material, teknisi diminta menghubungi admin; global lama tidak menjadi pengganti.
 3. Evidence pra: Surat Permintaan opsional untuk Preventive/Relok, lokasi dan foto kondisi awal wajib, Capture Ticket Insera opsional.
 4. Evidence progress per designator reservasi.
 5. Evidence after per designator dan `qty_actual` wajib; Capture Logic Slot Port (Screenshot Detail Slot Port OLT) opsional.
@@ -221,10 +221,12 @@ Pemilihan paket reservasi otomatis:
 - Import Data AISS di Bulk Import Data memperbarui `qe_lops.status_aiss` pada LOP existing tanpa mengubah status Dompis, identitas, workflow, BOQ, atau Revenue. Format ekspor: B = ID IHLD, H = NAMA PROGRAM/Nama LOP, L = STATUS (bukan O), W = INCIDENT. XLSX/XLS maksimal 10 MB/10.000 baris, header dalam 20 baris awal; sheet dicari berdasarkan header, bukan active sheet.
 - Pencocokan AISS berurutan ID IHLD → Nama LOP → Incident, exact setelah normalisasi kapitalisasi/spasi, tanpa fuzzy/pengambilan incident dari uraian. Kecocokan pertama menghentikan pencarian; kandidat ambigu, arsip, scope luar, status kosong/terlalu panjang, formula, atau tidak cocok dilewati dengan alasan. Metadata global minimal termasuk arsip hanya untuk deteksi kandidat; detail/nama LOP luar scope tidak ditampilkan. Baris valid pertama per LOP menang; unggah ulang dengan status sama tidak menulis histori tambahan.
 - Import AISS memakai batch type `aiss`, job `ProcessAissImport`, progress per 25 baris, history lima upload dan hasil berhasil/gagal/dilewati. File contoh user dibaca read-only: Sheet1, 2.292 baris, tanpa formula pada empat kolom relevan; tidak diimport ke database operasional. Tidak ada template baru karena sumbernya ekspor AISS asli.
+- Gate `import-aiss` kini khusus SUPER_ADMIN aktif atau ADMIN aktif dengan `admin_scope_type=area`. Sidebar, halaman/form upload, hasil/status batch dan worker memakai Gate sama. Admin Region/Branch/Service Area/tanpa scope ditolak, termasuk batch miliknya yang terlanjur queued. Admin Area tetap hanya memperbarui LOP dalam scope lokasinya melalui LopVisibilityService; bukan akses seluruh area lain.
 
 ### 4.7 Evidence dan approval
 
 - Satu tabel `qe_evidences` untuk seluruh kategori evidence.
+- Material Tiba Relok Utilitas menyimpan `designator_id` existing per material BOQ Plan. `MaterialArrivalRules` menjadi sumber aturan untuk upload, checklist workflow/progress dan Complete Review. Item jasa (termasuk tiga jasa khusus), item volume nol, tambahan hanya di reservasi, serta global lama tidak menggantikan syarat per material plan. Semua evidence reviewable tetap wajib approved untuk Completed.
 - Upload teknisi bersifat async per file, maksimal dua upload paralel, memiliki progress dan retry.
 - File asli dikompresi tanpa mengganti nama, MIME, atau ekstensi; thumbnail terpisah boleh WebP.
 - File ditampilkan melalui route terautentikasi, bukan mengandalkan URL storage publik langsung.
@@ -801,6 +803,16 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Verifikasi: **480 tests / 4927 assertions** Laravel dan **46 frontend tests** lulus; `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases / 194 assertions) meliputi empat program/all scopes/snapshot vs master/virtual pair, plan dan fallback/revenue/ekspor, CSV import whitelist, reservasi legacy tanpa write GET, fixed actual dan proof, completion guard, persistence/idempotency/role/state/file guard, reset Completed, stale model/parent/assignment, outer rollback/file retention, serta rollback migration berisi data. Regression lama ikut lulus. Pint file PHP task, Vite build, view:cache, route registration dan git diff --check lulus.
 - Migration JSON hanya diuji di SQLite test, **belum dijalankan pada MySQL lokal/produksi**. Audit DB read-only tidak dapat terkoneksi. Tidak ada import/upload/hapus/review data nyata, worker restart, commit/push atau deployment. Browser/device/concurrency MySQL/produksi belum diverifikasi. Memerlukan izin untuk migration spesifik sebelum fitur Tidak Ada aktif; setelah deploy build asset/rebuild cache dan restart worker agar import BOQ memuat whitelist terbaru. LOP lama Completed yang perlu koreksi harus dibuka admin terlebih dahulu, bukan diubah diam-diam.
 
+### 7.48 Material Tiba per material BOQ Plan dan akses Import AISS — 16 Oktober 2026
+
+- Khusus QE Relok Utilitas, Step 2 menampilkan accordion per designator MATERIAL dengan qty > 0 pada snapshot `qe_boqs/qe_boq_items`, memakai kode/nama/qty/unit plan. Tiap item wajib minimal satu foto non-rejected; multiple foto, preview, hapus, replace rejected dan status review existing dipertahankan. Accordion item mulai tertutup agar banyak item tetap ringkas. Recovery/Preventive/Relok Tiang tetap upload Material Tiba global.
+- `MaterialArrivalRules` dipakai `TechnicianWorkflowService`, `ProjectProgressService`, `EvidenceService::storeOne`, serta `EvidenceApprovalService`. Designator wajib berasal dari material BOQ Plan LOP yang sama, bukan jasa khusus/umum, item volume nol atau hanya tambahan reservasi. Store membaca parent/plan fresh dalam lock sebelum menulis file agar model lama tidak mengabaikan perubahan plan. Tanpa plan/material, checklist tidak lengkap dan UI meminta admin melengkapi BOQ Plan; tidak membuat plan palsu dari reservasi.
+- Foto global/item lama tetap dapat dilihat, tetapi tidak memenuhi checklist per item plan; replacement untuk kelompok dokumentasi lama tidak ditawarkan di UI. Tidak ada penghapusan/backfill/relabel foto lama otomatis. Waiting Approval/Completed lama tetap status existing saat dibaca; bila perlu evidence tambahan, admin perlu mengembalikan alur melalui reject/reset existing, bukan GET menulis data. Submit Approval ditolak bila ada material plan belum berevidence. Complete Review dan tombol selesai menuntut proof approved per material plan, selain semua evidence reviewable approved. Admin Step 2 menampilkan checklist plan dan kelompok foto per designator.
+- `import-aiss` di `AppServiceProvider` membatasi akun aktif SUPER_ADMIN atau ADMIN scope AREA. Sidebar menyembunyikan menu untuk scope lain; controller, Form Request, hasil/status batch serta worker existing memakai Gate yang sama. Scope/pemilik hasil batch existing tidak diperluas. Antrean lama dari akun yang berubah scope atau tidak berhak menjadi failed tanpa menulis Status AISS; worker tetap mengecek ulang izin selama proses.
+- Regression baru `MaterialArrivalPerDesignatorTest` **12 cases / 97 assertions**: checklist parsial/global/rejected, dua jalur upload/multiple/original file, desainator bukan plan/jasa/zero/extra, assignment, plan hilang, tampilan teknisi read-only/admin, completion guard, replace, submit dan stale plan sebelum storage, serta tiga program lain unchanged. `AissImportTest` diperbarui untuk Area/legacy/outside dan penolakan semua scope lain/menu/URL/upload/hasil/polling/worker/inactive/perubahan scope.
+- Verifikasi: **493 tests / 5060 assertions** Laravel dan **46 frontend tests** lulus. Test mengabaikan config cache runtime melalui `APP_CONFIG_CACHE` ke path temporary yang kosong agar tetap SQLite in-memory; percobaan awal memakai cache runtime terhalang koneksi MySQL sebelum migrasi/test menulis. Pint file PHP task, Vite build, Blade view:cache dan git diff --check lulus. Tidak ada browser/device/worker/server produksi nyata yang diuji.
+- Tidak menambah schema atau menjalankan migration/write/import/review/upload operasional, queue restart, commit/push atau deploy. Fitur baru memakai `qe_evidences.designator_id` existing. Migration capture opsional 7.47 dan AISS 7.43 tetap belum dieksekusi oleh sesi ini dan membutuhkan izin terpisah jika belum tersedia di environment tujuan. Setelah deploy rebuild cache dan restart worker agar pembatasan Gate AISS termuat pada proses lama.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -836,14 +848,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-480 tests passed
-4927 assertions
+493 tests passed
+5060 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Material Tiba per plan Relok Utilitas: `MaterialArrivalPerDesignatorTest` (12 cases); pembatasan Import AISS/menu/worker/scope: `AissImportTest` (21 tests).
 - Designator khusus/pilihan capture/hapus evidence: `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases); frontend evidence-optional.test.mjs (7) dan boq-editor.test.mjs (5).
 - Download Data LOP sesuai filter: `DataLopExportTest` (8 tests).
 - Monitoring tiket dan download Excel: `TicketCoverageTest` (28 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.

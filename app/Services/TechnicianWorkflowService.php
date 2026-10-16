@@ -14,6 +14,7 @@ use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\QeSurvey;
 use App\Models\User;
+use App\Support\MaterialArrivalRules;
 use App\Support\MaterialReservationRules;
 use App\Support\ReservedDesignatorRules;
 use Illuminate\Http\UploadedFile;
@@ -275,6 +276,8 @@ class TechnicianWorkflowService
             if (! $isReserved) {
                 throw ValidationException::withMessages(['designator_id' => 'Designator tidak termasuk reservasi material project ini.']);
             }
+        } elseif ($category === EvidenceCategory::MATERIAL_ARRIVAL && MaterialArrivalRules::perDesignator($lop)) {
+            MaterialArrivalRules::validateDesignator($lop, $data['designator_id'] ?? null);
         } else {
             $data['designator_id'] = null;
         }
@@ -347,8 +350,7 @@ class TechnicianWorkflowService
         // (lokasi + foto kondisi awal, TIDAK per designator) ·
         // Step 4 Progress (per designator) · Step 5 After (per designator).
         $step1 = $items->isNotEmpty() && $items->every(fn ($item) => $item->exists);
-        $step2 = $step1
-            && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
+        $step2 = $step1 && MaterialArrivalRules::complete($lop, $validEvidence);
         $step3 = $step2
             && $lop->survey !== null
             && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
@@ -363,6 +365,8 @@ class TechnicianWorkflowService
         return [
             'reservation' => $lop->materialReservation,
             'items' => $items,
+            'materialArrivalPerItem' => MaterialArrivalRules::perDesignator($lop),
+            'materialArrivalItems' => MaterialArrivalRules::items($lop),
             'survey' => $lop->survey,
             'evidences' => $lop->evidences,
             'rejectedSteps' => $rejectedSteps,

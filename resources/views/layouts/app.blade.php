@@ -176,6 +176,7 @@
                             'bulk-import.boq.index' => 'Import BOQ',
                             'bulk-import.aiss.index' => 'Import Data AISS',
                         ] as $routeName => $label)
+                            @continue($routeName === 'bulk-import.aiss.index' && ! auth()->user()->can('import-aiss'))
                             @php($isActive = request()->routeIs($routeName) || (request()->routeIs('imports.*') && str_contains($routeName, match(request()->route('batch')?->type) { 'boq' => 'boq', 'aiss' => 'aiss', default => 'lop' })))
                             <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ $isActive ? $navSubLinkActive : $navSubLinkInactive }}">
                                 @if ($isActive)

@@ -175,26 +175,21 @@ class AissImportTest extends TestCase
         return compact('area', 'region', 'branch', 'sa');
     }
 
-    public function test_all_admin_scopes_and_legacy_location_are_enforced_and_do_not_leak_outside_lop_names(): void
+    public function test_area_admin_scope_and_legacy_location_are_enforced_and_do_not_leak_outside_lop_names(): void
     {
         $f = $this->location();
         $inside = $this->lop('INC-IN', ['branch_id' => $f['branch']->getKey(), 'service_area_id' => $f['sa']->getKey(), 'branch' => $f['branch']->name, 'sto' => $f['sa']->workzone]);
         $legacy = $this->lop('INC-LEGACY', ['branch' => $f['branch']->name, 'sto' => $f['sa']->workzone]);
         $outside = $this->lop('INC-OUT', ['ihld_id' => 'OUTSIDE-IHLD', 'nama_lop' => 'SECRET OUTSIDE', 'branch' => 'Other', 'sto' => 'OTHER']);
-        foreach (['area', 'region', 'branch', 'service_area'] as $scope) {
-            $admin = User::factory()->role('ADMIN')->create(['admin_scope_type' => $scope, 'area_id' => $f['area']->getKey(), 'region_id' => $f['region']->getKey(), 'branch_id' => $f['branch']->getKey(), 'service_area_id' => $f['sa']->getKey()]);
-            if ($scope === 'service_area') {
-                $admin->serviceAreas()->sync([$f['sa']->getKey()]);
-            }
-            $batch = $this->processBatch($this->batch([
-                ['', '', 'INC-IN', $scope], ['', '', 'INC-LEGACY', $scope], ['OUTSIDE-IHLD', $inside->nama_lop, 'INC-IN', 'WRONG'],
-            ], $admin));
-            $this->assertSame($scope, $inside->fresh()->status_aiss);
-            $this->assertSame($scope, $legacy->fresh()->status_aiss);
-            $this->assertNull($outside->fresh()->status_aiss);
-            $this->assertSame(2, $batch->success_rows);
-            $this->assertStringNotContainsString('SECRET OUTSIDE', $batch->rows->last()->message);
-        }
+        $admin = User::factory()->role('ADMIN')->create(['admin_scope_type' => 'area', 'area_id' => $f['area']->getKey()]);
+        $batch = $this->processBatch($this->batch([
+            ['', '', 'INC-IN', 'SUBMIT'], ['', '', 'INC-LEGACY', 'SUBMIT'], ['OUTSIDE-IHLD', $inside->nama_lop, 'INC-IN', 'WRONG'],
+        ], $admin));
+        $this->assertSame('SUBMIT', $inside->fresh()->status_aiss);
+        $this->assertSame('SUBMIT', $legacy->fresh()->status_aiss);
+        $this->assertNull($outside->fresh()->status_aiss);
+        $this->assertSame(2, $batch->success_rows);
+        $this->assertStringNotContainsString('SECRET OUTSIDE', $batch->rows->last()->message);
     }
 
     public function test_archived_match_is_not_updated_and_does_not_fall_through_to_other_lop(): void
@@ -208,7 +203,7 @@ class AissImportTest extends TestCase
         $this->assertSame(1, $batch->metadata['skipped_rows']);
     }
 
-    public function test_multi_service_area_admin_can_import_across_assigned_branches_only(): void
+    public function test_multi_service_area_admin_cannot_process_existing_queued_aiss_imports(): void
     {
         $f = $this->location();
         $otherBranch = Branch::create(['code' => 'AISS-2', 'name' => 'Branch 2', 'region_id' => $f['region']->getKey(), 'region' => $f['region']->name]);
@@ -219,10 +214,12 @@ class AissImportTest extends TestCase
         $admin = User::factory()->role('ADMIN')->create(['admin_scope_type' => 'service_area']);
         $admin->serviceAreas()->sync([$f['sa']->getKey(), $otherSa->getKey()]);
         $batch = $this->processBatch($this->batch([['', '', 'IN-1', 'FINISH'], ['', '', 'IN-2', 'FINISH'], ['', '', 'OUT-1', 'FINISH']], $admin));
-        $this->assertSame(2, $batch->success_rows);
-        $this->assertSame('FINISH', $one->fresh()->status_aiss);
-        $this->assertSame('FINISH', $two->fresh()->status_aiss);
+        $this->assertSame('failed', $batch->status);
+        $this->assertSame(0, $batch->success_rows);
+        $this->assertNull($one->fresh()->status_aiss);
+        $this->assertNull($two->fresh()->status_aiss);
         $this->assertNull($outside->fresh()->status_aiss);
+        $this->assertDatabaseCount('qe_lop_histories', 0);
     }
 
     public function test_timeout_failure_preserves_durable_results_and_cannot_fail_a_finished_batch(): void
@@ -320,11 +317,51 @@ class AissImportTest extends TestCase
     public function test_worker_rechecks_uploader_role_and_inactive_state(): void
     {
         $lop = $this->lop('INC1');
-        $admin = User::factory()->role('ADMIN')->create();
+        $admin = User::factory()->role('ADMIN')->create(['admin_scope_type' => 'area']);
         $batch = $this->batch([['', '', 'INC1', 'SUBMIT']], $admin);
         $admin->update(['status' => 'inactive']);
         $this->assertSame('failed', $this->processBatch($batch)->status);
         $this->assertNull($lop->fresh()->status_aiss);
+    }
+
+    public function test_menu_endpoints_results_and_worker_require_superadmin_or_area_admin(): void
+    {
+        Queue::fake();
+        $f = $this->location();
+        $lop = $this->lop('INC-SCOPE', ['branch_id' => $f['branch']->getKey()]);
+        foreach (['area', 'region', 'branch', 'service_area', null] as $scope) {
+            $admin = User::factory()->role('ADMIN')->create([
+                'admin_scope_type' => $scope, 'area_id' => $f['area']->getKey(),
+                'region_id' => $f['region']->getKey(), 'branch_id' => $f['branch']->getKey(),
+                'service_area_id' => $f['sa']->getKey(),
+            ]);
+            $this->actingAs($admin);
+            $menu = $this->get(route('bulk-import.lop.index'))->assertOk();
+            $batch = $this->batch([['', '', 'INC-SCOPE', 'SUBMIT']], $admin);
+            if ($scope === 'area') {
+                $menu->assertSee(route('bulk-import.aiss.index'), false);
+                $this->get(route('bulk-import.aiss.index'))->assertOk();
+                $this->get(route('imports.show', $batch))->assertOk();
+                $this->getJson(route('imports.status', $batch))->assertOk();
+                $this->postJson(route('bulk-import.aiss.store'), ['file' => $this->file([['', '', 'INC-SCOPE', 'SUBMIT']])])->assertStatus(202);
+                // Hak akses berubah sebelum worker mengambil antrean.
+                $admin->update(['admin_scope_type' => 'region']);
+            } else {
+                $menu->assertDontSee(route('bulk-import.aiss.index'), false);
+                $this->get(route('bulk-import.aiss.index'))->assertForbidden();
+                $this->postJson(route('bulk-import.aiss.store'), ['file' => $this->file([['', '', 'INC-SCOPE', 'SUBMIT']])])->assertForbidden();
+                $this->get(route('imports.show', $batch))->assertForbidden();
+                $this->getJson(route('imports.status', $batch))->assertForbidden();
+            }
+            $this->assertSame('failed', $this->processBatch($batch)->status);
+            $this->assertNull($lop->fresh()->status_aiss);
+            $this->assertSame(0, $batch->rows()->count());
+        }
+        $this->actingAs($this->super)->get(route('bulk-import.aiss.index'))->assertOk();
+        $this->get(route('bulk-import.lop.index'))->assertSee(route('bulk-import.aiss.index'), false);
+        $this->super->update(['status' => 'inactive']);
+        $this->assertFalse($this->super->can('import-aiss'));
+        $this->assertDatabaseCount('qe_lop_histories', 0);
     }
 
     public function test_wrong_headers_empty_and_unreadable_files_fail_without_writes(): void

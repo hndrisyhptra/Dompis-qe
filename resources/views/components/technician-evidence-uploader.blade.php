@@ -1,9 +1,9 @@
-@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'allowReplace' => true, 'type' => 'PHOTO', 'showStatus' => true])
+@props(['lop', 'category', 'title', 'description', 'designatorId' => null, 'existing' => collect(), 'allowUpload' => true, 'allowReplace' => true, 'type' => 'PHOTO', 'showStatus' => true, 'initiallyCollapsed' => false])
 
 @php
     $optionalCapture = \App\Enums\EvidenceCategory::tryFrom($category)?->isOptionalCapture() ?? false;
     $storedChoice = $optionalCapture ? ($lop->optional_capture_choices[$category] ?? null) : null;
-    $startsExpanded = $existing->isEmpty();
+    $startsExpanded = ! $initiallyCollapsed && $existing->isEmpty();
     $pendingCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING)->count();
     $approvedCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::APPROVED)->count();
     $rejectedCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::REJECTED)->count();

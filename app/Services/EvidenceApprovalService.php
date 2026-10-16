@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Support\MaterialArrivalRules;
 use App\Support\ReservedDesignatorRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -47,6 +48,11 @@ class EvidenceApprovalService
                 throw ValidationException::withMessages([
                     'review' => 'Review belum bisa diselesaikan. Semua evidence harus berstatus disetujui — jika ada yang ditolak, tunggu teknisi memperbaikinya lalu review ulang.',
                 ]);
+            }
+
+            if (MaterialArrivalRules::perDesignator($lop)
+                && ! MaterialArrivalRules::complete($lop, $lop->evidences, EvidenceStatus::APPROVED)) {
+                throw ValidationException::withMessages(['review' => 'Material Tiba QE Relok Utilitas belum lengkap. Setiap item material BOQ Plan wajib memiliki evidence yang approved. Foto global lama tidak menggantikan evidence per item.']);
             }
 
             $specialItems = ReservedDesignatorRules::workflowItems($lop)
@@ -147,6 +153,9 @@ class EvidenceApprovalService
         return [
             'lop' => $lop,
             'approvalSummary' => $this->summary($lop),
+            'materialArrivalPerItem' => MaterialArrivalRules::perDesignator($lop),
+            'materialArrivalItems' => MaterialArrivalRules::items($lop),
+            'materialArrivalApproved' => MaterialArrivalRules::complete($lop, $lop->evidences, EvidenceStatus::APPROVED),
             // Step pertama yang punya evidence pending, untuk membuka review
             // langsung di bagian yang perlu diperiksa.
             'suggestedStep' => $this->firstPendingStep($pending),

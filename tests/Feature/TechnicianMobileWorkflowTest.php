@@ -558,9 +558,18 @@ class TechnicianMobileWorkflowTest extends TestCase
             'location_source' => 'gps',
         ]);
 
+        if ($program === ProgramType::RELOK_UTILITAS->value) {
+            $boq = $lop->boq()->create(['source' => 'import', 'status' => 'ready', 'created_by' => $admin->getKey()]);
+            $boq->items()->create([
+                'designator_id' => $designator->getKey(), 'designator_code' => $designator->code,
+                'item_name' => $designator->item_name, 'type' => 'MATERIAL', 'unit' => 'meter',
+                'qty' => 5, 'unit_price' => 1000, 'total_price' => 5000,
+            ]);
+        }
+
         foreach ([
             ['pre', null],
-            ['material_arrival', null],
+            ['material_arrival', $program === ProgramType::RELOK_UTILITAS->value ? $designator->getKey() : null],
             ['before', $designator->id_designator],
         ] as [$category, $designatorId]) {
             $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
