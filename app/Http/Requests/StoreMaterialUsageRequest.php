@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -29,6 +30,7 @@ class StoreMaterialUsageRequest extends FormRequest
     {
         return [function ($validator) {
             $lop = $this->route('qe_lop');
+            $lop?->loadMissing('materialReservation.items.designator');
             $reserved = $lop?->materialReservation?->items
                 ->mapWithKeys(fn ($item) => [(int) $item->designator_id => (float) $item->qty]) ?? collect();
 
@@ -47,6 +49,11 @@ class StoreMaterialUsageRequest extends FormRequest
                         "usage.{$i}.qty_actual",
                         'Qty terpakai tidak boleh melebihi qty reservasi ('.rtrim(rtrim(number_format($reserved->get($designatorId), 3, '.', ''), '0'), '.').').',
                     );
+                }
+                $item = $lop?->materialReservation?->items->firstWhere('designator_id', $designatorId);
+                if (ReservedDesignatorRules::fixedActual($item?->designator?->code)
+                    && $qtyActual !== $reserved->get($designatorId)) {
+                    $validator->errors()->add("usage.{$i}.qty_actual", 'Qty aktual designator khusus wajib sama dengan qty reservasi/BOQ Plan.');
                 }
             }
 

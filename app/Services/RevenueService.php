@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -338,9 +339,9 @@ class RevenueService
             ->leftJoin('designators as usage_designators', 'usage_designators.id_designator', '=', 'usage_items.designator_id')
             ->leftJoin('designator_types as usage_types', 'usage_types.id_designator_type', '=', 'usage_designators.designator_type_id')
             ->whereNull('usage_reservations.deleted_at')
-            ->whereRaw("COALESCE(UPPER(usage_types.code), 'MATERIAL') = 'MATERIAL'")
+            ->whereRaw("(COALESCE(UPPER(usage_types.code), 'MATERIAL') = 'MATERIAL' OR ".ReservedDesignatorRules::specialSql('usage_designators.code').')')
             ->select(['usage_reservations.qe_lop_id', 'usage_items.designator_id', 'usage_items.qty_actual', 'usage_designators.code']);
-        $eligible = $this->eligibleTypeSql('item_lops.program_type', 'value_boq_items.type');
+        $eligible = $this->eligibleTypeSql('item_lops.program_type', 'value_boq_items.type', 'value_boq_items.designator_code');
         $baseMatch = $this->baseCodeSql('value_usage.code').' = '.$this->baseCodeSql('value_boq_items.designator_code');
         $itemTotals = DB::table('qe_boq_items as value_boq_items')
             ->join('qe_boqs as item_boqs', 'item_boqs.id_boq', '=', 'value_boq_items.qe_boq_id')
@@ -374,6 +375,7 @@ class RevenueService
             ->leftJoin('designators as value_designators', 'value_designators.id_designator', '=', 'value_items.designator_id')
             ->leftJoin('designator_types as value_types', 'value_types.id_designator_type', '=', 'value_designators.designator_type_id')
             ->leftJoin('designators as value_services', fn ($join) => $join->whereRaw("value_lops.program_type IN ({$servicePrograms})")
+                ->whereRaw('NOT ('.ReservedDesignatorRules::specialSql('value_services.code').')')
                 ->whereRaw("SUBSTR(UPPER(TRIM(value_designators.code)), 1, 2) = 'M-' AND SUBSTR(UPPER(TRIM(value_services.code)), 1, 2) = 'J-'")
                 ->whereRaw($servicePair)->whereNull('value_services.deleted_at'))
             ->leftJoin('branches as value_branches', function ($join): void {
@@ -393,10 +395,10 @@ class RevenueService
             ->select('value_reservations.qe_lop_id')
             ->selectRaw('COUNT(value_items.id_reservation_item) as extra_count')
             ->selectRaw('SUM(COALESCE(value_items.qty_actual, value_items.qty) * (COALESCE(value_prices.price, 0) + COALESCE(service_prices.price, 0))) as actual_total')
-            ->whereRaw("COALESCE(UPPER(value_types.code), 'MATERIAL') = 'MATERIAL'")
+            ->whereRaw("(COALESCE(UPPER(value_types.code), 'MATERIAL') = 'MATERIAL' OR ".ReservedDesignatorRules::specialSql('value_designators.code').')')
             ->whereNotExists(fn ($covered) => $covered->selectRaw('1')->from('qe_boq_items as covered_items')
                 ->whereColumn('covered_items.qe_boq_id', 'value_boqs.id_boq')->whereNull('covered_items.deleted_at')
-                ->whereRaw($this->eligibleTypeSql('value_lops.program_type', 'covered_items.type'))->whereRaw($coveredBase))
+                ->whereRaw($this->eligibleTypeSql('value_lops.program_type', 'covered_items.type', 'covered_items.designator_code'))->whereRaw($coveredBase))
             ->whereNull('value_reservations.deleted_at')
             ->whereNull('value_lops.deleted_at')
             ->groupBy('value_reservations.qe_lop_id');
@@ -440,14 +442,14 @@ class RevenueService
         return collect(ProgramType::cases())->filter(fn (ProgramType $program) => $program->includesBoqServices())->map(fn (ProgramType $program) => "'{$program->value}'")->implode(',');
     }
 
-    private function eligibleTypeSql(string $program, string $type): string
+    private function eligibleTypeSql(string $program, string $type, string $code): string
     {
-        return "(UPPER(TRIM({$type})) = 'MATERIAL' OR ({$program} IN ({$this->serviceProgramsSql()}) AND UPPER(TRIM({$type})) = 'JASA'))";
+        return "(UPPER(TRIM({$type})) = 'MATERIAL' OR ({$program} IN ({$this->serviceProgramsSql()}) AND UPPER(TRIM({$type})) = 'JASA') OR ".ReservedDesignatorRules::specialSql($code).')';
     }
 
     private function baseCodeSql(string $column): string
     {
-        return "CASE WHEN SUBSTR(UPPER(TRIM({$column})), 1, 2) IN ('M-', 'J-') THEN SUBSTR(UPPER(TRIM({$column})), 3) ELSE UPPER(TRIM({$column})) END";
+        return 'CASE WHEN '.ReservedDesignatorRules::specialSql($column)." THEN UPPER(TRIM({$column})) WHEN SUBSTR(UPPER(TRIM({$column})), 1, 2) IN ('M-', 'J-') THEN SUBSTR(UPPER(TRIM({$column})), 3) ELSE UPPER(TRIM({$column})) END";
     }
 
     private function snapshotSql(array $paths): string

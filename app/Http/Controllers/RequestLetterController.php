@@ -39,7 +39,7 @@ class RequestLetterController extends Controller
             404
         );
         $this->authorize('delete', $evidence);
-        $this->evidenceService->delete($evidence);
+        $this->evidenceService->delete($evidence, request()->user());
 
         return back()->with('status', 'Surat Permintaan berhasil dihapus.');
     }

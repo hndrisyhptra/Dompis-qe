@@ -168,7 +168,7 @@ class LopCancellationTest extends TestCase
             fn () => $service->resetReview($evidence, $admin),
             fn () => $service->approveMany($lop, [$evidence->getKey()], $admin),
             fn () => $service->replace($evidence, UploadedFile::fake()->image('new.jpg'), $admin),
-            fn () => $service->delete($evidence),
+            fn () => $service->delete($evidence, $admin),
         ] as $action) {
             try {
                 $action();

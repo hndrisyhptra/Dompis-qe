@@ -11,14 +11,20 @@ const options = [
     { id: 2, code: 'M-REMOVE', name: 'ODP tambahan', unit: 'unit', type: 'MATERIAL' },
     { id: 3, code: 'J-KEEP', name: 'Jasa pasang', unit: 'meter', type: 'JASA' },
 ];
-function editor(settings = {}) {
+function editor(settings = {}, available = options) {
     const window = {};
     vm.runInNewContext(component, { window, atob, btoa, document: { querySelector: () => null } });
     return window.boqEditor(encode([
         { designator_id: 1, qty: 10, qty_actual: 7, existing: true, can_delete: false },
         { designator_id: 2, qty: 3, qty_actual: null, existing: true, can_delete: true },
-    ]), encode(options), settings);
+    ]), encode(available), settings);
 }
+
+test('pengecualian jasa khusus berasal dari flag server tanpa membuka jasa lain', () => {
+    const actual = editor({ materialOnly: true }, [...options, { id: 4, code: 'J-Coring', name: 'Coring', type: 'JASA', fixed_actual: true }]);
+    assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-Coring']);
+    assert.equal(actual.filteredOptions('Coring', '').length, 1);
+});
 
 test('editor reservasi hanya mencari material sementara editor plan tetap mencakup jasa', () => {
     const actual = editor({ materialOnly: true, maxItems: 100 });

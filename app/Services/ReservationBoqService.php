@@ -8,6 +8,7 @@ use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\User;
 use App\Support\MaterialReservationRules;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -63,9 +64,9 @@ class ReservationBoqService
             $targets = collect($items)->keyBy(fn ($item) => (int) $item['designator_id']);
             $existingIds = $reservation->items->pluck('designator_id')->map(fn ($id) => (int) $id);
             $newIds = $targets->keys()->diff($existingIds);
-            $materialIds = Designator::whereIn('id_designator', $newIds)->whereRelation('type', 'code', 'MATERIAL')->pluck('id_designator');
+            $materialIds = ReservedDesignatorRules::apply(Designator::whereIn('id_designator', $newIds))->pluck('id_designator');
             if ($materialIds->count() !== $newIds->count()) {
-                throw ValidationException::withMessages(['items' => 'Item baru hanya boleh designator MATERIAL yang masih tersedia. JASA dihitung otomatis sesuai aturan BOQ.']);
+                throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima MATERIAL serta J-CO-OF, J-Coring, J-OS-SM-1 yang masih tersedia.']);
             }
             $evidenceIds = $lockedLop->evidences()->whereNotNull('designator_id')->pluck('designator_id')->map(fn ($id) => (int) $id);
 

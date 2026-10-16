@@ -50,7 +50,7 @@ class LopBoqValueService
         ]);
 
         if ($lop->boq !== null && $lop->program_type !== ProgramType::RECOVERY) {
-            $items = $lop->boq->items->filter(fn ($item) => $lop->program_type->allowsBoqType($item->type))->map(fn ($item): array => [
+            $items = $lop->boq->items->filter(fn ($item) => $lop->program_type->allowsBoqType($item->type, $item->designator_code))->map(fn ($item): array => [
                 'designator_id' => $item->designator_id,
                 'code' => $item->designator_code,
                 'name' => $item->item_name,

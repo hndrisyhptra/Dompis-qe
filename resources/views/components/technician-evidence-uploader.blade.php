@@ -2,6 +2,7 @@
 
 @php
     $optionalCapture = \App\Enums\EvidenceCategory::tryFrom($category)?->isOptionalCapture() ?? false;
+    $storedChoice = $optionalCapture ? ($lop->optional_capture_choices[$category] ?? null) : null;
     $startsExpanded = $existing->isEmpty();
     $pendingCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING)->count();
     $approvedCount = $existing->filter(fn ($item) => $item->status === \App\Enums\EvidenceStatus::APPROVED)->count();
@@ -11,6 +12,8 @@
 <div x-data="evidenceUploader({
         expanded: @js($startsExpanded),
         optional: @js($optionalCapture && $allowUpload && $existing->isEmpty()),
+        optionalSkipped: @js($storedChoice !== null && $existing->isEmpty()),
+        choiceEndpoint: @js($optionalCapture && $allowUpload ? route('technician.projects.optional-capture', $lop, false) : null),
         endpoint: @js($allowUpload ? route('technician.projects.evidence.file', $lop, false) : null),
         category: @js($category),
         type: @js($type),
@@ -34,7 +37,7 @@
             @if ($existing->isNotEmpty())
                 <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $existing->count() }} file</span>
             @elseif ($optionalCapture)
-                <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-500 dark:bg-ink-800 dark:text-ink-300">Tidak ada</span>
+                <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-bold text-ink-500 dark:bg-ink-800 dark:text-ink-300" x-text="optionalSkipped ? 'Tidak Ada' : 'Belum diisi'">{{ $storedChoice ? 'Tidak Ada' : 'Belum diisi' }}</span>
             @else
                 <span class="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">Belum ada</span>
             @endif
@@ -50,10 +53,14 @@
         <p class="mb-3 text-[11px] leading-5 text-ink-500 dark:text-ink-400">Upload jika tersedia. Tanpa file, step tetap bisa dilanjutkan. File yang sudah diupload tetap direview.</p>
         @if ($allowUpload && $existing->isEmpty())
             <div class="mb-3 grid grid-cols-2 gap-2">
-                <button type="button" @click="optionalSkipped = false" :aria-pressed="!optionalSkipped" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold" :class="!optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Upload jika ada</button>
-                <button type="button" @click="skipOptional()" :disabled="queueActive" :aria-pressed="optionalSkipped" title="Hapus file pilihan terlebih dahulu jika ingin memilih Tidak Ada" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50" :class="optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Tidak Ada</button>
+                <button type="button" @click="saveOptional(false)" :disabled="optionalSaving" :aria-pressed="!optionalSkipped" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold disabled:opacity-50" :class="!optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Upload jika ada</button>
+                <button type="button" @click="skipOptional()" :disabled="queueActive || optionalSaving" :aria-pressed="optionalSkipped" title="Simpan pilihan Tidak Ada; hapus file pilihan terlebih dahulu jika ada" class="min-h-10 rounded-xl border px-3 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-50" :class="optionalSkipped ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300' : 'border-ink-200 text-ink-500 dark:border-ink-700'">Tidak Ada</button>
             </div>
-            <p x-show="optionalSkipped" role="status" class="mb-3 rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">Tidak ada file. Anda dapat melanjutkan step tanpa upload ini.</p>
+            <p x-show="optionalSaving" role="status" class="mb-3 text-xs text-ink-500">Menyimpan pilihan…</p>
+            <p x-show="optionalError" x-text="optionalError" role="alert" class="mb-3 text-xs font-semibold text-brand-600"></p>
+            <p x-show="optionalSkipped" role="status" class="mb-3 rounded-xl border border-ink-200 bg-ink-50 p-3 text-xs text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">Pilihan Tidak Ada tersimpan. Anda tetap dapat upload jika file tersedia nanti.</p>
+        @elseif ($storedChoice && $existing->isEmpty())
+            <p class="mb-3 rounded-xl bg-ink-50 p-3 text-xs text-ink-600 dark:bg-ink-800 dark:text-ink-300">Tidak Ada — pilihan teknisi sudah tersimpan.</p>
         @endif
     @endif
 
@@ -84,7 +91,7 @@
                     };
                 @endphp
 
-                <article class="min-w-0 rounded-xl border bg-white p-1.5 {{ $statusStyle }} dark:bg-ink-900">
+                <article x-data="{ deleteConfirm: false }" class="min-w-0 rounded-xl border bg-white p-1.5 {{ $statusStyle }} dark:bg-ink-900">
                     <button type="button"
                             @click="openStoredPreview(@js($fileUrl), @js($fileName), @js($mime), @js($fileSize))"
                             class="group relative block aspect-square w-full overflow-hidden rounded-lg bg-ink-100 text-left dark:bg-ink-800">
@@ -105,6 +112,14 @@
                         </span>
                     </button>
                     <p class="mt-1.5 truncate px-0.5 text-[9px] font-bold text-ink-700 dark:text-ink-200" title="{{ $fileName }}">{{ $fileName }}</p>
+                    @can('delete', $evidence)
+                        <button type="button" @click="deleteConfirm = true" title="Hapus evidence yang belum approved" class="mt-1.5 min-h-8 w-full rounded-lg border border-red-200 px-1 text-[10px] font-bold text-red-600 dark:border-red-900 dark:text-red-400">Hapus</button>
+                        <x-confirm-modal state="deleteConfirm" title="Hapus evidence ini?" message="File akan dihapus. Jika sedang menunggu approval, LOP kembali ke Progress untuk dilengkapi dan diajukan ulang." :action="route('technician.projects.evidence.destroy', [$lop, $evidence], false)" method="DELETE" confirm-label="Ya, hapus" cancel-label="Tidak, batal" tone="danger" />
+                    @else
+                        @if ($showStatus && $evidence->status->value === 'approved')
+                            <span title="Minta admin reset review sebelum evidence dapat dihapus" class="mt-1.5 block rounded-lg bg-ink-50 p-1 text-center text-[9px] font-semibold text-ink-500 dark:bg-ink-800">Terkunci · approved</span>
+                        @endif
+                    @endcan
 
                     @if ($allowReplace && $evidence->status->value === 'rejected')
                         @can('replace', $evidence)

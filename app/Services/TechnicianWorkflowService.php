@@ -14,8 +14,12 @@ use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\QeSurvey;
 use App\Models\User;
+use App\Support\MaterialReservationRules;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class TechnicianWorkflowService
@@ -68,18 +72,33 @@ class TechnicianWorkflowService
     {
         $this->assertActiveAssignment($lop, $technician);
 
+        $lop->loadMissing(['boq.items', 'materialReservation.items']);
+        $targets = collect($items)->keyBy('designator_id');
+        foreach (($lop->boq?->items ?? collect())->filter(fn ($item) => ReservedDesignatorRules::fixedActual($item->designator_code) && $item->designator_id !== null) as $item) {
+            if (! $targets->has($item->designator_id)) {
+                $reserved = $lop->materialReservation?->items->firstWhere('designator_id', $item->designator_id);
+                $targets->put($item->designator_id, ['designator_id' => $item->designator_id, 'qty' => (int) ($reserved?->qty ?? $item->qty)]);
+            }
+        }
+        $items = $targets->values()->all();
+        if (count($items) > 100) {
+            throw ValidationException::withMessages(['items' => 'Maksimal 100 designator termasuk jasa khusus dari BOQ Plan.']);
+        }
         $ids = collect($items)->pluck('designator_id');
-        $materialCount = Designator::query()
-            ->whereIn('id_designator', $ids)
-            ->whereRelation('type', 'code', 'MATERIAL')
+        $materialCount = ReservedDesignatorRules::apply(Designator::query()->whereIn('id_designator', $ids))
             ->count();
 
         if ($materialCount !== $ids->unique()->count()) {
-            throw ValidationException::withMessages(['items' => 'Reservasi hanya dapat menggunakan designator bertipe material.']);
+            throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima MATERIAL dan jasa khusus J-CO-OF, J-Coring, J-OS-SM-1.']);
         }
 
         $packageSelection = $this->reservationPackage($lop);
         $reservation = DB::transaction(function () use ($lop, $technician, $items, $packageSelection) {
+            $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+            $this->assertActiveAssignment($lop, $technician);
+            if (! in_array($lop->status_lop, [LopStatus::PICKED_UP, LopStatus::SURVEY, LopStatus::PROGRESS], true)) {
+                throw ValidationException::withMessages(['items' => 'Reservasi tidak dapat diubah pada status project sekarang.']);
+            }
             if ($lop->boq === null && $packageSelection['package'] !== null) {
                 $lop->update(['package_id' => $packageSelection['package']->id_package]);
             }
@@ -89,11 +108,24 @@ class TechnicianWorkflowService
                 ['technician_id' => $technician->id_user, 'status' => 'draft']
             );
 
-            $reservation->items()->delete();
-            $reservation->items()->createMany(collect($items)->map(fn (array $item) => [
-                'designator_id' => $item['designator_id'],
-                'qty' => (int) $item['qty'],
-            ])->all());
+            $existing = $reservation->items()->with('designator')->lockForUpdate()->get()->keyBy('designator_id');
+            $targets = collect($items)->keyBy('designator_id');
+            $evidenceIds = $lop->evidences()->whereNotNull('designator_id')->pluck('designator_id');
+            foreach ($existing as $id => $item) {
+                if (! $targets->has($id)) {
+                    MaterialReservationRules::assertRemovable($item, $evidenceIds->contains($id));
+                    $item->delete();
+                }
+            }
+            foreach ($targets as $id => $item) {
+                $old = $existing->get($id);
+                if ($old !== null) {
+                    MaterialReservationRules::assertQuantity($old, (int) $item['qty']);
+                    $old->update(['qty' => (int) $item['qty']]);
+                } else {
+                    $reservation->items()->create(['designator_id' => $id, 'qty' => (int) $item['qty']]);
+                }
+            }
 
             return $reservation->load('items.designator');
         });
@@ -124,7 +156,14 @@ class TechnicianWorkflowService
 
         $byDesignator = collect($usage)->keyBy(fn ($row) => (int) $row['designator_id']);
 
-        DB::transaction(function () use ($reservation, $byDesignator) {
+        DB::transaction(function () use ($lop, $technician, $byDesignator) {
+            $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+            $this->assertActiveAssignment($lop, $technician);
+            if (! in_array($lop->status_lop, [LopStatus::PICKED_UP, LopStatus::SURVEY, LopStatus::PROGRESS], true)) {
+                throw ValidationException::withMessages(['usage' => 'Qty aktual hanya dapat disimpan saat pekerjaan masih berjalan.']);
+            }
+            $reservation = $lop->materialReservation()->lockForUpdate()->firstOrFail();
+            $reservation->setRelation('items', $reservation->items()->with('designator')->lockForUpdate()->get());
             foreach ($reservation->items as $item) {
                 $row = $byDesignator->get((int) $item->designator_id);
 
@@ -133,7 +172,8 @@ class TechnicianWorkflowService
                 }
 
                 $item->update([
-                    'qty_actual' => min((float) $row['qty_actual'], (float) $item->qty),
+                    'qty_actual' => ReservedDesignatorRules::fixedActual($item->designator?->code)
+                        ? (float) $item->qty : min((float) $row['qty_actual'], (float) $item->qty),
                 ]);
             }
         });
@@ -151,6 +191,27 @@ class TechnicianWorkflowService
                 'captured_at' => now(),
             ]
         );
+    }
+
+    public function optionalCaptureChoice(QeLop $lop, User $technician, EvidenceCategory $category, bool $unavailable): array
+    {
+        if (! $category->isOptionalCapture()) {
+            throw ValidationException::withMessages(['category' => 'Pilihan hanya untuk Capture Insera atau Logic Slot Port.']);
+        }
+        if (! Schema::hasColumn('qe_lops', 'optional_capture_choices')) {
+            throw ValidationException::withMessages(['unavailable' => 'Penyimpanan pilihan belum aktif. Administrator perlu menjalankan migration capture opsional.']);
+        }
+
+        return DB::transaction(function () use ($lop, $technician, $category, $unavailable) {
+            $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+            Gate::forUser($technician)->authorize('setOptionalCaptureChoice', $lop);
+            if ($unavailable && $lop->evidences()->where('category', $category)->exists()) {
+                throw ValidationException::withMessages(['unavailable' => 'Evidence masih tersedia. Hapus evidence yang belum approved terlebih dahulu.']);
+            }
+            $this->lopService->recordOptionalCaptureChoice($lop, $technician, $category, $unavailable);
+
+            return ['unavailable' => $unavailable, 'choice' => $lop->optional_capture_choices[$category->value] ?? null];
+        });
     }
 
     public function uploadEvidence(QeLop $lop, User $technician, array $data, array $files): array
@@ -265,8 +326,10 @@ class TechnicianWorkflowService
 
     public function state(QeLop $lop): array
     {
-        $lop->loadMissing(['materialReservation.items.designator', 'survey', 'evidences.designator', 'evidences.uploader.role']);
-        $items = $lop->materialReservation?->items ?? collect();
+        $lop->loadMissing(['activeAssignment', 'materialReservation.items.designator', 'survey', 'evidences.designator', 'evidences.uploader.role']);
+        $evidenceLop = (clone $lop)->unsetRelation('evidences');
+        $lop->evidences->each(fn ($evidence) => $evidence->setRelation('lop', $evidenceLop));
+        $items = ReservedDesignatorRules::workflowItems($lop);
         $validEvidence = $lop->evidences->filter(fn ($evidence) => $evidence->status !== EvidenceStatus::REJECTED);
         $rejectedSteps = $lop->evidences->filter(fn ($evidence) => $evidence->status === EvidenceStatus::REJECTED)
             ->map(fn ($evidence) => match ($evidence->category?->value) {
@@ -283,14 +346,14 @@ class TechnicianWorkflowService
         // Step 1 Reservasi · Step 2 Material Tiba · Step 3 Evidence Pra
         // (lokasi + foto kondisi awal, TIDAK per designator) ·
         // Step 4 Progress (per designator) · Step 5 After (per designator).
-        $step1 = $items->isNotEmpty();
+        $step1 = $items->isNotEmpty() && $items->every(fn ($item) => $item->exists);
         $step2 = $step1
             && $validEvidence->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty();
         $step3 = $step2
             && $lop->survey !== null
             && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
-        $materialUsageComplete = $step1 && $items->every(fn ($item) => $item->qty_actual !== null);
+        $materialUsageComplete = $step1 && $items->every(fn ($item) => ReservedDesignatorRules::actualComplete($item));
         $step5 = $step1
             && $reservedIds->diff($afterIds)->isEmpty()
             && $materialUsageComplete;

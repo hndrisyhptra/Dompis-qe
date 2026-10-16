@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EvidenceCategory;
 use App\Http\Requests\ReplaceEvidenceRequest;
 use App\Http\Requests\StoreMaterialReservationRequest;
 use App\Http\Requests\StoreMaterialUsageRequest;
+use App\Http\Requests\StoreOptionalCaptureChoiceRequest;
 use App\Http\Requests\StoreSurveyLocationRequest;
 use App\Http\Requests\StoreTechnicianEvidenceFileRequest;
 use App\Http\Requests\StoreTechnicianEvidenceRequest;
@@ -55,6 +57,25 @@ class TechnicianWorkflowController extends Controller
 
         return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 5])
             ->with('status', 'Rekap material terpakai tersimpan.');
+    }
+
+    public function optionalCaptureChoice(StoreOptionalCaptureChoiceRequest $request, QeLop $qe_lop): JsonResponse
+    {
+        return response()->json($this->workflowService->optionalCaptureChoice(
+            $qe_lop, $request->user(), EvidenceCategory::from($request->validated('category')), $request->boolean('unavailable'),
+        ));
+    }
+
+    public function deleteEvidence(Request $request, QeLop $qe_lop, QeEvidence $evidence): RedirectResponse
+    {
+        abort_unless((int) $evidence->qe_lop_id === (int) $qe_lop->getKey(), 404);
+        $this->authorize('delete', $evidence);
+        $this->evidenceService->delete($evidence, $request->user());
+        $step = match ($evidence->category?->value) {
+            'material_arrival' => 2, 'progress' => 4, 'after', 'slot_port' => 5, default => 3,
+        };
+
+        return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $step])->with('status', 'Evidence dihapus. Lengkapi kembali evidence sebelum mengajukan approval.');
     }
 
     public function location(StoreSurveyLocationRequest $request, QeLop $qe_lop): RedirectResponse

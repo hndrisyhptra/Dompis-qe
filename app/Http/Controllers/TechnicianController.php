@@ -8,6 +8,7 @@ use App\Models\QeLop;
 use App\Services\LopBoqProjectionService;
 use App\Services\TechnicianDashboardService;
 use App\Services\TechnicianWorkflowService;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -87,8 +88,7 @@ class TechnicianController extends Controller
             'readOnly' => $readOnly,
             'showBoqReview' => $showBoqReview,
             'reservationPackage' => $this->workflowService->reservationPackage($qe_lop),
-            'designators' => ! $readOnly && $requestedStep === 1 ? Designator::query()
-                ->whereRelation('type', 'code', 'MATERIAL')
+            'designators' => ! $readOnly && $requestedStep === 1 ? ReservedDesignatorRules::apply(Designator::query())
                 ->orderBy('code')->get() : collect(),
         ]);
     }

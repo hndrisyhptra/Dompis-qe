@@ -9,12 +9,13 @@ use App\Models\Package;
 use App\Models\QeBoqItem;
 use App\Models\QeLop;
 use App\Models\QeMaterialReservationItem;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Collection;
 
 /**
  * Membentuk tampilan read-only BOQ Plan, BOQ Actual, dan Sisa Material per LOP.
  *
- * Reservasi teknisi tetap hanya berisi MATERIAL. Hanya Relok Utilitas memakai JASA
+ * Reservasi berisi MATERIAL dan tiga jasa khusus yang wajib evidence. Relok Utilitas memakai JASA
  * pasangan virtual dari pola M-... -> J-... sehingga tidak
  * mengotori reservasi dan evidence per material.
  */
@@ -90,7 +91,7 @@ class LopBoqProjectionService
     /** @return Collection<int, array<string, mixed>> */
     private function planLines(QeLop $lop): Collection
     {
-        return ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type))->map(fn (QeBoqItem $item): array => [
+        return ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type, $item->designator_code))->map(fn (QeBoqItem $item): array => [
             'designator_id' => $item->designator_id,
             'designator_code' => $item->designator_code,
             'designator_name' => $item->item_name,
@@ -112,13 +113,13 @@ class LopBoqProjectionService
     private function actualLines(QeLop $lop, ?Package $package, bool $hasPlan): Collection
     {
         $reservationItems = ($lop->materialReservation?->items ?? collect())
-            ->filter(fn (QeMaterialReservationItem $item) => ($item->designator?->type?->code ?? 'MATERIAL') === 'MATERIAL')->values();
+            ->filter(fn (QeMaterialReservationItem $item) => ReservedDesignatorRules::eligible($item->designator?->type?->code ?? 'MATERIAL', $item->designator?->code))->values();
         $reservationByBase = $reservationItems->keyBy(
             fn (QeMaterialReservationItem $item): string => $this->baseCode($item->designator?->code),
         );
 
         if ($hasPlan) {
-            $planItems = ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type));
+            $planItems = ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type, $item->designator_code));
             $coveredBases = $planItems
                 ->map(fn (QeBoqItem $item): string => $this->baseCode($item->designator_code))
                 ->filter()->unique();
@@ -184,7 +185,7 @@ class LopBoqProjectionService
                 code: $material?->code ?? '—',
                 name: $material?->item_name ?? 'Designator tidak ditemukan',
                 unit: $material?->unit,
-                type: 'MATERIAL',
+                type: mb_strtoupper($material?->type?->code ?? 'MATERIAL'),
                 qty: (float) $item->qty,
                 qtyActual: $item->qty_actual === null ? null : (float) $item->qty_actual,
                 price: $this->price($prices, $item->designator_id),
@@ -270,16 +271,16 @@ class LopBoqProjectionService
 
     private function baseCode(?string $code): string
     {
-        $normalized = mb_strtoupper(trim((string) $code));
-
-        return preg_replace('/^[MJ]-/', '', $normalized) ?? $normalized;
+        return ReservedDesignatorRules::matchKey($code);
     }
 
     private function serviceCode(?string $materialCode): ?string
     {
         $code = mb_strtoupper(trim((string) $materialCode));
 
-        return str_starts_with($code, 'M-') ? 'J-'.mb_substr($code, 2) : null;
+        $service = str_starts_with($code, 'M-') ? 'J-'.mb_substr($code, 2) : null;
+
+        return ReservedDesignatorRules::fixedActual($service) ? null : $service;
     }
 
     private function price(Collection $prices, int|string|null $designatorId): ?float

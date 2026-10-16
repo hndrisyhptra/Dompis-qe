@@ -15,6 +15,8 @@
     $stepShortLabels = [1 => 'Reservasi', 2 => 'Material', 3 => 'Pra', 4 => 'Progress', 5 => 'After'];
     $currentEvidence = $stepEvidence[$currentStep];
     $currentGroups = $currentEvidence->groupBy(fn ($item) => ($item->category?->value ?? $item->step->value).'-'.($item->designator_id ?? 'global'));
+    $optionalCategory = match ($currentStep) { 3 => 'insera', 5 => 'slot_port', default => null };
+    $optionalChoice = $optionalCategory ? ($lop->optional_capture_choices[$optionalCategory] ?? null) : null;
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -83,6 +85,12 @@
         <section>
             <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[.14em] text-brand-600">Step {{ $currentStep }}</p><h2 class="mt-1 text-xl font-extrabold">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Buka kelompok evidence untuk melihat seluruh foto, lalu approve, reject, atau reset review per foto.</p></div><p class="text-xs font-bold text-ink-500">{{ $currentGroups->count() }} kelompok · {{ $currentEvidence->count() }} file</p></div>
             <div class="space-y-3">
+                @if ($optionalChoice)
+                    <div class="rounded-xl border border-ink-200 bg-white p-4 text-sm dark:border-ink-700 dark:bg-ink-900">
+                        <p class="font-bold">{{ \App\Enums\EvidenceCategory::from($optionalCategory)->label() }}</p>
+                        <p class="mt-1 text-xs text-ink-500">Pilihan teknisi: Tidak Ada — tersimpan pada pencatatan LOP, bukan evidence yang perlu diapprove.</p>
+                    </div>
+                @endif
                 @forelse($currentGroups as $items)
                     @php
                         $first = $items->first();

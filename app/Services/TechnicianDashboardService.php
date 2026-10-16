@@ -14,7 +14,7 @@ class TechnicianDashboardService
     public function projectsQuery(User $technician): Builder
     {
         return QeLop::query()
-            ->with(['activeAssignment.technician', 'materialReservation.items', 'survey', 'evidences'])
+            ->with(['activeAssignment.technician', 'materialReservation.items.designator', 'boq.items.designator', 'survey', 'evidences'])
             ->whereHas('assignments', fn (Builder $query) => $query
                 ->where('technician_id', $technician->id_user));
     }

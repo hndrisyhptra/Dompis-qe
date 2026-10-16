@@ -11,6 +11,7 @@ use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\User;
 use App\Support\MaterialReservationRules;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,9 +39,9 @@ class BoqService
             if (! MaterialReservationRules::editable($lop)) {
                 throw ValidationException::withMessages(['boq' => 'BOQ terkunci karena LOP Completed. Reset LOP terlebih dahulu.']);
             }
-            $eligible = array_values(array_filter($normalized, fn (array $item) => $lop->program_type->allowsBoqType($item['type'])));
+            $eligible = array_values(array_filter($normalized, fn (array $item) => $lop->program_type->allowsBoqType($item['type'], $item['designator_code'])));
             if (count($eligible) !== count($normalized) && ! in_array($source, ['import', 'legacy_import'], true)) {
-                throw ValidationException::withMessages(['items' => 'Program ini hanya menerima item MATERIAL. Item JASA hanya untuk QE Relok Utilitas.']);
+                throw ValidationException::withMessages(['items' => 'Program ini menerima MATERIAL serta J-CO-OF, J-Coring, J-OS-SM-1. JASA lainnya hanya untuk QE Relok Utilitas.']);
             }
             $normalized = $eligible;
             if ($normalized === []) {
@@ -100,7 +101,7 @@ class BoqService
                 $source === 'import' ? 'BOQ diperbarui melalui import.' : 'BOQ diperbarui melalui Master Data.'
             );
 
-            $newMaterialIds = collect($normalized)->where('type', 'MATERIAL')->pluck('designator_id')
+            $newMaterialIds = collect($normalized)->filter(fn ($item) => ReservedDesignatorRules::eligible($item['type'], $item['designator_code']))->pluck('designator_id')
                 ->diff(collect($before['items'] ?? [])->pluck('designator_id'));
             if ($lop->status_lop === LopStatus::WAITING_APPROVAL && $newMaterialIds->isNotEmpty()) {
                 app(LopService::class)->transitionStatus($lop, LopStatus::PROGRESS, $actor, 'BOQ mendapat material tambahan; teknisi perlu melengkapi evidence dan rekap aktual lalu mengajukan kembali.');
@@ -148,7 +149,7 @@ class BoqService
 
         $lop->loadMissing(['boq.items', 'materialReservation.items']);
         $materialItems = $lop->boq?->items
-            ->where('type', 'MATERIAL')
+            ->filter(fn ($item) => ReservedDesignatorRules::eligible($item->type, $item->designator_code))
             ->map(fn ($item) => [
                 'designator_id' => $item->designator_id,
                 'qty' => $item->qty,
@@ -214,7 +215,7 @@ class BoqService
 
         $reservation = $lop->materialReservation;
         $targetItems = $lop->boq?->items
-            ->where('type', 'MATERIAL')
+            ->filter(fn ($item) => ReservedDesignatorRules::eligible($item->type, $item->designator_code))
             ->keyBy('designator_id') ?? collect();
         $evidenceDesignatorIds = $lop->evidences()
             ->whereNotNull('designator_id')

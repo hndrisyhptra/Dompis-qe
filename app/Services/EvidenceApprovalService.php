@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,17 @@ class EvidenceApprovalService
                 throw ValidationException::withMessages([
                     'review' => 'Review belum bisa diselesaikan. Semua evidence harus berstatus disetujui — jika ada yang ditolak, tunggu teknisi memperbaikinya lalu review ulang.',
                 ]);
+            }
+
+            $specialItems = ReservedDesignatorRules::workflowItems($lop)
+                ->filter(fn ($item) => ReservedDesignatorRules::fixedActual($item->designator?->code));
+            foreach ($specialItems as $item) {
+                $proof = $lop->evidences->where('designator_id', $item->designator_id)->where('status', EvidenceStatus::APPROVED);
+                if (! $item->exists || ! ReservedDesignatorRules::actualComplete($item)
+                    || $proof->where('category', EvidenceCategory::PROGRESS)->isEmpty()
+                    || $proof->where('category', EvidenceCategory::AFTER)->isEmpty()) {
+                    throw ValidationException::withMessages(['review' => 'Jasa khusus wajib qty aktual sesuai reservasi serta evidence Progress dan After yang approved. Minta teknisi melengkapi terlebih dahulu.']);
+                }
             }
 
             $this->lopService->transitionStatus(

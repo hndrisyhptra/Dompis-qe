@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Notifications\TechnicianActivityNotification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -87,7 +88,7 @@ class EvidenceService
                 ? (str_starts_with((string) $file->getMimeType(), 'image/') ? EvidenceType::PHOTO : EvidenceType::DOCUMENT)
                 : $data['type'];
 
-            return QeEvidence::create([
+            $evidence = QeEvidence::create([
                 'qe_lop_id' => $lop->id_qe_lops,
                 'designator_id' => $data['designator_id'] ?? null,
                 'uploaded_by' => $actor->id_user,
@@ -109,6 +110,11 @@ class EvidenceService
                 // evidence hasil pekerjaan yang perlu masuk antrean approval.
                 'status' => $isRequestLetter ? EvidenceStatus::APPROVED : EvidenceStatus::PENDING,
             ]);
+            if ($category?->isOptionalCapture() && isset(($lop->optional_capture_choices ?? [])[$category->value])) {
+                $this->lopService->recordOptionalCaptureChoice($lop, $actor, $category, false);
+            }
+
+            return $evidence;
         } catch (Throwable $exception) {
             Storage::disk($this->disk())->delete(array_filter([$path, $thumbPath]));
             throw $exception;
@@ -313,10 +319,11 @@ class EvidenceService
 
     public function resetReview(QeEvidence $evidence, User $actor): QeEvidence
     {
-        $previousStatus = $evidence->status;
-
-        $evidence = DB::transaction(function () use ($evidence, $actor, $previousStatus) {
-            $this->lockActiveLop($evidence);
+        $evidence = DB::transaction(function () use ($evidence, $actor) {
+            $lop = $this->lockActiveLop($evidence);
+            $evidence = QeEvidence::query()->lockForUpdate()->findOrFail($evidence->getKey())->setRelation('lop', $lop);
+            Gate::forUser($actor)->authorize('resetReview', $evidence);
+            $previousStatus = $evidence->status;
             $metadata = $evidence->metadata ?? [];
             $reviewResets = $metadata['review_resets'] ?? [];
             $reviewResets[] = [
@@ -336,7 +343,10 @@ class EvidenceService
                 'metadata' => [...$metadata, 'review_resets' => $reviewResets],
             ]);
 
-            $lop = $evidence->lop()->first();
+            if ($lop->status_lop === LopStatus::COMPLETED) {
+                $this->lopService->transitionStatus($lop, LopStatus::PROGRESS, $actor, 'Review evidence Completed direset untuk koreksi; LOP perlu diajukan dan diselesaikan kembali.');
+                $lop->materialReservation()->update(['status' => 'draft', 'submitted_at' => null]);
+            }
             if (
                 $previousStatus === EvidenceStatus::REJECTED
                 && $lop?->status_lop === LopStatus::REJECTED
@@ -366,12 +376,20 @@ class EvidenceService
         return $evidence;
     }
 
-    public function delete(QeEvidence $evidence): void
+    public function delete(QeEvidence $evidence, User $actor): void
     {
-        DB::transaction(function () use ($evidence) {
-            $this->lockActiveLop($evidence);
-            Storage::disk($this->disk())->delete(array_filter([$evidence->file_path, $evidence->thumb_path]));
+        DB::transaction(function () use ($evidence, $actor) {
+            $lop = $this->lockActiveLop($evidence);
+            $evidence = QeEvidence::query()->lockForUpdate()->findOrFail($evidence->getKey())->setRelation('lop', $lop);
+            Gate::forUser($actor)->authorize('delete', $evidence);
+            $paths = array_filter([$evidence->file_path, $evidence->thumb_path]);
+            $this->lopService->recordEvidenceDeletion($lop, $actor, $evidence);
             $evidence->delete();
+            if ($evidence->category !== EvidenceCategory::REQUEST_LETTER && in_array($lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::REJECTED, LopStatus::COMPLETED], true)) {
+                $this->lopService->transitionStatus($lop, LopStatus::PROGRESS, $actor, 'Evidence dihapus untuk koreksi; lengkapi dan ajukan kembali.');
+                $lop->materialReservation()->update(['status' => 'draft', 'submitted_at' => null]);
+            }
+            DB::afterCommit(fn () => Storage::disk($this->disk())->delete($paths));
         });
     }
 

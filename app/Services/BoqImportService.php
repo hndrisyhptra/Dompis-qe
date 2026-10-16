@@ -99,7 +99,7 @@ class BoqImportService
             $rawQty = trim((string) ($row['qty'] ?? ''));
             $status = 'ready';
 
-            $excluded = ! $lop->program_type->allowsBoqType($row['type']);
+            $excluded = ! $lop->program_type->allowsBoqType($row['type'], $code);
             if ($excluded || $rawQty === '' || ($qty !== null && $qty <= 0)) {
                 $status = 'skipped';
                 $totals['skipped_count']++;

@@ -49,6 +49,7 @@ class QeLop extends Model
         'boq_snapshot',
         'status_lop',
         'status_aiss',
+        'optional_capture_choices',
         'created_by',
     ];
 
@@ -97,6 +98,7 @@ class QeLop extends Model
             'segment' => 'array',
             'budget_type' => LopBudgetType::class,
             'status_lop' => LopStatus::class,
+            'optional_capture_choices' => 'array',
             'datek' => 'array',
             'boq_snapshot' => 'array',
         ];

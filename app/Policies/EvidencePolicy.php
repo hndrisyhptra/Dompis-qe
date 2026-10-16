@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
+use App\Enums\LopStatus;
 use App\Enums\UserRole;
 use App\Models\QeEvidence;
 use App\Models\User;
@@ -52,7 +53,7 @@ class EvidencePolicy
     }
 
     /**
-     * Hapus evidence milik sendiri, selama masih pending (belum direview).
+     * Foto approved terkunci bagi teknisi sampai review direset admin.
      */
     public function delete(User $user, QeEvidence $evidence): bool
     {
@@ -60,12 +61,19 @@ class EvidencePolicy
             return false;
         }
 
-        if ($user->hasRole(...UserRole::adminLevel())) {
+        if ($user->hasRole(UserRole::SUPER_ADMIN)) {
             return true;
         }
+        if ($user->hasRole(UserRole::ADMIN)) {
+            return $this->visibility->canAccess($user, $evidence->lop);
+        }
 
-        return $evidence->uploaded_by === $user->id_user
-            && $evidence->status === EvidenceStatus::PENDING;
+        return $user->hasRole(UserRole::TEKNISI)
+            && (int) $evidence->uploaded_by === (int) $user->id_user
+            && $evidence->status !== EvidenceStatus::APPROVED
+            && $evidence->category !== EvidenceCategory::REQUEST_LETTER
+            && in_array($evidence->lop->status_lop, [LopStatus::PICKED_UP, LopStatus::SURVEY, LopStatus::PROGRESS, LopStatus::WAITING_APPROVAL, LopStatus::REJECTED], true)
+            && $this->activelyAssigned($user, $evidence);
     }
 
     public function approve(User $user, QeEvidence $evidence): bool
@@ -83,6 +91,7 @@ class EvidencePolicy
     public function resetReview(User $user, QeEvidence $evidence): bool
     {
         return $this->canReview($user, $evidence)
+            && ($evidence->lop->status_lop !== LopStatus::COMPLETED || $user->hasRole(...UserRole::adminLevel()))
             && $evidence->status !== EvidenceStatus::PENDING;
     }
 
@@ -92,10 +101,16 @@ class EvidencePolicy
             return false;
         }
 
-        return $evidence->lop->assignments()
-            ->where('technician_id', $user->id_user)
-            ->where('status', 'active')
-            ->exists();
+        return $this->activelyAssigned($user, $evidence);
+    }
+
+    private function activelyAssigned(User $user, QeEvidence $evidence): bool
+    {
+        if ($evidence->lop->relationLoaded('activeAssignment')) {
+            return (int) $evidence->lop->activeAssignment?->technician_id === (int) $user->getKey();
+        }
+
+        return $evidence->lop->assignments()->where('technician_id', $user->getKey())->where('status', 'active')->exists();
     }
 
     private function canReview(User $user, QeEvidence $evidence): bool

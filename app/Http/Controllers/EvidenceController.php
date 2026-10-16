@@ -34,9 +34,10 @@ class EvidenceController extends Controller
 
     public function destroy(QeLop $qe_lop, QeEvidence $evidence): RedirectResponse
     {
+        abort_unless((int) $evidence->qe_lop_id === (int) $qe_lop->getKey(), 404);
         $this->authorize('delete', $evidence);
 
-        $this->evidenceService->delete($evidence);
+        $this->evidenceService->delete($evidence, request()->user());
 
         return redirect()
             ->to(LopReturnDestination::resolve(request(), route('lop.show', $qe_lop)))

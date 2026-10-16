@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Enums\AssignmentStatus;
+use App\Enums\EvidenceCategory;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
 use App\Enums\ProjectStatus;
+use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\QeLopAssignment;
 use App\Models\QeLopHistory;
@@ -283,7 +286,7 @@ class LopService
         if ($current === LopStatus::COMPLETED) {
             Gate::forUser($actor)->authorize('resetBoq', $lop);
         } elseif ($current === LopStatus::WAITING_APPROVAL && $target === LopStatus::PROGRESS) {
-            Gate::forUser($actor)->authorize('update', $lop);
+            Gate::forUser($actor)->authorize($actor->hasRole(UserRole::TEKNISI) ? 'correctEvidence' : 'update', $lop);
         }
 
         if (! $current->canTransitionTo($target)) {
@@ -322,6 +325,32 @@ class LopService
         $history->update(['meta' => ['before' => $before, 'after' => $after]]);
 
         return $history;
+    }
+
+    public function recordOptionalCaptureChoice(QeLop $lop, User $actor, EvidenceCategory $category, bool $unavailable): void
+    {
+        $choices = $lop->optional_capture_choices ?? [];
+        $before = $choices[$category->value] ?? null;
+        if (($before !== null) === $unavailable) {
+            return;
+        }
+        if ($unavailable) {
+            $choices[$category->value] = ['unavailable' => true, 'user_id' => $actor->getKey(), 'recorded_at' => now()->toIso8601String()];
+        } else {
+            unset($choices[$category->value]);
+        }
+        DB::table('qe_lops')->where('id_qe_lops', $lop->getKey())->update([
+            'optional_capture_choices' => $choices === [] ? null : json_encode($choices, JSON_THROW_ON_ERROR), 'updated_at' => now(),
+        ]);
+        $lop->setAttribute('optional_capture_choices', $choices);
+        $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, 'optional_capture_choice', $category->label().($unavailable ? ': Tidak Ada' : ': pilihan Tidak Ada dibatalkan'))
+            ->update(['meta' => ['category' => $category->value, 'before' => $before, 'after' => $choices[$category->value] ?? null]]);
+    }
+
+    public function recordEvidenceDeletion(QeLop $lop, User $actor, QeEvidence $evidence): void
+    {
+        $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, 'evidence_deleted', 'Evidence dihapus untuk koreksi.')
+            ->update(['meta' => ['evidence_id' => $evidence->getKey(), 'category' => $evidence->category?->value, 'status' => $evidence->status->value, 'designator_id' => $evidence->designator_id]]);
     }
 
     public function resetCompletedForBoq(QeLop $lop, User $actor): QeLop

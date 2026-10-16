@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\ReservedDesignatorRules;
+
 enum ProgramType: string
 {
     case RECOVERY = 'recovery';
@@ -59,9 +61,10 @@ enum ProgramType: string
         return $this === self::RELOK_UTILITAS;
     }
 
-    public function allowsBoqType(string $type): bool
+    public function allowsBoqType(string $type, ?string $designatorCode = null): bool
     {
-        return in_array(mb_strtoupper(trim($type)), $this->includesBoqServices() ? ['MATERIAL', 'JASA'] : ['MATERIAL'], true);
+        return in_array(mb_strtoupper(trim($type)), $this->includesBoqServices() ? ['MATERIAL', 'JASA'] : ['MATERIAL'], true)
+            || ReservedDesignatorRules::fixedActual($designatorCode);
     }
 
     public function incidentTicketType(): ?string

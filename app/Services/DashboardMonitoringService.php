@@ -216,6 +216,8 @@ class DashboardMonitoringService
                 'created' => 'LOP dibuat', 'reassigned' => 'Reassign Teknisi', 'deleted' => 'LOP dihapus',
                 'reservation_updated' => 'Update BOQ Aktual / Reservasi',
                 'aiss_status_updated' => 'Update Status AISS',
+                'optional_capture_choice' => 'Pilihan Capture Opsional',
+                'evidence_deleted' => 'Hapus Evidence',
                 'status_change', 'status_changed' => 'Status → '.(LopStatus::tryFrom((string) $event->status_key)?->label() ?? 'Diperbarui'),
                 default => 'Aktivitas LOP',
             },

@@ -10,6 +10,7 @@
         'name' => $designator->item_name,
         'unit' => $designator->unit,
         'type' => $designator->type?->code,
+        'fixed_actual' => \App\Support\ReservedDesignatorRules::fixedActual($designator->code),
     ])->values();
 @endphp
 
@@ -119,7 +120,7 @@
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
                                 <span class="mt-2 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[9px] font-bold text-ink-500 dark:bg-ink-800">{{ $boq->lop->status_lop->label() }}</span>
                             </td>
-                            <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material saja' }}</p></td>
+                            <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material + jasa khusus jika ada' }}</p></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $materialTotal, 0, ',', '.') }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</td>

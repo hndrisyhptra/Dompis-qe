@@ -121,6 +121,20 @@ class QeLopPolicy
         return $this->update($user, $lop) && $lop->status_lop->value === 'completed';
     }
 
+    public function setOptionalCaptureChoice(User $user, QeLop $lop): bool
+    {
+        return $user->hasRole(UserRole::TEKNISI)
+            && in_array($lop->status_lop->value, ['picked_up', 'survey', 'progress'], true)
+            && $lop->assignments()->where('technician_id', $user->getKey())->where('status', 'active')->exists();
+    }
+
+    public function correctEvidence(User $user, QeLop $lop): bool
+    {
+        return $user->hasRole(UserRole::TEKNISI)
+            && $lop->status_lop->value === 'waiting_approval'
+            && $lop->assignments()->where('technician_id', $user->getKey())->where('status', 'active')->exists();
+    }
+
     public function transitionStatus(User $user, QeLop $lop): bool
     {
         // LOP selesai hanya dibuka lewat aksi reset dengan konfirmasi.

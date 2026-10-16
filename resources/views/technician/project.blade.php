@@ -80,7 +80,7 @@
 
 @if ($lop->status_lop !== \App\Enums\LopStatus::ASSIGNED)
     @if ($readOnly)
-        <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Mode review: pilih tahap untuk melihat evidence dan statusnya. Reservasi, lokasi, dan rekap material hanya dapat ditinjau.</p>
+        <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Pilih tahap untuk melihat evidence. Foto milik Anda yang belum approved dapat dihapus untuk koreksi. Foto approved harus direset admin terlebih dahulu.</p>
         @include('technician.partials.step-review')
     @else
     @if ($step === 1)
@@ -94,7 +94,7 @@
             ])->values();
         @endphp
         <section class="mt-5" x-data="{ items: {{ Illuminate\Support\Js::from($materialRows) }}, materials: {{ Illuminate\Support\Js::from($materialOptions) }} }">
-            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih item material saja. Pasangan jasa akan masuk otomatis ke perhitungan BOQ Actual dan tidak ditampilkan di reservasi.</p></div>
+            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih material atau jasa khusus J-CO-OF, J-Coring, J-OS-SM-1. Jasa khusus wajib evidence Progress/After dan qty aktual mengikuti reservasi. Jasa lainnya tetap mengikuti aturan program.</p></div>
             <div class="mb-3 flex items-center justify-between gap-3 rounded-2xl border {{ $reservationPackage['package'] ? 'border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30' }} px-4 py-3">
                 <div><p class="text-[9px] font-extrabold uppercase tracking-wider {{ $reservationPackage['package'] ? 'text-blue-600 dark:text-blue-300' : 'text-amber-600 dark:text-amber-300' }}">Paket harga reservasi</p><p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white">{{ $reservationPackage['package']?->name ?? $reservationPackage['expected_code'] ?? 'Belum tersedia' }}</p></div>
                 <span class="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-bold text-ink-600 shadow-sm dark:bg-ink-900/70 dark:text-ink-300">{{ $reservationPackage['source'] }}</span>
@@ -232,7 +232,8 @@
                     'name' => $item->designator->item_name,
                     'unit' => $item->designator->unit,
                     'reserved' => (int) round((float) $item->qty),
-                    'actual' => $item->qty_actual !== null ? (float) $item->qty_actual : '',
+                    'fixed_actual' => \App\Support\ReservedDesignatorRules::fixedActual($item->designator->code),
+                    'actual' => \App\Support\ReservedDesignatorRules::fixedActual($item->designator->code) ? (float) $item->qty : ($item->qty_actual !== null ? (float) $item->qty_actual : ''),
                 ])->values();
             @endphp
             <section x-data="{ usage: {{ Illuminate\Support\Js::from($usageRows) }}, get invalid() { return this.usage.some(u => u.actual === '' || u.actual === null || Number(u.actual) < 0 || Number(u.actual) > u.reserved); } }"
@@ -249,11 +250,13 @@
                                 <div class="min-w-0">
                                     <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Terpakai</label>
                                     <input type="number" min="0" step="0.001" :max="u.reserved" x-model="u.actual" required
+                                           :readonly="u.fixed_actual"
                                            :name="`usage[${i}][qty_actual]`"
                                            class="mt-1 min-h-11 w-28 rounded-xl border bg-white px-2 text-sm font-bold dark:bg-ink-800"
                                            :class="(u.actual !== '' && Number(u.actual) > u.reserved) ? 'border-brand-400' : 'border-ink-100 dark:border-ink-700'">
                                 </div>
                                 <div class="pb-2 text-[11px] text-ink-500">
+                                    <p x-show="u.fixed_actual" class="mb-1 font-semibold text-brand-600">Otomatis sesuai qty reservasi/BOQ Plan</p>
                                     <span>Reservasi <span class="font-bold" x-text="u.reserved"></span> <span x-text="u.unit"></span></span>
                                     <template x-if="u.actual !== '' && Number(u.actual) >= 0 && Number(u.actual) < u.reserved">
                                         <span class="ml-2 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">Sisa <span x-text="+(u.reserved - Number(u.actual)).toFixed(3)"></span> <span x-text="u.unit"></span></span>

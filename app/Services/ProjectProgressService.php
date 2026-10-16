@@ -6,6 +6,7 @@ use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\LopStatus;
 use App\Models\QeLop;
+use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Collection;
 
 class ProjectProgressService
@@ -29,7 +30,7 @@ class ProjectProgressService
     {
         $lop->loadMissing(['materialReservation.items', 'survey', 'evidences']);
 
-        $items = $lop->materialReservation?->items ?? collect();
+        $items = ReservedDesignatorRules::workflowItems($lop);
         $evidences = $lop->evidences;
         $reviewableEvidences = $evidences->reject(
             fn ($evidence) => $evidence->category === EvidenceCategory::REQUEST_LETTER
@@ -39,7 +40,7 @@ class ProjectProgressService
         $afterIds = $evidences->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
         $steps = [
-            1 => $items->isNotEmpty(),
+            1 => $items->isNotEmpty() && $items->every(fn ($item) => $item->exists),
             2 => $items->isNotEmpty()
                 && $evidences->where('category', EvidenceCategory::MATERIAL_ARRIVAL)->isNotEmpty(),
             // Pra wajib lokasi dan foto kondisi awal; capture Insera opsional.
@@ -49,7 +50,7 @@ class ProjectProgressService
             4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()
-                && $items->every(fn ($item) => $item->qty_actual !== null),
+                && $items->every(fn ($item) => $item->exists && ReservedDesignatorRules::actualComplete($item)),
         ];
 
         $totalSteps = count($steps);

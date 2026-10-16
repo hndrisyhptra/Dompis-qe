@@ -249,7 +249,7 @@ class LopExcelImportService
             }
 
             $status = 'ok';
-            $excluded = ! (ProgramType::tryFrom($program) ?? ProgramType::RECOVERY)->allowsBoqType($type);
+            $excluded = ! (ProgramType::tryFrom($program) ?? ProgramType::RECOVERY)->allowsBoqType($type, $code);
             if ($excluded || $vol === null || $vol <= 0) {
                 // VOL kosong/0 = tidak dipakai (bukan error)
                 $status = 'skipped';

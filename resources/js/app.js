@@ -76,7 +76,10 @@ window.evidenceUploader = (options = {}) => ({
     endpoint: options.endpoint ?? null, // set => mode antrean async per-file
     maxFiles: options.maxFiles ?? 12,
     optional: options.optional ?? false,
-    optionalSkipped: false,
+    optionalSkipped: options.optionalSkipped ?? false,
+    choiceEndpoint: options.choiceEndpoint ?? null,
+    optionalSaving: false,
+    optionalError: "",
     selectionError: "",
     meta: {
         category: options.category ?? null,
@@ -117,14 +120,45 @@ window.evidenceUploader = (options = {}) => ({
 
     // ---- mode antrean (endpoint) --------------------------------------
 
-    skipOptional() {
-        if (!this.optional || this.queueActive) return;
-        this.optionalSkipped = true;
-        this.selectionError = "";
+    async skipOptional() {
+        return this.saveOptional(true);
+    },
+
+    async saveOptional(unavailable) {
+        if (!this.optional || !this.choiceEndpoint || this.queueActive || this.files.length || this.optionalSaving) return false;
+        if (this.optionalSkipped === unavailable) return true;
+        this.optionalSaving = true;
+        this.optionalError = "";
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        try {
+            const response = await fetch(this.choiceEndpoint, {
+                method: "PUT", credentials: "same-origin", signal: controller.signal,
+                headers: {
+                    "Accept": "application/json", "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content ?? "",
+                },
+                body: JSON.stringify({ category: this.meta.category, unavailable }),
+            });
+            const result = await response.json();
+            if (!response.ok || result.unavailable !== unavailable) {
+                throw new Error(response.status === 419 ? "Sesi kedaluwarsa. Muat ulang halaman sebelum menyimpan." : (Object.values(result.errors ?? {}).flat()[0] || result.message || "Pilihan belum berhasil disimpan."));
+            }
+            this.optionalSkipped = unavailable;
+            this.selectionError = "";
+            return true;
+        } catch (error) {
+            this.optionalError = error.name === "AbortError" ? "Penyimpanan melewati batas waktu. Coba lagi." : (error.message || "Koneksi bermasalah. Pilihan belum tersimpan.");
+            return false;
+        } finally {
+            clearTimeout(timeout);
+            this.optionalSaving = false;
+        }
     },
 
     async selectQueue(event) {
-        this.optionalSkipped = false;
+        if (!event.target.files.length) return;
+        if (this.optionalSkipped && !(await this.saveOptional(false))) return;
         this.selectionError = "";
         const available = Math.max(0, this.maxFiles - this.queue.length);
         const allPicked = Array.from(event.target.files);
@@ -1376,7 +1410,7 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
         items: withSearch(JSON.parse(JSON.stringify(initialItems))),
         // Daftar master designator disisipkan sekali per halaman, bukan sekali
         // untuk setiap baris BOQ. Ini menjaga HTML tetap kecil saat pagination penuh.
-        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL'),
+        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL' || option.fixed_actual === true),
 
         openEdit() {
             this.items = withSearch(

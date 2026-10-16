@@ -3,7 +3,7 @@
 Terakhir diaudit: **16 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `e0cefe6` (`fix: Button Download`)
+HEAD dasar saat audit terbaru: `e4e5601` (`feat: Button Download di Data LOP`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -48,7 +48,7 @@ Stack utama:
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
-Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin dan penghapusan filter bulan sudah masuk `e0cefe6`. Worktree bersih saat memulai Download Data LOP sesuai filter (7.46); fitur tersebut beserta regression test/dokumentasi menjadi perubahan kerja terbaru. Status migration/konfigurasi server tidak diverifikasi ulang.
+Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Worktree bersih saat memulai aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47). Perubahan task tersebut beserta migration yang belum dijalankan, regression test dan dokumentasi menjadi perubahan kerja terbaru.
 
 ### 2.3 Status migration lokal
 
@@ -61,6 +61,8 @@ Pembaruan audit read-only 12 Oktober 2026: migration Relok Tiang kini tercatat *
 Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap server produksi sama; periksa `migrate:status` di server setelah pull.
 
 15 Oktober 2026 — Import AISS menambah migration `2026_10_15_000001_add_status_aiss_to_qe_lops_table.php` (nullable varchar 255). Migration baru belum dijalankan pada sesi ini. Percobaan audit read-only `migrate:status` dan `db:table qe_lops` terhalang sandbox dengan Operation not permitted pada koneksi MySQL lokal; schema/ledger lokal terkini tidak terverifikasi. Halaman Import AISS memeriksa kolom dan menonaktifkan upload jika migration belum tersedia. Memerlukan izin eksplisit sebelum migration lokal/produksi.
+
+16 Oktober 2026 — Migration `2026_10_16_000001_add_optional_capture_choices_to_qe_lops_table.php` menambah satu kolom JSON nullable untuk dua pilihan capture (bukan evidence dummy). Belum dijalankan pada database operasional; audit read-only migrate:status serta db:table qe_lops/qe_lop_histories tidak dapat terkoneksi dari environment sesi ini. Endpoint pilihan memberi validasi yang aman jika kolom belum tersedia. Rollback menolak menghapus kolom berisi pilihan. Minta izin terpisah sebelum menjalankan migration spesifik; jangan sekaligus menjalankan migration AISS yang belum disetujui.
 
 ## 3. Arsitektur Aplikasi
 
@@ -185,13 +187,13 @@ Saat Waiting Approval, Completed, atau Rejected, seluruh lima tahap tetap dapat 
 - Item BOQ dapat dicari, ditambah, diedit, dan dihapus selama aturan status mengizinkan.
 - Card BOQ Aktual dari Reservasi Teknisi mempunyai tombol Edit BOQ Aktual per LOP. Admin sesuai scope/Super Admin dapat menambah material, menghapus item yang belum punya evidence/rekap, dan mengubah qty reservasi melalui modal dengan search designator dan konfirmasi. Qty actual tetap milik rekap teknisi; tidak membuat BOQ Plan palsu atau mengganti harga paket.
 - Waiting Approval boleh diedit oleh admin; jika menambah material baru, LOP kembali Progress agar evidence/rekap item baru dilengkapi dan diajukan ulang. Completed menampilkan ikon gembok ber-tooltip Terkunci serta tombol reset terkonfirmasi. Reset membuka status Progress tanpa menghapus evidence, keputusan review, penugasan, qty_actual, atau snapshot BOQ; nilai realisasi keluar sementara sampai LOP Completed lagi.
-- Saat assign, item material BOQ mengisi `qe_material_reservation_items.qty` sebagai kuantitas rencana.
+- Saat assign, item material dan tiga jasa khusus dari BOQ mengisi `qe_material_reservation_items.qty` sebagai kuantitas rencana.
 - Teknisi mengisi `qe_material_reservation_items.qty_actual` sebagai kuantitas realisasi; tidak ada tabel BOQ Plan terpisah.
 - Jika BOQ tidak ada, reservasi teknisi menjadi fallback Data BOQ dan perhitungan nilai sesuai aturan service.
 - Detail LOP dan Detail Data BOQ memisahkan tiga proyeksi: BOQ Plan dari snapshot import, BOQ Actual dari `qty_actual`, dan Sisa Material dari selisih reservasi dengan aktual.
-- QE Recovery tidak memiliki BOQ Plan. Recovery, Preventive, dan Relok Tiang hanya menghitung/menampilkan `MATERIAL`; hanya Relok Utilitas boleh `MATERIAL` dan `JASA`. Aturan kategori canonical berada pada `ProgramType::allowsBoqType()` / `includesBoqServices()`.
+- QE Recovery tidak memiliki BOQ Plan. Recovery, Preventive, dan Relok Tiang menghitung/menampilkan MATERIAL ditambah pengecualian J-CO-OF, J-Coring, J-OS-SM-1; Relok Utilitas tetap boleh seluruh MATERIAL/JASA. User mengonfirmasi tiga pengecualian ikut BOQ/Revenue pada semua program. Aturan canonical berada pada `ReservedDesignatorRules` dan `ProgramType::allowsBoqType(type, code)`; includesBoqServices tetap hanya Utilitas untuk pasangan jasa biasa.
 - Pasangan `JASA` otomatis berdasarkan kode `M-...` -> `J-...` hanya berlaku untuk fallback reservasi/tambahan material Relok Utilitas. Snapshot import tetap memakai item dan harga tersimpan.
-- Pasangan jasa virtual tidak disimpan ke `qe_material_reservation_items`, sehingga UI reservasi dan evidence tetap hanya per item material.
+- Pasangan jasa biasa virtual tidak disimpan ke reservasi. Tiga jasa khusus justru menjadi item reservasi eksplisit dengan evidence Progress/After sendiri dan qty_actual harus sama qty reservasi/BOQ. Jangan menghitung ketiganya lagi sebagai pasangan otomatis dari material dengan kode dasar sama. BOQ snapshot dan harga tersimpan tidak diubah massal.
 - Qty aplikasi diperlakukan sebagai bilangan bulat meskipun beberapa kolom database masih decimal untuk kompatibilitas.
 - Harga disimpan pada snapshot BOQ; jangan menghitung ulang histori BOQ dari harga master terbaru.
 
@@ -227,12 +229,13 @@ Pemilihan paket reservasi otomatis:
 - File asli dikompresi tanpa mengganti nama, MIME, atau ekstensi; thumbnail terpisah boleh WebP.
 - File ditampilkan melalui route terautentikasi, bukan mengandalkan URL storage publik langsung.
 - Preview dan hapus sebelum upload tersedia.
-- Capture Ticket Insera dan Capture Logic Slot Port opsional pada semua program. Card kosong menyediakan Upload jika ada/Tidak Ada; pilihan Tidak Ada hanya presentasi tanpa evidence dummy atau penanda wajib di database. File yang sudah diupload tetap mengikuti pending/approve/reject dan harus direview sebelum Completed.
+- Capture Ticket Insera dan Capture Logic Slot Port tetap opsional pada semua program. Klik Tidak Ada sekarang menyimpan deklarasi pada `qe_lops.optional_capture_choices` dan histori, dengan actor/waktu per kategori. Upload jika ada membatalkannya setelah respons sukses; upload foto baru juga menghapus deklarasi secara transactional. Tidak membuat evidence dummy atau mewajibkan deklarasi untuk melewati step. Foto yang ada tetap wajib review dan memblokir pilihan Tidak Ada sampai dihapus.
 - QE Preventive/Relok mempunyai dokumen pendukung multi-file `request_letter` (PDF/foto). Admin mengelolanya dari aksi LOP; teknisi melihatnya pada Step 3 dan dapat upload sendiri hanya bila admin belum menyediakan file.
 - Surat Permintaan tetap disimpan di `qe_evidences`, tetapi dikecualikan dari progres dan antrean approval karena bukan evidence hasil pekerjaan.
 - Galeri menampilkan pending, approved, rejected, serta alasan reject.
 - Approval dikelompokkan per LOP, step, evidence group, dan item designator.
 - Reviewer dapat approve, reject, reset, dan bulk approve per accordion/group.
+- Teknisi dengan assignment aktif boleh menghapus foto miliknya berstatus pending/rejected, dengan konfirmasi Ya/Tidak. Approved tetap terkunci sampai admin reset review. Hapus pada Waiting Approval/Rejected membuka Progress dan reservasi draft; foto lain/keputusan review tetap disimpan. Reset review pada Completed juga membuka Progress dan mengeluarkan nilai realisasi sementara sampai proses selesai ulang. Parent dan evidence dibaca fresh dengan row lock/authorization; file dihapus setelah commit, bukan sebelum transaksi dipastikan berhasil. Admin delete tetap dibatasi scope lokasi.
 - LOP selesai hanya bila semua evidence workflow yang dapat direview sudah approved.
 - Inbox Approval Saya memonitor LOP dengan assignment aktif oleh admin login, diiriskan dengan scope lokasi dan permission approve_evidence. Popup login sekali per login menampilkan pending serta LOP Waiting Approval yang seluruh evidence sudah approved namun belum Completed; tanpa polling/notifikasi terjadwal. Menu Approval Evidence umum tetap memuat seluruh scope admin, bukan hanya assignment miliknya.
 - Admin Area/Region/Branch dapat mereview seluruh evidence dalam scope lokasi. Admin Service Area tetap dibatasi scope service area, bukan hanya pembuat LOP.
@@ -283,6 +286,8 @@ Pemilihan paket reservasi otomatis:
 - `app/Services/TechnicianWorkflowService.php`
 - `app/Services/TechnicianDashboardService.php`
 - `app/Services/ProjectProgressService.php`
+- `app/Support/ReservedDesignatorRules.php`
+- `app/Http/Requests/StoreOptionalCaptureChoiceRequest.php`
 - `app/Http/Controllers/TechnicianController.php`
 - `app/Http/Controllers/TechnicianWorkflowController.php`
 - `resources/views/layouts/technician.blade.php`
@@ -378,7 +383,7 @@ Pemilihan paket reservasi otomatis:
 12. JATIM/JATENG DIY menggunakan Paket-5 dan BALNUS Paket-10 untuk fallback reservasi/nilai berbasis wilayah.
 13. File evidence asli harus mempertahankan ekstensi/MIME; thumbnail boleh WebP.
 14. Import multi-tabel harus transactional agar kegagalan tidak meninggalkan BOQ atau LOP parsial.
-15. BOQ Plan/Actual, ekspor, dan Revenue hanya MATERIAL untuk Recovery/Preventive/Relok Tiang; Relok Utilitas boleh MATERIAL + JASA. Data jasa historis tidak dihapus massal.
+15. BOQ Plan/Actual, ekspor, dan Revenue untuk Recovery/Preventive/Relok Tiang menerima MATERIAL serta tiga jasa khusus J-CO-OF/J-Coring/J-OS-SM-1. Relok Utilitas boleh seluruh MATERIAL/JASA. Tiga jasa khusus harus eksplisit di reservasi, dengan actual = qty reservasi dan evidence Progress/After sendiri; tidak diduplikasi sebagai pasangan virtual. Data jasa historis tidak dihapus massal.
 16. Capture Insera dan Capture Logic Slot Port tidak wajib untuk kelengkapan Pra/After. Jika diupload, keduanya tetap evidence reviewable, bukan dokumen exempt seperti Surat Permintaan.
 
 ## 7. Perubahan Terakhir
@@ -784,10 +789,23 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Verifikasi: **459 tests / 4733 assertions** Laravel dan **41 frontend tests** lulus. `DataLopExportTest` (8 tests / 142 assertions) membaca XLSX nyata: filter gabungan/individual dan q 0, seluruh scope/multi-STO/legacy/luar scope, arsip, pagination/chunk 255, formula/leading zero/date/count/null, fallback FK/reservasi, role tanpa middleware, parameter malformed, DOM form same-origin dan current-input/no page. Pint file PHP task, Vite build, view:cache, route registration, serta git diff --check lulus.
 - Layout dievaluasi dengan workbook sintetis dari exporter aplikasi dan pratinjau dua rentang memakai spreadsheet tooling; tidak ada data operasional yang diekspor. Renderer pratinjau dapat menampilkan identifier numerik-teks tanpa nol depan meskipun inspect dan XLSX asli mempertahankan nilai string; tipe/nilai/format teks diverifikasi terpisah dengan PhpSpreadsheet. Tidak ada verifikasi Excel native/browser/server aaPanel nyata, migration/write database operasional, dependency baru, commit/push, queue restart, atau deployment. Migration AISS tetap memerlukan izin terpisah bila belum dijalankan pada environment tujuan.
 
+### 7.47 Tiga designator khusus, deklarasi capture dan hapus evidence teknisi — 16 Oktober 2026
+
+- Requirement user: J-CO-OF, J-Coring, J-OS-SM-1 pada BOQ Plan/reservasi wajib terlihat di workflow, qty aktual mengikuti qty reservasi/BOQ, serta mempunyai evidence Progress dan After. Klarifikasi user mengizinkan nilainya ikut BOQ/Revenue pada seluruh program. Jasa lain tetap mengikuti kategori program existing; Recovery tetap tanpa Plan dan realisasi hanya Completed.
+- `ReservedDesignatorRules` menyimpan whitelist case-insensitive exact (bukan prefix/fuzzy), query picker reservasi, eligibility dan pemetaan kode. Dipakai import BOQ/legacy, save, assignment/sinkronisasi reservasi, editor admin/teknisi, proyeksi/Data BOQ/download per LOP dan keseluruhan, serta SQL Revenue seluruh scope. Pair J khusus tidak dibentuk otomatis dari M dengan kode dasar sama; J eksplisit memakai own reservation/qty_actual dan harga snapshot. Pasangan biasa Utilitas tetap existing. Tidak membuat master designator atau mengubah snapshot/data historis secara massal.
+- LOP lama yang BOQ-nya sudah memuat jasa khusus namun belum terreservasi menampilkan item rencana di Step 1 dan belum dianggap lengkap; GET tidak menulis data. Saat Simpan Reservasi, item khusus dari plan yang belum disertakan ikut ditambahkan. Save reservasi mempertahankan ID/actual item existing serta melindungi hapus item berevidence/actual, bukan menghapus seluruh reservasi. Progress/After menampilkan ketiga item dan checklist menolaknya bila proof belum ada/rejected. Qty aktual terisi otomatis readonly, request menolak nilai berbeda, service menyimpan qty reservasi yang fresh dalam lock. Summary/review BOQ memakai aturan kelengkapan sama. Complete Review juga menolak tiga item jika belum persisted, qty belum sesuai, atau Progress/After belum approved.
+- Pilihan Tidak Ada untuk insera/slot_port menyimpan `{unavailable,user_id,recorded_at}` per kategori di kolom JSON nullable baru. LopService menulis kolom terarah dan event optional_capture_choice tanpa mengubah status/legacy/BOQ. PUT `technician.projects.optional-capture` memakai role/auth, Form Request dan Gate assignment aktif/status kerja, lalu recheck parent lock. Kategori lain, project milik teknisi lain, read-only status dan pilihan yang menutupi file tersimpan ditolak. Pilihan sama idempotent. Pembatalan/upload baru mencatat histori dan menghapus marker; rollback upload mempertahankan marker. Tidak Ada tetap opsional, bukan evidence/review/count/progres dummy. UI teknisi memuat pilihan setelah reload; admin review dan tracking menampilkan keterangannya.
+- Frontend menunggu respons sebelum menandai tersimpan, memakai endpoint relatif, PUT same-origin dan CSRF; loading/disabled/error, timeout 15 detik, pencegahan klik ganda, serta proteksi file terpilih/error tetap tersedia. Tidak menyimpan pilihan palsu ketika offline/419/validasi gagal. Preview/retry/multiple upload dan format file existing dipertahankan.
+- DELETE `technician.projects.evidence.destroy` menampilkan konfirmasi per foto. Policy membatasi role Teknisi, uploader sendiri, assignment aktif, status bukan Completed, dan evidence bukan approved/dokumen exempt. Hapus pending/rejected pada Waiting Approval/Rejected membuka Progress melalui LopService, mencatat evidence_deleted dan mengembalikan reservasi draft. Admin scope tetap canonical; ID evidence milik parent lain ditolak. Service mengunci parent lalu membaca fresh evidence dan reauthorize agar model pending lama tidak menghapus foto yang baru diapprove. Physical file cleanup hanya setelah outer commit; rollback tidak merusak file asli. Policy di galeri memakai eager-loaded parent/assignment untuk menghindari query per foto; backend mutation tetap memakai data fresh.
+- Reset review menyimpan audit reviewer/note/waktu lama. Reset pada Completed khusus admin-level dan membuka Progress (nilai realisasi keluar sementara); teknisi lalu dapat menghapus foto pending dan melengkapi/mengajukan ulang. General endpoint transisi teknisi tetap tidak mengizinkan manipulasi status; izin Waiting Approval → Progress hanya dipakai koreksi evidence dengan active assignment. Dokumen Surat Permintaan tetap approval-exempt dan tidak mengikuti jalur hapus foto teknisi.
+- Verifikasi: **480 tests / 4927 assertions** Laravel dan **46 frontend tests** lulus; `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases / 194 assertions) meliputi empat program/all scopes/snapshot vs master/virtual pair, plan dan fallback/revenue/ekspor, CSV import whitelist, reservasi legacy tanpa write GET, fixed actual dan proof, completion guard, persistence/idempotency/role/state/file guard, reset Completed, stale model/parent/assignment, outer rollback/file retention, serta rollback migration berisi data. Regression lama ikut lulus. Pint file PHP task, Vite build, view:cache, route registration dan git diff --check lulus.
+- Migration JSON hanya diuji di SQLite test, **belum dijalankan pada MySQL lokal/produksi**. Audit DB read-only tidak dapat terkoneksi. Tidak ada import/upload/hapus/review data nyata, worker restart, commit/push atau deployment. Browser/device/concurrency MySQL/produksi belum diverifikasi. Memerlukan izin untuk migration spesifik sebelum fitur Tidak Ada aktif; setelah deploy build asset/rebuild cache dan restart worker agar import BOQ memuat whitelist terbaru. LOP lama Completed yang perlu koreksi harus dibuka admin terlebih dahulu, bukan diubah diam-diam.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
 
+- Migration `2026_10_16_000001_add_optional_capture_choices_to_qe_lops_table.php` belum dijalankan; minta izin sebelum aktivasi penyimpanan Tidak Ada. Schema/ledger MySQL lokal dan produksi belum diverifikasi pada task ini.
 - Pastikan migration perluasan panjang uraian sudah dijalankan pada tiap environment setelah mendapat izin dan backup/tag siap.
 - Migration Relok Tiang sudah terverifikasi pada lokal (batch 17, enum empat nilai); status server produksi belum diverifikasi.
 - Jangan menambahkan kembali tabel `qe_boq_plans` atau kolom `file_hash`; keduanya tidak diperlukan oleh alur Import BOQ canonical.
@@ -818,14 +836,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-459 tests passed
-4733 assertions
+480 tests passed
+4927 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Designator khusus/pilihan capture/hapus evidence: `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases); frontend evidence-optional.test.mjs (7) dan boq-editor.test.mjs (5).
 - Download Data LOP sesuai filter: `DataLopExportTest` (8 tests).
 - Monitoring tiket dan download Excel: `TicketCoverageTest` (28 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).

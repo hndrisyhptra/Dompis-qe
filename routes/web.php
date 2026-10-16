@@ -48,6 +48,8 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
     Route::post('/projects/{qe_lop}/resume', [TechnicianWorkflowController::class, 'resume'])->name('projects.resume');
     Route::put('/projects/{qe_lop}/materials', [TechnicianWorkflowController::class, 'materials'])->name('projects.materials');
     Route::put('/projects/{qe_lop}/material-usage', [TechnicianWorkflowController::class, 'materialUsage'])->name('projects.material-usage');
+    Route::put('/projects/{qe_lop}/optional-capture', [TechnicianWorkflowController::class, 'optionalCaptureChoice'])->name('projects.optional-capture');
+    Route::delete('/projects/{qe_lop}/evidence/{evidence}', [TechnicianWorkflowController::class, 'deleteEvidence'])->name('projects.evidence.destroy');
     Route::put('/projects/{qe_lop}/location', [TechnicianWorkflowController::class, 'location'])->name('projects.location');
     Route::post('/projects/{qe_lop}/evidence', [TechnicianWorkflowController::class, 'evidence'])->name('projects.evidence');
     Route::post('/projects/{qe_lop}/evidence/file', [TechnicianWorkflowController::class, 'evidenceFile'])->name('projects.evidence.file');

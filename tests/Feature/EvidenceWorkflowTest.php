@@ -93,7 +93,7 @@ class EvidenceWorkflowTest extends TestCase
         $evidence = app(EvidenceService::class)->upload($lop, ['step' => 'SURVEY', 'type' => 'PHOTO'], UploadedFile::fake()->image('c.jpg'), $teknisi);
         $path = $evidence->file_path;
 
-        app(EvidenceService::class)->delete($evidence);
+        app(EvidenceService::class)->delete($evidence, User::factory()->role(UserRole::SUPER_ADMIN->value)->create());
 
         Storage::disk('public')->assertMissing($path);
         $this->assertSoftDeleted('qe_evidences', ['id_evidence' => $evidence->id_evidence]);

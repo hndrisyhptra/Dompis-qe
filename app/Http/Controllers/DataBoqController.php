@@ -81,7 +81,7 @@ class DataBoqController extends Controller
 
         $boqs = $query->latest()->paginate(15)->withQueryString();
         $boqs->getCollection()->each(function (QeBoq $boq): void {
-            $items = $boq->items->filter(fn ($item) => $boq->lop->program_type->allowsBoqType($item->type))->values();
+            $items = $boq->items->filter(fn ($item) => $boq->lop->program_type->allowsBoqType($item->type, $item->designator_code))->values();
             $boq->setAttribute('program_items', $items);
             $boq->setAttribute('program_total', (float) $items->sum('total_price'));
         });
