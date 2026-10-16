@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Controllers\AissImportController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\BoqImportController;
 use App\Http\Controllers\BranchController;
@@ -81,6 +82,9 @@ Route::get('/incident-monitoring', [IncidentMonitoringController::class, 'index'
 Route::get('/incident-monitoring/tickets', [IncidentMonitoringController::class, 'tickets'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.tickets');
+Route::get('/incident-monitoring/tickets/download', [IncidentMonitoringController::class, 'download'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.tickets.download');
 
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {
@@ -112,6 +116,8 @@ Route::middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])->group(function () {
         Route::get('/boq', [BoqImportController::class, 'index'])->name('boq.index');
         Route::post('/boq', [BoqImportController::class, 'store'])->name('boq.store');
         Route::get('/boq/template', [BoqImportController::class, 'template'])->name('boq.template');
+        Route::get('/aiss', [AissImportController::class, 'index'])->name('aiss.index');
+        Route::post('/aiss', [AissImportController::class, 'store'])->name('aiss.store');
     });
 
     Route::get('/import-results/{batch}', [ImportBatchController::class, 'show'])->name('imports.show');

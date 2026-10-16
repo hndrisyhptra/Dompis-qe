@@ -48,6 +48,7 @@ class QeLop extends Model
         'package_id',
         'boq_snapshot',
         'status_lop',
+        'status_aiss',
         'created_by',
     ];
 

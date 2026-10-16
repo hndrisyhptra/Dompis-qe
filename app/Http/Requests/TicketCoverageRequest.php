@@ -16,6 +16,7 @@ class TicketCoverageRequest extends IncidentMonitoringRequest
             'usage' => ['nullable', Rule::in(['all', 'without_lop', 'with_lop'])],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', ...($this->filled('date_from') ? ['after_or_equal:date_from'] : [])],
+            'month' => ['nullable', 'date_format:Y-m'],
             'q' => ['nullable', 'string', 'max:100'],
             'page' => ['nullable', 'integer', 'min:1'],
         ];
@@ -27,6 +28,7 @@ class TicketCoverageRequest extends IncidentMonitoringRequest
             'date_from.date_format' => 'Tanggal mulai harus berupa tanggal yang valid.',
             'date_to.date_format' => 'Tanggal akhir harus berupa tanggal yang valid.',
             'date_to.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
+            'month.date_format' => 'Pilih bulan dan tahun yang valid.',
         ];
     }
 }

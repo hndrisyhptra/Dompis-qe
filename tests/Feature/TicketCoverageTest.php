@@ -11,6 +11,10 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
@@ -318,5 +322,190 @@ class TicketCoverageTest extends TestCase
         $this->getJson(route('incident-monitoring.tickets', ['date_from' => '2026-10-16', 'date_to' => '2026-10-15']))
             ->assertUnprocessable()->assertJsonValidationErrors('date_to');
         $this->assertCount(0, $source->getQueryLog());
+    }
+
+    public function test_month_filter_handles_leap_day_and_intersects_date_range_for_kpi_chart_and_rows(): void
+    {
+        $this->ticket('INC-JAN', reportedDate: '2024-01-31 23:59:59');
+        $this->ticket('INC-FEB-START', reportedDate: '2024-02-01 00:00:00');
+        $this->ticket('INC-FEB-END', 'INFRACARE', reportedDate: '29/2/2024 23:59:59');
+        $this->ticket('INC-MAR', reportedDate: '2024-03-01 00:00:00');
+        $this->ticket('INC-NO-DATE');
+        $this->lop('INC-FEB-START');
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'usage' => 'all']))->assertOk()
+            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1])
+            ->assertViewHas('chartRows', fn ($rows) => $rows->sum('count') === 2)
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2)
+            ->assertSee('Bulan laporan')->assertSee('Download Excel')->assertDontSee('INC-JAN')->assertDontSee('INC-MAR')->assertDontSee('INC-NO-DATE');
+        $this->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'date_from' => '2024-02-28', 'date_to' => '2024-03-15']))->assertOk()
+            ->assertViewHas('stats', ['total' => 1, 'without_lop' => 1, 'with_lop' => 0])->assertSee('INC-FEB-END')->assertDontSee('INC-FEB-START');
+        $this->get(route('incident-monitoring.tickets', ['month' => '2024-02', 'date_from' => '2024-03-01']))->assertOk()
+            ->assertViewHas('stats', ['total' => 0, 'without_lop' => 0, 'with_lop' => 0]);
+    }
+
+    private function downloadSheet(User $user, array $filters = []): Worksheet
+    {
+        $response = $this->actingAs($user)->get(route('incident-monitoring.tickets.download', $filters))->assertOk();
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+        $this->assertStringContainsString('no-store', $response->headers->get('cache-control'));
+
+        return IOFactory::load($response->baseResponse->getFile()->getPathname())->getActiveSheet();
+    }
+
+    private function exportedIncidents(Worksheet $sheet): array
+    {
+        return $sheet->getHighestRow() <= 16 ? [] : array_column($sheet->rangeToArray('A17:A'.$sheet->getHighestRow(), null, false, false), 0);
+    }
+
+    public function test_three_download_categories_include_consistent_summary_and_correct_rows_beyond_pagination(): void
+    {
+        for ($i = 1; $i <= 31; $i++) {
+            $this->ticket('INC-'.$i, $i % 2 ? 'INFRACARE' : 'GAMAS', reportedDate: '2026-10-16');
+            if ($i % 2 === 0) {
+                $this->lop('INC-'.$i);
+            }
+        }
+        $this->ticket('INC-OUTSIDE-DATE', reportedDate: '2026-11-01');
+        foreach (['all' => 31, 'without_lop' => 16, 'with_lop' => 15] as $usage => $count) {
+            $sheet = $this->downloadSheet($this->super, ['month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'usage' => $usage, 'page' => 2]);
+            $this->assertSame([31, 16, 15], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
+            $incidents = $this->exportedIncidents($sheet);
+            $this->assertCount($count, $incidents);
+            $this->assertNotContains('INC-OUTSIDE-DATE', $incidents);
+            foreach ($incidents as $incident) {
+                $used = (int) substr($incident, 4) % 2 === 0;
+                $this->assertTrue($usage === 'all' || ($usage === 'with_lop' ? $used : ! $used));
+            }
+        }
+    }
+
+    public function test_excel_preserves_leading_zero_and_formula_text_with_numeric_dates_and_counts(): void
+    {
+        $this->ticket('0000123', reportedDate: '16/10/2026 23:59:59');
+        $this->lop('0000123', attributes: ['ihld_id' => '0009876', 'nama_lop' => '=1+1']);
+        $sheet = $this->downloadSheet($this->super, ['usage' => 'all']);
+        $this->assertSame('0000123', $sheet->getCell('A17')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('A17')->getDataType());
+        $this->assertSame('0009876', $sheet->getCell('G17')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('G17')->getDataType());
+        $this->assertSame('=1+1', $sheet->getCell('H17')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('H17')->getDataType());
+        $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('B17')->getDataType());
+        $this->assertSame('2026-10-16', Date::excelToDateTimeObject($sheet->getCell('B17')->getValue())->format('Y-m-d'));
+        $this->assertSame('dd/mm/yyyy', $sheet->getStyle('B17')->getNumberFormat()->getFormatCode());
+        $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('B12')->getDataType());
+        $this->assertSame('B17', $sheet->getFreezePane());
+        $this->assertSame('A16:J17', $sheet->getAutoFilter()->getRange());
+        $this->assertTrue($sheet->getStyle('H17')->getAlignment()->getWrapText());
+        $this->assertSame(-1.0, $sheet->getRowDimension(17)->getRowHeight());
+    }
+
+    public function test_download_retains_all_scope_levels_multi_sto_and_outside_or_archived_identity_is_hidden(): void
+    {
+        foreach (array_keys($this->locations['areas']) as $zone) {
+            $this->ticket('INC-'.$zone, 'INFRACARE', $zone, '2026-10-16');
+        }
+        $hidden = $this->lop('INC-SBY-A', 'DPS-A', ['nama_lop' => 'RAHASIA LUAR SCOPE', 'ihld_id' => 'SECRET-IHLD']);
+        $archived = $this->lop('INC-SBY-B');
+        $archived->delete();
+        $l = $this->locations;
+        foreach ([
+            [['admin_scope_type' => 'area', 'area_id' => $l['area']->getKey()], 4, []],
+            [['admin_scope_type' => 'region', 'region_id' => $l['jatim']->getKey()], 3, []],
+            [['admin_scope_type' => 'branch', 'branch_id' => $l['branches']['SBY']->getKey()], 2, []],
+            [['branch_id' => $l['branches']['SBY']->getKey()], 2, []],
+            [['admin_scope_type' => 'service_area', 'service_area_id' => $l['areas']['SBY-A']->getKey()], 1, []],
+            [['admin_scope_type' => 'service_area'], 2, [$l['areas']['SBY-A']->getKey(), $l['areas']['DPS-A']->getKey()]],
+        ] as [$attributes, $count, $pivot]) {
+            $admin = User::factory()->role('ADMIN')->create($attributes);
+            $admin->serviceAreas()->sync($pivot);
+            $sheet = $this->downloadSheet($admin, ['month' => '2026-10', 'usage' => 'all']);
+            $this->assertCount($count, $this->exportedIncidents($sheet));
+            $this->assertSame($count, $sheet->getCell('B12')->getValue());
+            $this->assertNotContains('INC-OUT-A', $this->exportedIncidents($sheet));
+        }
+        $admin = User::factory()->role('ADMIN')->create(['branch_id' => $l['branches']['SBY']->getKey()]);
+        $sheet = $this->downloadSheet($admin, ['month' => '2026-10', 'usage' => 'with_lop']);
+        $this->assertSame([2, 0, 2], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
+        foreach ($sheet->rangeToArray('G17:J18', null, false, false) as $row) {
+            $this->assertSame([null, null, null, 'Detail LOP tidak tersedia'], $row);
+        }
+        $this->assertNotNull($hidden->fresh());
+    }
+
+    public function test_download_uses_all_combined_filters_and_rejects_invalid_parameters_before_query(): void
+    {
+        $this->ticket('INC0', 'INFRACARE', 'SBY-A', '2026-10-16');
+        $this->ticket('INC1', 'INFRACARE', 'SBY-A', '2026-10-16');
+        $this->ticket('INC0-OTHER', 'GAMAS', 'SBY-A', '2026-10-16');
+        $this->ticket('INC0-REGION', 'INFRACARE', 'DPS-A', '2026-10-16');
+        $l = $this->locations;
+        $sheet = $this->downloadSheet($this->super, ['month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16', 'region' => $l['jatim']->name, 'branch' => $l['branches']['SBY']->getKey(), 'service_area' => $l['areas']['SBY-A']->getKey(), 'kind' => 'infracare', 'q' => '0']);
+        $this->assertSame(['INC0'], $this->exportedIncidents($sheet));
+        $this->assertSame('0', $sheet->getCell('B8')->getValue());
+        $source = DB::connection('mysql_dompis');
+        $source->enableQueryLog();
+        foreach ([['month' => '2026-13'], ['month' => ['2026-10']], ['date_from' => '2026-02-30'], ['date_from' => '2026-10-16', 'date_to' => '2026-10-15'], ['usage' => 'bad']] as $filters) {
+            $this->getJson(route('incident-monitoring.tickets.download', $filters))->assertUnprocessable();
+        }
+        $this->assertCount(0, $source->getQueryLog());
+    }
+
+    public function test_download_authorization_and_source_failure_do_not_produce_a_misleading_excel(): void
+    {
+        $this->get(route('incident-monitoring.tickets.download'))->assertRedirect(route('login'));
+        $this->withoutMiddleware(EnsureRole::class);
+        foreach (['TEKNISI', 'MANAGER', 'APPROVER'] as $role) {
+            $this->actingAs(User::factory()->role($role)->create())->get(route('incident-monitoring.tickets.download'))->assertForbidden();
+        }
+        DB::connection('mysql_dompis')->getSchemaBuilder()->drop('ticket');
+        $response = $this->actingAs($this->super)->getJson(route('incident-monitoring.tickets.download'))->assertStatus(503);
+        $this->assertNull($response->headers->get('content-disposition'));
+        $this->assertStringNotContainsString('SQLSTATE', $response->getContent());
+        $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee('Sumber tiket belum tersedia');
+    }
+
+    public function test_download_button_category_overrides_current_list_and_submits_current_month_and_dates(): void
+    {
+        $this->ticket('INC-FREE', reportedDate: '2026-10-16');
+        $this->ticket('INC-USED', reportedDate: '2026-10-16');
+        $this->ticket('INC-OTHER-MONTH', reportedDate: '2026-09-16');
+        $this->lop('INC-USED');
+        $sheet = $this->downloadSheet($this->super, ['usage' => 'without_lop', 'download_usage' => 'with_lop', 'month' => '2026-10', 'date_from' => '2026-10-16', 'date_to' => '2026-10-16']);
+        $this->assertSame(['INC-USED'], $this->exportedIncidents($sheet));
+        $this->assertSame('Sudah Memiliki LOP', $sheet->getCell('B9')->getValue());
+        $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee('form="ticket-filters"', false)->assertSee('data-ticket-download', false)->assertSee('type="month"', false);
+        $this->getJson(route('incident-monitoring.tickets.download', ['download_usage' => 'bad']))->assertUnprocessable()->assertJsonValidationErrors('download_usage');
+    }
+
+    public function test_download_more_than_one_chunk_has_no_duplicates_and_respects_month_year_end(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 505; $i++) {
+            $rows[] = ['incident' => 'INC-'.$i, 'jenis_tiket_2' => 'GAMAS', 'workzone' => 'SBY-A', 'reported_date' => '2026-12-31 23:59:59'];
+        }
+        DB::connection('mysql_dompis')->table('ticket')->insert($rows);
+        $this->ticket('INC-NEXT-YEAR', reportedDate: '2027-01-01');
+        $sheet = $this->downloadSheet($this->super, ['month' => '2026-12', 'page' => 3]);
+        $incidents = $this->exportedIncidents($sheet);
+        $this->assertCount(505, $incidents);
+        $this->assertCount(505, array_unique($incidents));
+        $this->assertSame('INC-504', $incidents[0]);
+        $this->assertSame('INC-0', $incidents[504]);
+        $this->assertSame(505, $sheet->getCell('B12')->getValue());
+    }
+
+    public function test_empty_scope_and_conflicting_filters_produce_true_zero_without_dummy_rows(): void
+    {
+        $this->ticket('INC1', reportedDate: '2026-10-16');
+        $sheet = $this->downloadSheet($this->super, ['month' => '2026-11']);
+        $this->assertSame([0, 0, 0], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
+        $this->assertSame(16, $sheet->getHighestRow());
+        $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);
+        $sheet = $this->downloadSheet($admin, ['branch' => $this->locations['branches']['DPS']->getKey()]);
+        $this->assertCount(0, $this->exportedIncidents($sheet));
+        DB::connection('mysql_dompis')->getSchemaBuilder()->drop('ticket');
+        $sheet = $this->downloadSheet(User::factory()->role('ADMIN')->create());
+        $this->assertSame(0, $sheet->getCell('B12')->getValue());
     }
 }

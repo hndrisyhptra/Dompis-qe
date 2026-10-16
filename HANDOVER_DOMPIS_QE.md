@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **15 Oktober 2026**
+Terakhir diaudit: **16 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `1ed5291` (`fix: Capture insera & Slot port opsional`)
+HEAD dasar saat audit terbaru: `a86ed89` (`feat: monitoring incident`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -57,6 +57,8 @@ Audit read-only 8 Oktober 2026 (`migrate:status`, `db:table qe_lops`) memastikan
 Pembaruan audit read-only 12 Oktober 2026: migration Relok Tiang kini tercatat **Ran batch 17** dan `qe_lops.program_type` sudah memuat empat nilai. Eksekusi migration tersebut dilakukan di luar sesi Bulk Import User ini. Struktur `users` beserta empat level scope dan `qe_import_batches.type` (varchar) tersedia; Bulk Import User tidak membutuhkan migration tambahan. Sesi ini tidak mengimport akun nyata atau mengubah database operasional.
 
 Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap server produksi sama; periksa `migrate:status` di server setelah pull.
+
+15 Oktober 2026 — Import AISS menambah migration `2026_10_15_000001_add_status_aiss_to_qe_lops_table.php` (nullable varchar 255). Migration baru belum dijalankan pada sesi ini. Percobaan audit read-only `migrate:status` dan `db:table qe_lops` terhalang sandbox dengan Operation not permitted pada koneksi MySQL lokal; schema/ledger lokal terkini tidak terverifikasi. Halaman Import AISS memeriksa kolom dan menonaktifkan upload jika migration belum tersedia. Memerlukan izin eksplisit sebelum migration lokal/produksi.
 
 ## 3. Arsitektur Aplikasi
 
@@ -212,6 +214,9 @@ Pemilihan paket reservasi otomatis:
 - Unggah ulang membuat batch baru lalu memperbarui BOQ terkait; alur tidak memakai tabel `qe_boq_plans`, deduplikasi `file_hash`, radio target, atau checkbox replace.
 - Job `ProcessBulkLopImport` dan `ProcessBoqImport` mempunyai timeout 600 detik dan satu kali attempt.
 - Worker produksi harus berjalan; setelah deploy gunakan `php artisan queue:restart`.
+- Import Data AISS di Bulk Import Data memperbarui `qe_lops.status_aiss` pada LOP existing tanpa mengubah status Dompis, identitas, workflow, BOQ, atau Revenue. Format ekspor: B = ID IHLD, H = NAMA PROGRAM/Nama LOP, L = STATUS (bukan O), W = INCIDENT. XLSX/XLS maksimal 10 MB/10.000 baris, header dalam 20 baris awal; sheet dicari berdasarkan header, bukan active sheet.
+- Pencocokan AISS berurutan ID IHLD → Nama LOP → Incident, exact setelah normalisasi kapitalisasi/spasi, tanpa fuzzy/pengambilan incident dari uraian. Kecocokan pertama menghentikan pencarian; kandidat ambigu, arsip, scope luar, status kosong/terlalu panjang, formula, atau tidak cocok dilewati dengan alasan. Metadata global minimal termasuk arsip hanya untuk deteksi kandidat; detail/nama LOP luar scope tidak ditampilkan. Baris valid pertama per LOP menang; unggah ulang dengan status sama tidak menulis histori tambahan.
+- Import AISS memakai batch type `aiss`, job `ProcessAissImport`, progress per 25 baris, history lima upload dan hasil berhasil/gagal/dilewati. File contoh user dibaca read-only: Sheet1, 2.292 baris, tanpa formula pada empat kolom relevan; tidak diimport ke database operasional. Tidak ada template baru karena sumbernya ekspor AISS asli.
 
 ### 4.7 Evidence dan approval
 
@@ -300,6 +305,10 @@ Pemilihan paket reservasi otomatis:
 ### 5.4 BOQ, import, dan queue
 
 - `app/Services/BoqImportService.php`
+- `app/Services/AissImportService.php`
+- `app/Jobs/ProcessAissImport.php`
+- `app/Http/Controllers/AissImportController.php`
+- `app/Http/Requests/StoreAissImportRequest.php`
 - `app/Services/BulkLopImportService.php`
 - `app/Services/BulkLopTemplateService.php`
 - `app/Services/BoqService.php`
@@ -730,6 +739,27 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Pemeriksaan read-only MySQL pada koneksi environment sesi ini untuk 16 Mei 2026 membaca **36 tiket**, seluruhnya INFRACARE/belum memiliki LOP, dengan 25 rincian per halaman yang menampilkan 16/05/2026. EXPLAIN tetap memakai index jenis tiket dan PRIMARY; satu sampel rentang historis sekitar 2,72 detik (bukan benchmark produksi). Chrome headless pada fixture terpisah memeriksa desktop/mobile, input tanggal dan min dinamis, hilangnya pilihan arsip, dark mode, clipboard, serta tidak ada overflow/error JavaScript. Belum ada tes browser pada data autentikasi nyata atau deployment produksi.
 - Perubahan sebelumnya dipertahankan. Tidak ada migration/schema/write data operasional, penghapusan LOP nyata, queue restart, commit/push, atau deployment.
 
+### 7.43 Import Status AISS ke LOP — 15 Oktober 2026
+
+- Menu Bulk Import Data → Import Data AISS memakai Gate import-aiss untuk ADMIN/SUPER_ADMIN aktif, middleware role/auth, StoreAissImportRequest, dan job database existing. Worker membaca ulang role/keaktifan/scope pengunggah; hasil batch hanya pemilik atau Super Admin. Scope Area/Region/Branch/multi-Service Area dan fallback lokasi legacy tetap melalui LopVisibilityService.
+- Migration additive menambah `qe_lops.status_aiss` nullable string(255); rollback menolak menghapus kolom berisi data. Data LOP dan semua halaman Program menampilkan Status Dompis lalu Status AISS. Kolom kosong menggunakan —; nilai teks di-escape dan tidak dipetakan ke lifecycle Dompis. Model menyertakan status_aiss; tidak ada tabel AISS/LOP baru.
+- Parser memeriksa format workbook asli XLSX/XLS dan header B/H/L/W, mencari sheet meskipun Panduan aktif, serta membaca empat nilai mentah tanpa evaluasi formula atau mengambil komentar/nama pengelola ke payload hasil. Status disimpan sesuai teks yang diupload (trim), tidak mengganti ID IHLD/nama/incident/program. Status Program kolom O, RAB, dan timestamp file tidak ikut diimport; gunakan ekspor terbaru karena import berikutnya mengganti Status AISS.
+- Identitas LOP dibaca per 500 record; indeks memori hanya menyimpan key dari file dengan maksimal dua kandidat per key untuk mendeteksi ambiguity. IHLD paling prioritas; jika cocok tetapi ambigu/arsip/di luar akses, tidak mencoba key berprioritas lebih rendah yang bisa mengubah LOP lain. Nama/kunci dinormalisasi trim, kapitalisasi, dan spasi; tidak membuang prefix atau nol depan pada teks.
+- Setiap baris diproses dalam transaction dengan lock LOP dan recheck identitas/scope. LopService::updateAissStatus mengubah hanya status_aiss/updated_at via update terarah agar normalisasi model tidak mengubah status_project/segment legacy. Histori aiss_status_updated menyimpan nilai sebelum/sesudah, batch UUID, tahap match, dan status_lop sebelum/sesudah tetap sama. Histori dan hasil per baris atomic bersama perubahan; Summary dashboard mengenali label Update Status AISS.
+- Queue memakai satu attempt, timeout 600 detik, failOnTimeout, lock 660 detik, dan batch finished tidak diproses ulang. Status batch failed ditulis jika dispatch/proses/failure callback gagal; pesan SQL/exception mentah tidak ditampilkan. Hasil yang telah committed tetap durable jika job terhenti; tidak mereplay batch lama otomatis. Hasil generic dan lima history memakai counter skip; progress JSON/JS tetap kompatibel dengan import lain. File sumber tetap privat di disk local sesuai pola import existing.
+- Verifikasi: **440 tests / 4322 assertions** Laravel dan **41 frontend tests** lulus; 20 regression AISS mencakup tiga tahap/prioritas, ambiguity, duplikasi, empat scope/multi-STO/legacy, arsip, role/keaktifan/pemilik, Completed/snapshot, formula/blank/panjang/header/limit/corrupt, rollback transaksi/migration, timeout/idempotensi, hasil/progress, serta empat tabel program. Pint file PHP task, Vite build, view:cache, route registration, dan git diff --check lulus. File user berhasil diparse oleh service aplikasi tanpa import nyata.
+- Worktree bersih pada awal task di a86ed89. Tidak menjalankan migration pada database operasional, tidak mengimport file nyata, restart worker, commit/push, atau deploy. MySQL lokal tidak dapat diaudit karena pembatasan koneksi sandbox; concurrency MySQL, upload browser/device dan produksi belum diuji. Setelah mendapat izin dan backup/schema diperiksa, jalankan migration spesifik sebelum upload; deploy asset/cache dan restart worker sesuai prosedur existing.
+
+### 7.44 Download Monitoring Incident dan filter bulan — 16 Oktober 2026
+
+- Monitoring Incident → Tiket Dompis menyediakan dropdown Download Excel untuk Total Tiket, Belum Memiliki LOP, dan Sudah Memiliki LOP. Setiap XLSX berisi metadata filter/scope, ketiga angka ringkasan, serta seluruh rincian kategori terpilih, bukan hanya halaman tabel. Ringkasan selalu mencakup semua kategori dalam filter yang sama; kategori unduhan hanya membatasi daftar.
+- Filter bulan laporan `YYYY-MM` ditambahkan pada halaman dan unduhan. Bulan serta rentang tanggal memakai `ticket.reported_date` existing (bukan reported_date_dt), dan berlaku sebagai irisan jika keduanya diisi. Tombol download mengirim isian form terkini tanpa harus Terapkan; download_usage mengesampingkan usage daftar. Filter lokasi/jenis/pencarian dan month tetap terbawa pada navigasi/pagination.
+- Endpoint GET `/incident-monitoring/tickets/download` memakai middleware auth/role dan `TicketCoverageDownloadRequest` yang mewarisi Gate `view-incident-monitoring`. Controller memanfaatkan `TicketCoverageService` yang sama untuk predikat jenis tiket, lokasi, occupancy, dan presenter detail. Scope Area/Region/Branch/multi-STO serta fallback legacy tetap mengikuti LopVisibilityService. Incident terpakai di luar scope/arsip tetap diklasifikasikan Sudah Memiliki LOP, tetapi identitas/detail LOP tidak diekspos.
+- Rincian sumber dibaca per 500 record dengan keyset id_ticket menurun dan lookup LOP per chunk, tanpa query per baris atau pembatasan pagination. `TicketCoverageExport` memakai generator Maatwebsite/PhpSpreadsheet; workbook akhir tetap membutuhkan memori sesuai ukuran file dan belum dibenchmark pada volume produksi. Koneksi sumber gagal membatalkan download dengan 503; tidak menghasilkan ringkasan nol palsu. Respons XLSX private/no-store.
+- Nomor incident/IHLD dan seluruh teks ditulis sebagai literal (mempertahankan nol depan dan mencegah formula injection). Tanggal dan angka ringkasan memakai tipe numerik Excel; header memiliki autofilter/freeze pane, nama LOP wrap dan tinggi baris otomatis. Kolom: Incident, Tanggal Laporan, Jenis Tiket, STO, Branch, Pemakaian LOP, ID IHLD, Nama LOP, Status Dompis, Keterangan.
+- Verifikasi: **449 tests / 4531 assertions** Laravel dan **41 frontend tests** lulus. TicketCoverageTest kini 26 tests mencakup pembacaan XLSX nyata, tiga kategori, semua scope/legacy/arsip, nol depan/formula/date/count, gabungan filter, leap day/tahun baru, data melebihi 500 record, halaman kedua, form download, validasi, role/Gate, outage, dan hasil kosong. Full suite diulang sendiri setelah percobaan awal berbenturan dengan proses view:cache yang berjalan bersamaan; seluruhnya lulus. Pint file PHP task, Vite build, view:cache, route registration, serta git diff --check lulus. Tampilan Excel/browser dan MySQL/volume produksi belum diverifikasi.
+- Tidak menambah schema atau menjalankan migration/database write operasional, import nyata, restart worker, commit/push, maupun deploy. Perubahan Import AISS 7.43 tetap dipertahankan di worktree; migration AISS tetap belum dijalankan dan memerlukan izin terpisah.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -764,14 +794,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-390 tests passed
-3841 assertions
+449 tests passed
+4531 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Monitoring tiket dan download Excel: `TicketCoverageTest` (26 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (15 tests, termasuk INFRACARE khusus Preventive dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).

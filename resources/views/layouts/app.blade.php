@@ -174,8 +174,9 @@
                             'lop.create' => 'Input LOP Baru',
                             'bulk-import.lop.index' => 'Bulk Import LOP',
                             'bulk-import.boq.index' => 'Import BOQ',
+                            'bulk-import.aiss.index' => 'Import Data AISS',
                         ] as $routeName => $label)
-                            @php($isActive = request()->routeIs($routeName) || (request()->routeIs('imports.*') && str_contains($routeName, request()->route('batch')?->type === 'boq' ? 'boq' : 'lop')))
+                            @php($isActive = request()->routeIs($routeName) || (request()->routeIs('imports.*') && str_contains($routeName, match(request()->route('batch')?->type) { 'boq' => 'boq', 'aiss' => 'aiss', default => 'lop' })))
                             <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ $isActive ? $navSubLinkActive : $navSubLinkInactive }}">
                                 @if ($isActive)
                                     <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>

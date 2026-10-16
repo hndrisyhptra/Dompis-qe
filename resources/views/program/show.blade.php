@@ -120,7 +120,7 @@
     {{-- Tabel LOP (monitoring) --}}
     <x-table class="!rounded-2xl shadow-sm">
         <thead class="bg-ink-50/80 dark:bg-ink-800"><tr>
-            @foreach (['Project', 'Teknisi', 'Progress', 'Status', 'Update'] as $heading)
+            @foreach (['Project', 'Teknisi', 'Progress', 'Status Dompis', 'Status AISS', 'Update'] as $heading)
                 <th class="whitespace-nowrap px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-ink-500">{{ $heading }}</th>
             @endforeach
             <th class="whitespace-nowrap px-5 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-ink-500">Aksi</th>
@@ -151,6 +151,7 @@
                         <p class="mt-1.5 text-[10px] text-ink-400">{{ $summary['evidence_count'] }} evidence</p>
                     </td>
                     <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
+                    <td class="px-5 py-4"><x-aiss-status :status="$lop->status_aiss" /></td>
                     <td class="whitespace-nowrap px-5 py-4 text-xs text-ink-500">{{ $lop->updated_at->diffForHumans() }}</td>
                     <td class="px-5 py-4">
                         <div class="flex flex-wrap items-center justify-end gap-1.5">
@@ -181,7 +182,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-6 py-14 text-center"><p class="text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Belum ada LOP untuk Program / bucket ini.</p></td></tr>
+                <tr><td colspan="7" class="px-6 py-14 text-center"><p class="text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Belum ada LOP untuk Program / bucket ini.</p></td></tr>
             @endforelse
         </tbody>
     </x-table>

@@ -8,7 +8,7 @@
     $filterUrl = fn (array $changes = []) => route('incident-monitoring.tickets', array_filter(array_replace($filterQuery, $changes), fn ($value) => $value !== ''));
     $usageLabels = ['all' => 'Semua tiket', 'without_lop' => 'Belum memiliki LOP', 'with_lop' => 'Sudah memiliki LOP'];
     $showLopColumns = $filters['usage'] !== 'without_lop';
-    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $filters['date_from'] !== '' || $filters['date_to'] !== '';
+    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $filters['date_from'] !== '' || $filters['date_to'] !== '' || $filters['month'] !== '';
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-5" x-data="{ loading: false, dateFrom: @js($filters['date_from']), filtersOpen: {{ $hasFilters ? 'true' : 'false' }} }" :aria-busy="loading" @pageshow.window="loading = false">
@@ -18,7 +18,21 @@
             <p class="mt-1.5 text-sm text-ink-600 dark:text-ink-300">{{ $scopeLabel }}</p>
             <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Tiket INFRACARE dan yang mengandung GAMAS dari Dompis, termasuk yang belum memiliki LOP.</p>
         </div>
-        <p x-show="loading" x-cloak role="status" class="text-sm text-ink-600 dark:text-ink-300">Memuat tiket…</p>
+        <div class="flex items-center gap-3">
+            <p x-show="loading" x-cloak role="status" class="text-sm text-ink-600 dark:text-ink-300">Memuat tiket…</p>
+            @if ($sourceUnavailable)
+                <button type="button" disabled title="Sumber tiket belum tersedia. Coba kembali sebelum download." class="min-h-11 rounded-md border border-ink-200 px-4 text-sm font-semibold text-ink-400 disabled:cursor-not-allowed dark:border-ink-700">Download Excel</button>
+            @else
+                <details class="relative">
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-brand-500">Download Excel <span aria-hidden="true">⌄</span></summary>
+                    <nav aria-label="Pilihan data unduhan" class="absolute right-0 z-20 mt-2 w-60 rounded-md border border-ink-200 bg-white p-1 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                        @foreach (\App\Exports\TicketCoverageExport::CATEGORIES as $usage => $label)
+                            <button type="submit" form="ticket-filters" formaction="{{ route('incident-monitoring.tickets.download') }}" formmethod="GET" name="download_usage" value="{{ $usage }}" data-ticket-download class="flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-sm text-ink-700 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-ink-200 dark:hover:bg-ink-800">{{ $label }}</button>
+                        @endforeach
+                    </nav>
+                </details>
+            @endif
+        </div>
     </header>
 
     @include('incident-monitoring._tabs')
@@ -31,7 +45,7 @@
         <button type="button" @click="filtersOpen = !filtersOpen" :aria-expanded="filtersOpen" aria-controls="ticket-filters" class="mb-3 flex min-h-10 w-full items-center justify-between rounded-md text-sm font-medium focus-visible:outline-2 focus-visible:outline-brand-500 lg:hidden">
             Filter tiket <span x-text="filtersOpen ? 'Tutup' : 'Buka'" class="text-ink-500 dark:text-ink-400">Buka</span>
         </button>
-        <form id="ticket-filters" method="GET" action="{{ route('incident-monitoring.tickets') }}" @submit="loading = true" :class="filtersOpen ? '' : 'hidden lg:block'">
+        <form id="ticket-filters" method="GET" action="{{ route('incident-monitoring.tickets') }}" @submit="if (!$event.submitter?.hasAttribute('data-ticket-download')) loading = true" :class="filtersOpen ? '' : 'hidden lg:block'">
             <input type="hidden" name="usage" value="{{ $filters['usage'] }}">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <x-input name="q" id="ticket-search" label="Cari nomor incident atau workzone" :value="$filters['q']" :use-old="false" placeholder="Nomor incident atau STO…" maxlength="100" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
@@ -41,6 +55,7 @@
                 </x-select>
                 <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" x-model="dateFrom" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
                 <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" x-bind:min="dateFrom || undefined" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
+                <x-input name="month" label="Bulan laporan (opsional)" type="month" :value="$filters['month']" :use-old="false" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
                 <x-select name="region" label="Region" placeholder="Semua region dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
                     @foreach ($regions as $region)
                         <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
@@ -64,10 +79,10 @@
                     <a href="{{ route('incident-monitoring.tickets') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
                 </div>
             </div>
-            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Kosongkan tanggal untuk melihat semua periode.</p>
+            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Bulan dan rentang tanggal berlaku bersamaan jika keduanya diisi. Kosongkan untuk semua periode. Download mengikuti isian filter terbaru, tanpa perlu klik Terapkan.</p>
         </form>
         @if ($hasFilters)
-            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $filters['q'] !== '' ? 'pencarian “'.$filters['q'].'”; ' : '' }}{{ $filters['kind'] !== '' ? strtoupper($filters['kind']).'; ' : '' }}{{ $filters['date_from'] !== '' ? 'Dari '.$filters['date_from'].'; ' : '' }}{{ $filters['date_to'] !== '' ? 'Sampai '.$filters['date_to'].'; ' : '' }}{{ $filters['region'] !== '' ? $filters['region'].'; ' : '' }}{{ $filters['branch'] !== '' ? 'Branch pilihan; ' : '' }}{{ $filters['service_area'] !== '' ? 'STO pilihan' : '' }}</p>
+            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $filters['month'] !== '' ? 'Bulan '.$filters['month'].'; ' : '' }}{{ $filters['q'] !== '' ? 'pencarian “'.$filters['q'].'”; ' : '' }}{{ $filters['kind'] !== '' ? strtoupper($filters['kind']).'; ' : '' }}{{ $filters['date_from'] !== '' ? 'Dari '.$filters['date_from'].'; ' : '' }}{{ $filters['date_to'] !== '' ? 'Sampai '.$filters['date_to'].'; ' : '' }}{{ $filters['region'] !== '' ? $filters['region'].'; ' : '' }}{{ $filters['branch'] !== '' ? 'Branch pilihan; ' : '' }}{{ $filters['service_area'] !== '' ? 'STO pilihan' : '' }}</p>
         @endif
     </section>
 

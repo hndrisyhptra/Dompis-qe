@@ -7,14 +7,15 @@
 <div class="mx-auto max-w-6xl space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Import Result</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $batch->original_name }}</h1><p class="mt-2 text-sm text-ink-500">ID batch {{ $batch->uuid }}</p></div>
-        <a href="{{ $backUrl ?? ($batch->type === 'boq' ? route('bulk-import.boq.index') : route('bulk-import.lop.index')) }}" class="inline-flex min-h-11 items-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">Kembali</a>
+        <a href="{{ $backUrl ?? route(match($batch->type) { 'boq' => 'bulk-import.boq.index', 'aiss' => 'bulk-import.aiss.index', default => 'bulk-import.lop.index' }) }}" class="inline-flex min-h-11 items-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200">Kembali</a>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 {{ $batch->type === 'aiss' ? 'lg:grid-cols-5' : 'lg:grid-cols-4' }}">
         <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900"><p class="text-xs font-bold uppercase text-ink-400">Status</p><div class="mt-3"><x-badge :variant="$variant">{{ ucfirst($batch->status) }}</x-badge></div></div>
         <div class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900"><p class="text-xs font-bold uppercase text-ink-400">Total Baris</p><p class="mt-2 text-2xl font-extrabold">{{ $batch->total_rows }}</p></div>
         <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 dark:border-emerald-900 dark:bg-emerald-950/20"><p class="text-xs font-bold uppercase text-emerald-600">Berhasil</p><p class="mt-2 text-2xl font-extrabold text-emerald-700">{{ $batch->success_rows }}</p></div>
         <div class="rounded-2xl border border-red-100 bg-red-50/60 p-5 dark:border-red-900 dark:bg-red-950/20"><p class="text-xs font-bold uppercase text-red-600">Gagal</p><p class="mt-2 text-2xl font-extrabold text-red-700">{{ $batch->failed_rows }}</p></div>
+        @if ($batch->type === 'aiss')<div class="rounded-md border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/20"><p class="text-xs font-bold uppercase text-amber-700 dark:text-amber-300">Dilewati</p><p class="mt-2 text-2xl font-extrabold text-amber-700 dark:text-amber-300">{{ data_get($batch->metadata, 'skipped_rows', 0) }}</p></div>@endif
     </div>
 
     @if($batch->type === 'boq' && data_get($batch->metadata, 'project_name'))
@@ -32,6 +33,9 @@
     @endif
 
     @include('imports._live-progress')
+    @if ($batch->type === 'aiss')
+        <p class="rounded-md border border-ink-200 p-3 text-xs leading-5 text-ink-600 dark:border-ink-700 dark:text-ink-300">Hanya Status AISS diperbarui. Berhasil mencakup status yang sudah sesuai tanpa perubahan. Baris Dilewati tidak mengubah data; lihat alasan pada tabel. Status Dompis tetap mengikuti workflow lapangan.</p>
+    @endif
     @if ($batch->type === 'users')
         <div class="rounded-md border border-ink-200 bg-ink-50 p-3 text-xs leading-5 text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">Akun yang berhasil sudah tersimpan. Untuk perbaikan, upload ulang hanya baris yang gagal; akun existing tidak akan ditimpa. Password tidak ditampilkan pada hasil ini.</div>
     @endif
@@ -39,7 +43,7 @@
 
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
         <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="font-bold">Detail per Baris</h2></div>
-        <div class="overflow-x-auto"><table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800"><thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">Baris</th><th class="px-5 py-3">Referensi</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Keterangan</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@forelse($rows as $row)<tr><td class="px-5 py-4 font-mono text-xs">{{ $row->row_number }}</td><td class="px-5 py-4 font-semibold">{{ $row->reference ?: '—' }}</td><td class="px-5 py-4"><x-badge :variant="$row->status === 'success' ? 'success' : 'danger'">{{ ucfirst($row->status) }}</x-badge></td><td class="max-w-xl px-5 py-4 text-xs leading-5 text-ink-500">{{ $row->message }}</td></tr>@empty<tr><td colspan="4" class="px-5 py-12 text-center text-ink-400">Hasil baris belum tersedia.</td></tr>@endforelse</tbody></table></div>
+        <div class="overflow-x-auto"><table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800"><thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">Baris</th><th class="px-5 py-3">Referensi</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Keterangan</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@forelse($rows as $row)<tr><td class="px-5 py-4 font-mono text-xs">{{ $row->row_number }}</td><td class="px-5 py-4 font-semibold">{{ $row->reference ?: '—' }}</td><td class="px-5 py-4"><x-badge :variant="match($row->status) { 'success' => 'success', 'skipped' => 'warning', default => 'danger' }">{{ ucfirst($row->status) }}</x-badge></td><td class="max-w-xl px-5 py-4 text-xs leading-5 text-ink-500">{{ $row->message }}</td></tr>@empty<tr><td colspan="4" class="px-5 py-12 text-center text-ink-400">Hasil baris belum tersedia.</td></tr>@endforelse</tbody></table></div>
     </div>
     {{ $rows->links() }}
 </div>

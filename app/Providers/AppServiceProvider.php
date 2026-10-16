@@ -38,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(QeEvidence::class, EvidencePolicy::class);
         Gate::define('export-data-boqs', fn (User $user) => $user->hasRole(...UserRole::adminLevel()));
         Gate::define('view-incident-monitoring', fn (User $user) => $user->hasRole(...UserRole::adminLevel()));
+        Gate::define('import-aiss', fn (User $user) => $user->isActive() && $user->hasRole(...UserRole::adminLevel()));
         Gate::define('view-my-approvals', fn (User $user) => $user->hasRole(UserRole::ADMIN) && $user->hasPermission('approve_evidence'));
 
         View::composer('layouts.app', function ($view): void {

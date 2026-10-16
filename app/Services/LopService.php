@@ -301,6 +301,21 @@ class LopService
         });
     }
 
+    public function updateAissStatus(QeLop $lop, string $status, User $actor, string $batchUuid, string $matchStage): bool
+    {
+        Gate::forUser($actor)->authorize('update', $lop);
+        if ($lop->status_aiss === $status) {
+            return false;
+        }
+        $before = $lop->status_aiss;
+        // Importer holds the parent lock. Bypass model normalization to change no workflow/legacy fields.
+        DB::table('qe_lops')->where('id_qe_lops', $lop->getKey())->update(['status_aiss' => $status, 'updated_at' => now()]);
+        $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, 'aiss_status_updated', 'Status AISS diperbarui melalui import.')
+            ->update(['meta' => ['before' => $before, 'after' => $status, 'batch_uuid' => $batchUuid, 'match_stage' => $matchStage]]);
+
+        return true;
+    }
+
     public function recordReservationChange(QeLop $lop, User $actor, array $before, array $after): QeLopHistory
     {
         $history = $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, 'reservation_updated', 'Item BOQ aktual / reservasi diperbarui melalui Master Data.');

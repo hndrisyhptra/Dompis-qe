@@ -1597,6 +1597,7 @@ window.importBatchProgress = (options = {}) => ({
     total: Number(options.total || 0),
     success: Number(options.success || 0),
     failed: Number(options.failed || 0),
+    skipped: Number(options.skipped || 0),
     processed: Number(options.processed || 0),
     percentage: Number(options.percentage || 0),
     finished: Boolean(options.finished),
@@ -1637,6 +1638,7 @@ window.importBatchProgress = (options = {}) => ({
             this.total = Number(data.total_rows || 0);
             this.success = Number(data.success_rows || 0);
             this.failed = Number(data.failed_rows || 0);
+            this.skipped = Number(data.skipped_rows || 0);
             this.processed = Number(data.processed_rows || 0);
             this.percentage = Number(data.percentage || 0);
             this.finished = Boolean(data.finished);

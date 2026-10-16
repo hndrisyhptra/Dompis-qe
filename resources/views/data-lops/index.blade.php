@@ -31,7 +31,7 @@
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800">
-                <thead class="bg-ink-50 text-left text-[11px] uppercase tracking-wider text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Lokasi</th><th class="px-5 py-3">Program</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
+                <thead class="bg-ink-50 text-left text-[11px] uppercase tracking-wider text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Lokasi</th><th class="px-5 py-3">Program</th><th class="px-5 py-3">Status Dompis</th><th class="px-5 py-3">Status AISS</th><th class="px-5 py-3">BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
                 <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                     @forelse($lops as $lop)
                         <tr x-data="{ detail: false, remove: false }" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
@@ -39,6 +39,7 @@
                             <td class="px-5 py-4"><p class="font-semibold">{{ $lop->sto ?: '—' }}</p><p class="text-xs text-ink-400">{{ $lop->branch ?: '—' }}</p></td>
                             <td class="px-5 py-4 text-xs">{{ $lop->program_type->label() }}</td>
                             <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
+                            <td class="px-5 py-4"><x-aiss-status :status="$lop->status_aiss" /></td>
                             <td class="px-5 py-4">
                                 @if($lop->boq)
                                     <span class="text-xs font-bold text-emerald-600">{{ $lop->boq->item_count }} item</span>
@@ -70,7 +71,7 @@
                             @if($lop->program_type->usesProjectStatus()) @can('uploadEvidence', $lop)<x-request-letter-modal :id="'request-letter-'.$lop->id_qe_lops" :$lop />@endcan @endif
                             </td>
                         </tr>
-                    @empty<tr><td colspan="6" class="px-5 py-14 text-center text-ink-400">Data LOP tidak ditemukan.</td></tr>@endforelse
+                    @empty<tr><td colspan="7" class="px-5 py-14 text-center text-ink-400">Data LOP tidak ditemukan.</td></tr>@endforelse
                 </tbody>
             </table>
         </div>

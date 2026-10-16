@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
+use Generator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -18,7 +19,7 @@ class TicketCoverageService
 {
     public function __construct(private readonly LopVisibilityService $visibility) {}
 
-    public function dashboard(User $user, array $input): array
+    public function dashboard(User $user, array $input, bool $forExport = false): array
     {
         $filters = [
             'region' => trim((string) ($input['region'] ?? '')),
@@ -28,6 +29,7 @@ class TicketCoverageService
             'usage' => $input['usage'] ?? 'without_lop',
             'date_from' => $input['date_from'] ?? '',
             'date_to' => $input['date_to'] ?? '',
+            'month' => $input['month'] ?? '',
             'q' => trim((string) ($input['q'] ?? '')),
         ];
         $branches = Branch::query()->with('regionRef:id_region,name')
@@ -66,7 +68,7 @@ class TicketCoverageService
         } else {
             try {
                 [$stats, $chartRows, $tickets, $total] = $this->sourceData(
-                    $filters, $selectedAreas, $restrictWorkzones, $occupancy, $page,
+                    $filters, $selectedAreas, $restrictWorkzones, $occupancy, $page, $forExport,
                 );
                 $checkedAt = now('Asia/Jakarta');
             } catch (Throwable $exception) {
@@ -75,27 +77,20 @@ class TicketCoverageService
             }
         }
 
-        $pageIds = $tickets->map(fn ($ticket) => $occupancy[$this->normalize($ticket->incident)]['id'] ?? null)->filter()->all();
-        $visibleLops = $this->visibility->apply(QeLop::query()->whereIntegerInRaw('id_qe_lops', $pageIds), $user)
-            ->get(['id_qe_lops', 'incident', 'nama_lop', 'ihld_id', 'status_lop', 'program_type'])
-            ->keyBy('id_qe_lops');
-        $areasByWorkzone = $serviceAreas->keyBy(fn (ServiceArea $area) => $this->normalize($area->workzone));
-        $branchesById = $branches->keyBy('id_branch');
-        $rows = $tickets->map(function ($ticket) use ($occupancy, $visibleLops, $areasByWorkzone, $branchesById): array {
-            $incident = $this->normalize($ticket->incident);
-            $match = $occupancy[$incident] ?? null;
-            $area = $areasByWorkzone->get($this->normalize($ticket->workzone));
-
+        $scopeLabel = $user->hasRole(UserRole::SUPER_ADMIN) ? 'Seluruh wilayah' : $this->visibility->label($user);
+        if ($forExport) {
             return [
-                'incident' => $incident,
-                'ticket_type' => $this->normalize($ticket->jenis_tiket_2),
-                'reported_date' => $ticket->reported_day === null ? null : Carbon::createFromFormat('!Y-m-d', $ticket->reported_day)->format('d/m/Y'),
-                'workzone' => $this->normalize($ticket->workzone) ?: 'Belum terisi',
-                'branch' => $area ? $branchesById->get($area->branch_id)?->name : null,
-                'usage' => $match['usage'] ?? 'without_lop',
-                'lop' => $match ? $visibleLops->get($match['id']) : null,
+                'filters' => $filters, 'stats' => $stats, 'sourceUnavailable' => $sourceUnavailable, 'scopeLabel' => $scopeLabel,
+                'locationLabel' => implode('; ', array_filter([
+                    $filters['region'],
+                    $filters['branch'] !== '' ? ($branches->firstWhere('id_branch', (int) $filters['branch'])?->name ?? 'Branch di luar scope') : null,
+                    $filters['service_area'] !== '' ? ($serviceAreas->firstWhere('id_service_area', (int) $filters['service_area'])?->workzone ?? 'STO di luar scope') : null,
+                ])) ?: 'Seluruh wilayah dalam scope',
+                'checkedAt' => $checkedAt,
+                'rows' => $this->exportRows($tickets instanceof Builder ? $tickets : null, $occupancy, $serviceAreas, $branches, $user),
             ];
-        });
+        }
+        $rows = $this->presentRows($tickets, $occupancy, $serviceAreas, $branches, $user);
         $paginator = new LengthAwarePaginator($rows, $total, 25, $page, [
             'path' => route('incident-monitoring.tickets'),
             'query' => array_filter($filters, fn ($value) => $value !== ''),
@@ -111,12 +106,51 @@ class TicketCoverageService
             'tickets' => $paginator,
             'sourceUnavailable' => $sourceUnavailable,
             'checkedAt' => $checkedAt,
-            'scopeLabel' => $user->hasRole(UserRole::SUPER_ADMIN) ? 'Seluruh wilayah' : $this->visibility->label($user),
+            'scopeLabel' => $scopeLabel,
             'scopeWarning' => $user->hasRole(UserRole::ADMIN) && $serviceAreas->isEmpty(),
         ];
     }
 
-    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, int $page): array
+    private function presentRows(Collection $tickets, array $occupancy, Collection $serviceAreas, Collection $branches, User $user): Collection
+    {
+        $pageIds = $tickets->map(fn ($ticket) => $occupancy[$this->normalize($ticket->incident)]['id'] ?? null)->filter()->all();
+        $visibleLops = $pageIds === [] ? collect() : $this->visibility->apply(QeLop::query()->whereIntegerInRaw('id_qe_lops', $pageIds), $user)
+            ->get(['id_qe_lops', 'incident', 'nama_lop', 'ihld_id', 'status_lop', 'program_type'])
+            ->keyBy('id_qe_lops');
+        $areasByWorkzone = $serviceAreas->keyBy(fn (ServiceArea $area) => $this->normalize($area->workzone));
+        $branchesById = $branches->keyBy('id_branch');
+
+        return $tickets->map(function ($ticket) use ($occupancy, $visibleLops, $areasByWorkzone, $branchesById): array {
+            $incident = $this->normalize($ticket->incident);
+            $match = $occupancy[$incident] ?? null;
+            $area = $areasByWorkzone->get($this->normalize($ticket->workzone));
+
+            return [
+                'incident' => $incident,
+                'ticket_type' => $this->normalize($ticket->jenis_tiket_2),
+                'reported_date' => $ticket->reported_day === null ? null : Carbon::createFromFormat('!Y-m-d', $ticket->reported_day)->format('d/m/Y'),
+                'workzone' => $this->normalize($ticket->workzone) ?: 'Belum terisi',
+                'branch' => $area ? $branchesById->get($area->branch_id)?->name : null,
+                'usage' => $match['usage'] ?? 'without_lop',
+                'lop' => $match ? $visibleLops->get($match['id']) : null,
+            ];
+        });
+    }
+
+    private function exportRows(?Builder $query, array $occupancy, Collection $areas, Collection $branches, User $user): Generator
+    {
+        if ($query === null) {
+            return;
+        }
+        $lastId = null;
+        do {
+            $chunk = (clone $query)->when($lastId !== null, fn (Builder $q) => $q->where('id_ticket', '<', $lastId))->limit(500)->get();
+            yield from $this->presentRows($chunk, $occupancy, $areas, $branches, $user);
+            $lastId = $chunk->last()?->id_ticket;
+        } while ($chunk->count() === 500);
+    }
+
+    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, int $page, bool $forExport = false): array
     {
         $source = DB::connection('mysql_dompis');
         $types = $source->table('ticket')->distinct()->pluck('jenis_tiket_2')->filter(function ($type) use ($filters): bool {
@@ -139,6 +173,11 @@ class TicketCoverageService
         }
 
         $reportedDate = $this->reportedDateExpression($source->getDriverName());
+        if ($filters['month'] !== '') {
+            $month = Carbon::createFromFormat('!Y-m', $filters['month']);
+            $query->whereRaw("{$reportedDate} >= ?", [$month->format('Y-m-d')])
+                ->whereRaw("{$reportedDate} < ?", [$month->copy()->addMonth()->format('Y-m-d')]);
+        }
         if ($filters['date_from'] !== '') {
             $query->whereRaw("{$reportedDate} >= ?", [$filters['date_from']]);
         }
@@ -172,9 +211,10 @@ class TicketCoverageService
         } elseif ($filters['usage'] !== 'all') {
             $query->whereIn(DB::raw('UPPER(TRIM(incident))'), $used);
         }
-        $tickets = $query->select(['id_ticket', 'incident', 'jenis_tiket_2', 'workzone'])
+        $query->select(['id_ticket', 'incident', 'jenis_tiket_2', 'workzone'])
             ->selectRaw("{$reportedDate} AS reported_day")
-            ->orderByDesc('id_ticket')->forPage($page, 25)->get();
+            ->orderByDesc('id_ticket');
+        $tickets = $forExport ? $query : $query->forPage($page, 25)->get();
 
         return [$stats, $chartRows, $tickets, $total];
     }

@@ -35,6 +35,7 @@ class ImportBatchController extends Controller
 
         return response()->json([
             'status' => $batch->status,
+            'skipped_rows' => (int) data_get($batch->metadata, 'skipped_rows', 0),
             'total_rows' => $batch->total_rows,
             'success_rows' => $batch->success_rows,
             'failed_rows' => $batch->failed_rows,
@@ -47,6 +48,9 @@ class ImportBatchController extends Controller
 
     private function assertAccess(Request $request, QeImportBatch $batch): void
     {
+        if ($batch->type === 'aiss') {
+            $this->authorize('import-aiss');
+        }
         if ($batch->type === 'users') {
             $this->authorize('create', User::class);
         }
