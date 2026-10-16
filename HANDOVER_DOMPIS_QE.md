@@ -3,7 +3,7 @@
 Terakhir diaudit: **16 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `e1ea9f0` (`feat: Bulk Data Status AiSS & Download Monitoring Ticket`)
+HEAD dasar saat audit terbaru: `e0cefe6` (`fix: Button Download`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -48,7 +48,7 @@ Stack utama:
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
-Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; worktree bersih saat memulai perbaikan form download HTTPS. Perubahan kerja terbaru terbatas pada form download/filter same-origin dan penghapusan filter bulan Monitoring Incident (7.45), beserta regression test dan dokumentasi. Status migration/konfigurasi server tidak diverifikasi ulang.
+Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin dan penghapusan filter bulan sudah masuk `e0cefe6`. Worktree bersih saat memulai Download Data LOP sesuai filter (7.46); fitur tersebut beserta regression test/dokumentasi menjadi perubahan kerja terbaru. Status migration/konfigurasi server tidak diverifikasi ulang.
 
 ### 2.3 Status migration lokal
 
@@ -270,6 +270,10 @@ Pemilihan paket reservasi otomatis:
 - `app/Services/LopVisibilityService.php`
 - `app/Http/Controllers/LopController.php`
 - `app/Http/Controllers/LopAssignmentController.php`
+- `app/Http/Controllers/DataLopController.php`
+- `app/Http/Requests/DataLopFilterRequest.php`
+- `app/Services/DataLopService.php`
+- `app/Exports/DataLopExport.php`
 - `app/Policies/QeLopPolicy.php`
 - `resources/views/lop/index.blade.php`
 - `resources/views/program/show.blade.php`
@@ -770,6 +774,16 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Dua regression direproduksi gagal sebelum perbaikan: form absolut membawa HTTP internal, dan month lama masih membatasi data. Sesudah perbaikan, DOM form/ketiga tombol diperiksa dengan deteksi HTTP dan HTTPS untuk ADMIN/SUPER_ADMIN; parameter bulan lama tidak memengaruhi halaman/XLSX dan tidak muncul lagi di filter/pagination. Regression leap day/tahun baru serta ekspor diperbarui memakai rentang tanggal.
 - Verifikasi: **451 tests / 4591 assertions** Laravel dan **41 frontend tests** lulus; regression monitoring **41 tests / 611 assertions** mencakup TicketCoverageTest (28) dan IncidentMonitoringTest (13). Pint file PHP task, Vite build, view:cache, serta git diff --check lulus. Tidak ada tes browser/server aaPanel nyata, migration/write database operasional, commit/push, restart worker, atau deployment. Setelah commit/push dan pull, clear/rebuild Blade view cache di server agar form baru digunakan. Tidak perlu migration untuk perbaikan ini; izin migration AISS tetap terpisah.
 
+### 7.46 Download Data LOP sesuai filter — 16 Oktober 2026
+
+- Master Data → Data LOP mempunyai tombol Download Excel di sebelah Input LOP Baru. Tombol submit form GET dengan formaction relatif `/master-data/lops/export`, mengikuti isian pencarian/program/status/branch terkini tanpa harus Terapkan dan tanpa membawa page. Seluruh hasil dalam scope diekspor, bukan hanya 20 baris tabel. Action form filter juga relatif agar tidak mengirim dari halaman HTTPS menuju HTTP hasil deteksi backend.
+- `DataLopFilterRequest` dipakai index/export: authorize ADMIN/SUPER_ADMIN serta policy viewAny, memvalidasi string pencarian/branch maksimum 255, enum program/status, dan pagination. Middleware role/auth tetap tersedia; bypass middleware role tidak membuka unduhan untuk Teknisi/Manager/Approver. Filter lokasi tidak memperluas scope.
+- Filter/query existing diekstrak ke `DataLopService` agar tabel dan ekspor menggunakan predikat serta `LopVisibilityService` yang sama (Area/Region/Branch/multi-Service Area dan legacy). Pencarian tetap Incident/Nama LOP/STO dan branch tetap nama legacy seperti filter tabel existing. Pencarian literal 0 kini diterapkan, bukan terabaikan oleh pemeriksaan truthy. Soft-deleted LOP tidak diekspor. Tidak mengubah Active LOP creator-only atau lifecycle.
+- Satu sheet Data LOP berisi ID IHLD, Incident, Nama LOP, STO, Branch, Area, Program, Segmen, Budget Type, Status Dompis, Status AISS, jenis BOQ, Jumlah Item BOQ, Deskripsi Pekerjaan, Dibuat Oleh, Tanggal Dibuat (WIB). Lokasi ekspor mengutamakan FK dengan fallback legacy; BOQ memakai item_count snapshot atau count item reservasi bila plan tidak ada. Ini daftar LOP, bukan ekspor rincian designator/nilai Revenue. Nilai sumber tidak diubah/dihitung ulang.
+- Rincian dibaca per 250 LOP dengan keyset ID menurun, eager-load metadata relasi dan withCount item reservasi, tanpa memuat evidence/foto atau seluruh item BOQ. Workbook Maatwebsite/PhpSpreadsheet tetap membutuhkan memori sesuai jumlah sel; volume produksi belum dibenchmark. File private/no-store, tanpa file publik/salinan permanen. Identifier/teks memakai tipe string dan format teks; jumlah item/tanggal numerik, null tetap blank, nol tetap 0. Header gelap, wrap deskripsi/nama, autofilter dan freeze pane C2.
+- Verifikasi: **459 tests / 4733 assertions** Laravel dan **41 frontend tests** lulus. `DataLopExportTest` (8 tests / 142 assertions) membaca XLSX nyata: filter gabungan/individual dan q 0, seluruh scope/multi-STO/legacy/luar scope, arsip, pagination/chunk 255, formula/leading zero/date/count/null, fallback FK/reservasi, role tanpa middleware, parameter malformed, DOM form same-origin dan current-input/no page. Pint file PHP task, Vite build, view:cache, route registration, serta git diff --check lulus.
+- Layout dievaluasi dengan workbook sintetis dari exporter aplikasi dan pratinjau dua rentang memakai spreadsheet tooling; tidak ada data operasional yang diekspor. Renderer pratinjau dapat menampilkan identifier numerik-teks tanpa nol depan meskipun inspect dan XLSX asli mempertahankan nilai string; tipe/nilai/format teks diverifikasi terpisah dengan PhpSpreadsheet. Tidak ada verifikasi Excel native/browser/server aaPanel nyata, migration/write database operasional, dependency baru, commit/push, queue restart, atau deployment. Migration AISS tetap memerlukan izin terpisah bila belum dijalankan pada environment tujuan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -804,14 +818,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-451 tests passed
-4591 assertions
+459 tests passed
+4733 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Download Data LOP sesuai filter: `DataLopExportTest` (8 tests).
 - Monitoring tiket dan download Excel: `TicketCoverageTest` (28 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (15 tests, termasuk INFRACARE khusus Preventive dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).

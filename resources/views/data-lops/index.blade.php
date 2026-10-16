@@ -9,10 +9,16 @@
     @endif
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div><p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Master Data</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">Data LOP</h1><p class="mt-2 text-sm text-ink-500">Seluruh LOP hasil input manual dan Bulk Import dalam lingkup akses Anda.</p></div>
-        <a href="{{ route('lop.create') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20">Input LOP Baru</a>
+        <div class="flex flex-wrap gap-2">
+            <button type="submit" form="data-lop-filters" formaction="{{ route('data-lops.export', [], false) }}" formmethod="GET" title="Download seluruh Data LOP sesuai filter dan scope akses" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 text-sm font-bold text-ink-700 transition hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800">
+                <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-4-4 4 4 4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                Download Excel
+            </button>
+            <a href="{{ route('lop.create') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20">Input LOP Baru</a>
+        </div>
     </div>
 
-    <form method="GET" class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm dark:border-ink-700 dark:bg-ink-900">
+    <form id="data-lop-filters" action="{{ route('data-lops.index', [], false) }}" method="GET" class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm dark:border-ink-700 dark:bg-ink-900">
         <div class="mb-4 flex items-center justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800">
             <div><p class="text-sm font-extrabold text-ink-900 dark:text-white">Pencarian & Filter</p><p class="mt-0.5 text-xs text-ink-500">Persempit daftar berdasarkan data operasional LOP.</p></div>
             @if (collect($filters)->filter()->isNotEmpty())
@@ -26,6 +32,7 @@
             <label><span class="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Branch</span><select name="branch" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"><option value="">Semua branch</option>@foreach($branches as $item)<option value="{{ $item->name }}" @selected($filters['branch'] === $item->name)>{{ $item->name }}</option>@endforeach</select></label>
             <div class="flex items-end"><button class="min-h-11 w-full rounded-xl bg-ink-900 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-ink-800 dark:bg-white dark:text-ink-900 dark:hover:bg-ink-100">Terapkan Filter</button></div>
         </div>
+        <p class="mt-3 text-xs text-ink-500">Download Excel mengikuti isian filter terkini dan mencakup seluruh hasil dalam scope akses Anda, bukan hanya halaman ini.</p>
     </form>
 
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
