@@ -54,6 +54,7 @@ class LopReturnDestination
         if (! in_array($route->getName(), [
             'dashboard', 'lop.index', 'lop.history', 'lop.my-approvals', 'lop.create', 'lop.import.form',
             'data-lops.index', 'data-boqs.index', 'program.show',
+            'incident-monitoring.tickets', 'incident-monitoring.index',
             'bulk-import.lop.index', 'bulk-import.boq.index', 'evidence-approval.index',
         ], true)) {
             return null;

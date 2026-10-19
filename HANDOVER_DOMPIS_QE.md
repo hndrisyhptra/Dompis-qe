@@ -3,7 +3,7 @@
 Terakhir diaudit: **19 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `6a591d3` (`fix: Tag location opsional`)
+HEAD dasar saat audit terbaru: `0932d43` (`fix: opsional Tag Location & Ket Failed upload LOP`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -48,7 +48,7 @@ Stack utama:
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
-Pembaruan 19 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47) sudah masuk `03d50b2`. Material Tiba per material BOQ Plan khusus Relok Utilitas dan pembatasan Import AISS ke Superadmin/Admin Area (7.48) sudah masuk `085f6bb`. Tag Lokasi opsional dan tempel koordinat (7.49) sudah masuk `6a591d3`. Worktree bersih saat memulai perbaikan fallback lokasi pada APK WebView dan kelengkapan hasil Bulk Import LOP (7.50); task terbaru belum di-commit.
+Pembaruan 19 Oktober 2026: Import AISS/Download Monitoring Ticket berada pada `e1ea9f0`, perbaikan form same-origin pada `e0cefe6`, dan Download Data LOP pada `e4e5601`. Designator khusus/capture/hapus evidence (7.47) sudah masuk `03d50b2`, Material Tiba per plan dan akses AISS (7.48) pada `085f6bb`, lokasi opsional (7.49) pada `6a591d3`, serta fallback lokasi APK dan hasil Bulk LOP (7.50) pada `0932d43`. Worktree bersih saat memulai perbaikan tujuan Detail LOP dari matrix dashboard dan Monitoring Ticket (7.51); task terbaru belum di-commit.
 
 ### 2.3 Status migration lokal
 
@@ -281,6 +281,7 @@ Pemilihan paket reservasi otomatis:
 - `app/Exports/DataLopExport.php`
 - `app/Policies/QeLopPolicy.php`
 - `resources/views/lop/index.blade.php`
+- `resources/views/lop/detail.blade.php`
 - `resources/views/program/show.blade.php`
 
 ### 5.2 Teknisi dan progress
@@ -839,6 +840,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Verifikasi: **500 tests / 5182 assertions** Laravel dan **54 frontend tests** lulus. Regression mencakup DOM tombol Continue/form terpisah/tanpa required, blank/no-op dengan lokasi existing, fallback paste server/invalid/ownership, hasil 56 baris/3 chunk, alasan field, filter/pagination, batch idempotensi, callback gagal/late, header/file/SQL redaction, dispatch failure dan tampilan rincian tidak lengkap. Pint file PHP task, Vite build, view:cache, dan git diff --check lulus. Tests tetap SQLite memory dengan config cache terpisah. Belum ada uji APK/device/GPS native atau worker/server produksi nyata.
 - Tidak menjalankan migration, import/review/upload akun nyata, write database operasional, restart worker, commit/push atau deploy. Setelah kode dipush/pull, build asset, rebuild view cache dan restart worker melalui prosedur deployment agar handler import baru dipakai. Migration AISS/capture opsional terdahulu tetap membutuhkan izin terpisah bila belum tersedia.
 
+### 7.51 Detail langsung dari matrix dashboard dan tiket yang sudah memiliki LOP — 19 Oktober 2026
+
+- Audit menemukan tautan membawa ID yang benar, tetapi route legacy `lop.show` sengaja hanya redirect ke daftar/halaman asal. User tidak pernah masuk informasi LOP yang dipilih. Perilaku legacy tersebut tetap dipertahankan untuk alur lain agar tidak mengembalikan masalah navigasi lama.
+- Route auth GET `/lop/{qe_lop}/detail` bernama `lop.detail` menampilkan satu LOP secara langsung melalui `LopController::detail`, bukan redirect ke Inbox/Master Data atau modal lain. `QeLopPolicy::view` tetap memeriksa scope canonical seluruh level admin; bukan filter created_by Inbox. Superadmin mengikuti policy existing; Teknisi yang berhak diarahkan ke workspace mobile dan yang tidak ditugaskan ditolak. Parent arsip tetap 404.
+- `AdminDashboardService::matrixLops` mengirim detail_url relatif ke route baru, dipakai bersama desktop/mobile pada modal angka matrix Program/Status LOP. Dua tombol desktop/mobile tab Monitoring Ticket → Sudah Memiliki LOP juga memakai route tersebut. Pencocokan tiket, angka dashboard, filter, scope, serta data di luar akses/arsip tidak berubah. Tautan legacy pada halaman lain tidak diubah massal.
+- Konten memakai komponen detail existing (Overview, Material & Laporan sesuai izin, Tiket & Jaringan), dengan prop standalone dan panel pembungkus non-dialog. Modal existing tetap modal secara default. BOQ/progress/harga memakai service existing; tidak ada kalkulasi ulang harga atau query write. Tombol Kembali memakai whitelist `LopReturnDestination`, ditambah halaman monitoring/tiket agar filter asal dipertahankan; URL eksternal tetap ditolak.
+- Regression `LopDirectDetailTest` (4 cases) mencakup empat scope admin/Superadmin, LOP buatan user lain di scope, target tepat tanpa redirect, luar scope/arsip/guest/Teknisi, non-dialog, return URL/filter dan penolakan origin eksternal, serta mengikuti dua link responsive tiket sampai HTTP 200 LOP target. AdminDashboardTest memeriksa detail_url matrix serta halaman target; TicketCoverageTest diperbarui untuk link langsung. Suite navigasi lama tetap lulus.
+- Verifikasi: **504 tests / 5249 assertions** Laravel dan **54 frontend tests** lulus. Vite build, view:cache, route:list untuk lop.detail, Pint file PHP task dan git diff --check lulus. Tidak ada migration/schema/write data operasional, import nyata, restart worker, commit/push atau deploy. Browser/APK/produksi belum diuji; setelah pull clear/rebuild route/view cache agar route dan Blade baru digunakan. Tidak perlu migration untuk perbaikan ini.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -874,14 +884,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-500 tests passed
-5182 assertions
+504 tests passed
+5249 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Detail langsung dari dashboard/tiket: `LopDirectDetailTest` (4 cases), `AdminDashboardTest`, `TicketCoverageTest`; navigasi legacy: `LopReturnNavigationTest`.
 - Fallback lokasi/no-op/DOM Continue/PHP paste: `TechnicianMobileWorkflowTest` (22 cases). Hasil chunk Bulk LOP/penyebab/filter/file/job/dispatch: `BulkLopLatestRulesTest` (10 cases).
 - Lokasi opsional/lanjut tanpa survey: `TechnicianMobileWorkflowTest`; frontend tempel/GPS: `technician-location.test.mjs` (8 cases).
 - Material Tiba per plan Relok Utilitas: `MaterialArrivalPerDesignatorTest` (12 cases); pembatasan Import AISS/menu/worker/scope: `AissImportTest` (21 tests).

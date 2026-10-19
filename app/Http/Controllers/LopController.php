@@ -342,6 +342,26 @@ class LopController extends Controller
         return redirect()->to(LopReturnDestination::resolve(request(), $fallback));
     }
 
+    public function detail(Request $request, QeLop $qe_lop): View|RedirectResponse
+    {
+        $this->authorize('view', $qe_lop);
+
+        if ($request->user()->hasRole(UserRole::TEKNISI)) {
+            return redirect()->route('technician.projects.show', $qe_lop);
+        }
+
+        $qe_lop->loadMissing([
+            'creator', 'activeAssignment.technician', 'branchRef', 'serviceArea',
+            'boq.items.designator', 'materialReservation.items.designator', 'survey', 'evidences',
+        ]);
+        $qe_lop->setAttribute('progress_summary', $this->progressService->summary($qe_lop));
+
+        return view('lop.detail', [
+            'lop' => $qe_lop,
+            'returnUrl' => LopReturnDestination::resolve($request, route($request->user()->hasRole(...UserRole::adminLevel()) ? 'data-lops.index' : 'lop.index')),
+        ]);
+    }
+
     public function edit(QeLop $qe_lop): View
     {
         $this->authorize('update', $qe_lop);

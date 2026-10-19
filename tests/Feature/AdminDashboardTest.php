@@ -170,7 +170,7 @@ class AdminDashboardTest extends TestCase
         Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
         $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $sidoarjo->id_branch]);
 
-        $this->makeLop($admin, 'DRILL-SDA', 'SIDOARJO', 'recovery', 'waiting_approval');
+        $target = $this->makeLop($admin, 'DRILL-SDA', 'SIDOARJO', 'recovery', 'waiting_approval');
         $this->makeLop($admin, 'DRILL-SBY', 'SURABAYA', 'recovery', 'waiting_approval');
         $this->makeLop($admin, 'DRILL-OTHER', 'SIDOARJO', 'preventive', 'draft');
 
@@ -183,7 +183,10 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 1)
             ->assertJsonPath('data.0.incident', 'DRILL-SDA')
+            ->assertJsonPath('data.0.detail_url', route('lop.detail', $target, false))
             ->assertJsonMissing(['incident' => 'DRILL-SBY']);
+        $this->get(route('lop.detail', $target))->assertOk()->assertViewIs('lop.detail')
+            ->assertSee('Project DRILL-SDA')->assertDontSee('Project DRILL-SBY');
     }
 
     private function makeLop(

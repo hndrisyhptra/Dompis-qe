@@ -1,4 +1,4 @@
-@props(['id', 'lop'])
+@props(['id', 'lop', 'standalone' => false])
 
 @php
     $summary = $lop->progress_summary;
@@ -29,7 +29,7 @@
     $hasBoqPlan = $lop->program_type->usesProjectStatus() && $lop->boq !== null;
 @endphp
 
-<x-modal :id="$id" title="Detail LOP" size="xl">
+<x-dynamic-component :component="$standalone ? 'lop-detail-panel' : 'modal'" :id="$id" title="Detail LOP" size="xl">
     <div x-data="detailLaporanTab({{ $lop->id_qe_lops }}, {{ $hasBoqPlan ? 'true' : 'false' }})" class="flex flex-col">
         {{-- Header + Tab bar (sticky) --}}
         <div class="sticky -top-5 -mx-5 z-10 -mt-5 border-b border-ink-100 bg-white/95 px-5 py-4 backdrop-blur dark:border-ink-700 dark:bg-ink-900/95">
@@ -283,4 +283,4 @@
             </div>
         </div>
     </div>
-</x-modal>
+</x-dynamic-component>

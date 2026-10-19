@@ -157,7 +157,7 @@
                                 <p class="break-words text-sm font-medium">{{ $row['lop']->nama_lop }}</p>
                                 <div class="text-sm"><span class="text-xs text-ink-500 dark:text-ink-400">ID IHLD</span>@if(filled($row['lop']->ihld_id))<x-copyable-value :value="$row['lop']->ihld_id" label="ID IHLD" />@else<p class="mt-1 text-ink-500 dark:text-ink-400">Belum diisi</p>@endif</div>
                                 @if ($row['usage'] === 'with_lop')
-                                    <div class="flex flex-wrap items-center justify-between gap-2"><x-badge :variant="$row['lop']->status_lop->badgeVariant()">{{ $row['lop']->status_lop->label() }}</x-badge><a href="{{ route('lop.show', $row['lop']) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-10 items-center text-sm font-medium text-brand-600 hover:underline dark:text-brand-300">Detail LOP →</a></div>
+                                    <div class="flex flex-wrap items-center justify-between gap-2"><x-badge :variant="$row['lop']->status_lop->badgeVariant()">{{ $row['lop']->status_lop->label() }}</x-badge><a href="{{ route('lop.detail', $row['lop'], false) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-10 items-center text-sm font-medium text-brand-600 hover:underline dark:text-brand-300">Detail LOP →</a></div>
                                 @endif
                             @elseif ($row['usage'] !== 'without_lop')<p class="text-sm text-ink-500 dark:text-ink-400">Detail LOP tidak tersedia.</p>@endif
                         @endif
@@ -184,7 +184,7 @@
                                         @else<span class="text-ink-500 dark:text-ink-400">{{ $row['usage'] === 'without_lop' ? '—' : 'Detail LOP tidak tersedia' }}</span>@endif
                                     </td>
                                     <td class="px-3 py-3">@if($row['lop'] && filled($row['lop']->ihld_id))<x-copyable-value :value="$row['lop']->ihld_id" label="ID IHLD" />@else<span class="inline-block py-1 text-ink-500 dark:text-ink-400">{{ $row['lop'] ? 'Belum diisi' : '—' }}</span>@endif</td>
-                                    <td class="px-3 py-4">@if($row['lop'] && $row['usage'] === 'with_lop')<a href="{{ route('lop.show', $row['lop']) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-8 items-center font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300">Detail</a>@else<span class="text-ink-500 dark:text-ink-400">—</span>@endif</td>
+                                    <td class="px-3 py-4">@if($row['lop'] && $row['usage'] === 'with_lop')<a href="{{ route('lop.detail', $row['lop'], false) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-8 items-center font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300">Detail</a>@else<span class="text-ink-500 dark:text-ink-400">—</span>@endif</td>
                                 @endif
                             </tr>
                         @endforeach

@@ -99,7 +99,7 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC-ARCHIVE', 'INFRACARE');
         $this->ticket('INC-FREE');
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['usage' => 'with_lop']))->assertOk()
-            ->assertSee('LOP INC-USED')->assertSee('0012345')->assertSee('Waiting Approval')->assertSee(route('lop.show', $used), false)
+            ->assertSee('LOP INC-USED')->assertSee('0012345')->assertSee('Waiting Approval')->assertSee(route('lop.detail', $used, false), false)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2 && $rows->firstWhere('incident', 'INC-ARCHIVE')['lop'] === null)
             ->assertDontSee('LOP INC-ARCHIVE')->assertDontSee(route('lop.show', $archived), false)->assertDontSee('LOP diarsipkan');
         $this->getJson(route('incident-monitoring.tickets', ['usage' => 'archived']))->assertUnprocessable()->assertJsonValidationErrors('usage');

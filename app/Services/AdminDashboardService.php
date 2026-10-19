@@ -126,7 +126,7 @@ class AdminDashboardService
                     'status_key' => $status->value,
                     'technician' => $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan',
                     'updated_at' => $lop->updated_at?->format('d M Y · H:i'),
-                    'detail_url' => route('lop.show', $lop),
+                    'detail_url' => route('lop.detail', $lop, false),
                 ];
             })
             ->values();
