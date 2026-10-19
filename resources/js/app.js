@@ -1,8 +1,10 @@
 import "./bootstrap";
 import { installAuthSessionGuard } from "./auth-session";
 import { copyableValue } from "./copyable-value";
+import { technicianLocation } from "./technician-location";
 
 window.copyableValue = copyableValue;
+window.technicianLocation = technicianLocation;
 
 installAuthSessionGuard();
 

@@ -45,7 +45,7 @@
                 @php
                     $evidenceItems = $stepEvidence[$number];
                     $hasPending = $evidenceItems->contains(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING);
-                    $complete = $number === 1 ? ($lop->materialReservation !== null && $lop->survey !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending && ! $evidenceItems->contains('status', \App\Enums\EvidenceStatus::REJECTED));
+                    $complete = $number === 1 ? ($lop->materialReservation !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending && ! $evidenceItems->contains('status', \App\Enums\EvidenceStatus::REJECTED));
                     if ($number === 2 && $materialArrivalPerItem) $complete = $materialArrivalApproved;
                 @endphp
                 <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
@@ -56,6 +56,7 @@
     </nav>
 
     @if ($currentStep === 1)
+        <p class="text-xs leading-5 text-ink-500">Tag lokasi bersifat opsional. Lokasi kosong tidak menghalangi penyelesaian pekerjaan.</p>
         <section class="grid gap-4 lg:grid-cols-2">
             <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900"><div class="flex items-center justify-between"><div><p class="text-xs font-bold uppercase tracking-wide text-brand-600">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi Material</h2></div><x-badge :variant="$lop->materialReservation ? 'success' : 'warning'">{{ $lop->materialReservation ? 'Tersedia' : 'Belum ada' }}</x-badge></div><div class="mt-4 space-y-2">@forelse($lop->materialReservation?->items ?? collect() as $item)
                     @php $sisa = $item->sisa(); @endphp

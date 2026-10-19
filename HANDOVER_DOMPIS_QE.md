@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **16 Oktober 2026**
+Terakhir diaudit: **19 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `03d50b2` (`fix: Del & Reupload eviden Teknisi`)
+HEAD dasar saat audit terbaru: `085f6bb` (`feat: Relok utilitas eviden material per item`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -48,7 +48,7 @@ Stack utama:
 
 Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard Summary berada pada `c57d6ea`, pencarian KHS pada `d307b4b`, halaman Review BOQ/stepper teknisi pada `ed123e0`. Review BOQ mobile, QE Relok Tiang, budget otomatis, Bulk Import User, dan diagnosis worker masuk commit `4cc8cf4`. Lima segmen, template Bulk LOP terbaru, hasil INCIDENT duplikat, dan artifact MainActivity masuk commit `87470d3`; guard login/logout dan pemulihan 419 sudah masuk `0840dd1`. Edit BOQ aktual, pembukaan Waiting Approval/reset Completed, dan navigasi asal sudah masuk commit `1845c0f`. Approval Saya, reminder login, badge pending, dan konfirmasi logout sudah masuk `4a1f6d8`. Password akun sendiri, scope topbar, pembatalan LOP semua status, dan Active LOP per pembuat sudah masuk `afee345`. Worktree bersih saat memulai task Matrix Program per scope. Perubahan terbaru yang belum di-commit: matrix admin per Region/Branch/STO/Program sesuai level scope, dropdown program pada tab Program, kolom Unassign serta drill-down lokasi. Tidak mengubah schema, workflow, import, atau source Android.
 
-Pembaruan 16 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47) sudah masuk `03d50b2`. Worktree bersih saat memulai task Material Tiba per material BOQ Plan khusus Relok Utilitas dan pembatasan Import AISS ke Superadmin/Admin Area (7.48); perubahan task ini belum di-commit.
+Pembaruan 19 Oktober 2026: Import AISS dan Download Monitoring Ticket sudah masuk commit `e1ea9f0`; perbaikan form same-origin/penghapusan bulan sudah masuk `e0cefe6`, dan Download Data LOP berada pada `e4e5601`. Aturan designator khusus, pencatatan capture opsional, dan penghapusan evidence teknisi (7.47) sudah masuk `03d50b2`. Material Tiba per material BOQ Plan khusus Relok Utilitas dan pembatasan Import AISS ke Superadmin/Admin Area (7.48) sudah masuk `085f6bb`. Worktree bersih saat memulai task Tag Lokasi opsional dan tempel koordinat (7.49); perubahan task terbaru belum di-commit.
 
 ### 2.3 Status migration lokal
 
@@ -172,7 +172,7 @@ Workflow mobile teknisi aktual terdiri dari lima langkah:
 
 1. Reservasi material.
 2. Evidence material tiba. Khusus QE Relok Utilitas wajib per item MATERIAL ber-volume pada BOQ Plan; program lain tetap global. Minimal satu foto non-rejected per item, boleh multiple. Tanpa BOQ Plan/material, teknisi diminta menghubungi admin; global lama tidak menjadi pengganti.
-3. Evidence pra: Surat Permintaan opsional untuk Preventive/Relok, lokasi dan foto kondisi awal wajib, Capture Ticket Insera opsional.
+3. Evidence pra: foto kondisi awal wajib; Tag Lokasi dan Capture Ticket Insera opsional. Surat Permintaan opsional untuk Preventive/Relok. Tag Lokasi dapat memakai GPS, isian terpisah, atau tempel pasangan Latitude, Longitude lalu Simpan lokasi; tidak perlu membuat survey kosong untuk lanjut.
 4. Evidence progress per designator reservasi.
 5. Evidence after per designator dan `qty_actual` wajib; Capture Logic Slot Port (Screenshot Detail Slot Port OLT) opsional.
 
@@ -296,6 +296,8 @@ Pemilihan paket reservasi otomatis:
 - `resources/views/technician/project.blade.php`
 - `resources/views/technician/boq-review.blade.php`
 - `resources/views/technician/partials/boq-review.blade.php`
+- `resources/views/technician/partials/location-form.blade.php`
+- `resources/js/technician-location.js`
 - `resources/views/components/technician-evidence-uploader.blade.php`
 - `resources/js/app.js`
 
@@ -387,6 +389,7 @@ Pemilihan paket reservasi otomatis:
 14. Import multi-tabel harus transactional agar kegagalan tidak meninggalkan BOQ atau LOP parsial.
 15. BOQ Plan/Actual, ekspor, dan Revenue untuk Recovery/Preventive/Relok Tiang menerima MATERIAL serta tiga jasa khusus J-CO-OF/J-Coring/J-OS-SM-1. Relok Utilitas boleh seluruh MATERIAL/JASA. Tiga jasa khusus harus eksplisit di reservasi, dengan actual = qty reservasi dan evidence Progress/After sendiri; tidak diduplikasi sebagai pasangan virtual. Data jasa historis tidak dihapus massal.
 16. Capture Insera dan Capture Logic Slot Port tidak wajib untuk kelengkapan Pra/After. Jika diupload, keduanya tetap evidence reviewable, bukan dokumen exempt seperti Surat Permintaan.
+17. Tag Lokasi opsional untuk seluruh program; tanpa `qe_surveys` teknisi tetap dapat lanjut/submit/Completed jika evidence dan qty wajib lengkap. Simpan lokasi secara eksplisit tetap memerlukan pasangan koordinat numerik valid dan assignment/authorization existing. Jangan menyimpan survey dummy atau mengubah lokasi lama saat user melewatinya.
 
 ## 7. Perubahan Terakhir
 
@@ -813,6 +816,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Verifikasi: **493 tests / 5060 assertions** Laravel dan **46 frontend tests** lulus. Test mengabaikan config cache runtime melalui `APP_CONFIG_CACHE` ke path temporary yang kosong agar tetap SQLite in-memory; percobaan awal memakai cache runtime terhalang koneksi MySQL sebelum migrasi/test menulis. Pint file PHP task, Vite build, Blade view:cache dan git diff --check lulus. Tidak ada browser/device/worker/server produksi nyata yang diuji.
 - Tidak menambah schema atau menjalankan migration/write/import/review/upload operasional, queue restart, commit/push atau deploy. Fitur baru memakai `qe_evidences.designator_id` existing. Migration capture opsional 7.47 dan AISS 7.43 tetap belum dieksekusi oleh sesi ini dan membutuhkan izin terpisah jika belum tersedia di environment tujuan. Setelah deploy rebuild cache dan restart worker agar pembatasan Gate AISS termuat pada proses lama.
 
+### 7.49 Tag Lokasi opsional dan tempel koordinat — 19 Oktober 2026
+
+- `TechnicianWorkflowService::state/completeSurvey` tidak lagi mensyaratkan survey untuk Step Pra. `ProjectProgressService` juga tidak mengurangi progress karena lokasi kosong; PRE tetap wajib non-rejected. Material Tiba (termasuk per material plan Utilitas), Progress/After, qty actual, capture opsional dan persetujuan evidence tetap mengikuti aturan existing. Complete Review tidak menambah syarat lokasi, dan indikator Step 1 admin tidak bergantung pada survey.
+- Form lokasi dipisahkan ke partial `technician/partials/location-form` dengan badge Opsional, petunjuk boleh langsung lanjut, GPS, kolom Tempel koordinat, dua isian Latitude/Longitude yang dapat ditinjau/diedit, tombol Simpan lokasi/Buka peta, loading/error dan indikator belum disimpan. Read-only teknisi menyatakan Lokasi tidak diisi (opsional). Koordinat existing tetap ditampilkan; skip tidak mengirim request, tidak menghapus data dan tidak membuat `qe_surveys` kosong.
+- Module `resources/js/technician-location.js` menerima pasangan desimal bertitik yang dipisah koma/spasi/titik koma (opsional kurung). Default Latitude lalu Longitude; long-lat dapat dibalik otomatis hanya bila angka pertama di luar rentang latitude dan angka kedua valid sebagai latitude, seperti 112.752090, -7.257472. Jika keduanya -90..90, urutan tetap mengikuti label latitude dahulu, bukan menebak. URL Maps/DMS/decimal-comma/teks lain ditolak dengan petunjuk format; tidak memakai API geocoding atau clipboard permission. Angka 0 valid. Pasangan hasil parsing tetap perlu Simpan lokasi untuk tercatat.
+- Paste invalid tidak merusak koordinat tersimpan; edit manual/paste membuang accuracy GPS lama dan memakai source manual. Respons GPS terlambat tidak menimpa perubahan manual; unsupported/denied/throw/timeout memberikan error tanpa memblokir langkah pekerjaan. State GPS/paste hanya lokal sampai POST existing berhasil; bukan penanda tersimpan palsu. Form action relatif same-origin dan server tetap mewajibkan pasangan numeric/range pada aksi Simpan, sehingga lokasi opsional tidak berarti menyimpan nilai parsial/null.
+- Regression direproduksi gagal sebelum perbaikan. `TechnicianMobileWorkflowTest` memeriksa Pra tanpa lokasi, PRE kosong/rejected, UI tempel dan read-only, keempat program dari pickup hingga Completed/100% tanpa survey/capture, serta simpan/update/zero/invalid/teknisi lain tanpa merusak lokasi. Frontend `technician-location.test.mjs` berisi 8 cases untuk parser/paste/range/zero/dirty/accuracy, GPS gagal, klik ganda dan respons GPS stale.
+- Verifikasi: **494 tests / 5101 assertions** Laravel dan **54 frontend tests** lulus; test SQLite in-memory melewati config cache runtime dengan `APP_CONFIG_CACHE` temporary. Pint file PHP task, build Vite, view:cache dan git diff --check lulus. Tidak ada migration/schema/dependency baru, write data operasional, GPS/upload/login akun nyata, queue restart, commit/push atau deployment. Browser/APK/device serta server produksi belum diuji. Migration AISS/capture opsional terdahulu tidak dijalankan pada task ini dan tetap memerlukan izin terpisah bila belum tersedia di environment tujuan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -848,14 +860,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-493 tests passed
-5060 assertions
+494 tests passed
+5101 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
 
 Pemetaan test utama:
 
+- Lokasi opsional/lanjut tanpa survey: `TechnicianMobileWorkflowTest`; frontend tempel/GPS: `technician-location.test.mjs` (8 cases).
 - Material Tiba per plan Relok Utilitas: `MaterialArrivalPerDesignatorTest` (12 cases); pembatasan Import AISS/menu/worker/scope: `AissImportTest` (21 tests).
 - Designator khusus/pilihan capture/hapus evidence: `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases); frontend evidence-optional.test.mjs (7) dan boq-editor.test.mjs (5).
 - Download Data LOP sesuai filter: `DataLopExportTest` (8 tests).

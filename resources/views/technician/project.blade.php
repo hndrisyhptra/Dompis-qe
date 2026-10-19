@@ -168,7 +168,7 @@
         </section>
     @elseif ($step === 3)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi tag lokasi dan foto kondisi awal. Capture Ticket Insera opsional.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 3</p><h2 class="mt-1 text-lg font-extrabold">Evidence Pra</h2><p class="mt-1 text-xs leading-5 text-ink-500">Foto kondisi awal wajib. Tag lokasi dan Capture Ticket Insera opsional.</p></div>
 
             @if ($lop->program_type->usesProjectStatus())
                 <div>
@@ -182,17 +182,7 @@
                 </div>
             @endif
 
-            <div x-data="{ latitude: '{{ $state['survey']?->latitude }}', longitude: '{{ $state['survey']?->longitude }}', accuracy: '{{ $state['survey']?->accuracy }}', source: '{{ $state['survey']?->location_source ?? 'manual' }}', locating: false, error: '', locate() { this.locating = true; this.error = ''; if (!navigator.geolocation) { this.error='GPS tidak didukung perangkat.'; this.locating=false; return; } navigator.geolocation.getCurrentPosition(p => { this.latitude=p.coords.latitude.toFixed(7); this.longitude=p.coords.longitude.toFixed(7); this.accuracy=p.coords.accuracy.toFixed(2); this.source='gps'; this.locating=false; }, () => { this.error='Lokasi gagal diambil. Aktifkan izin GPS atau isi manual.'; this.locating=false; }, { enableHighAccuracy: true, timeout: 15000 }); } }"
-                 class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
-                <div class="flex items-start justify-between gap-3"><div><h3 class="text-sm font-bold">Tag lokasi pekerjaan</h3><p class="mt-1 text-xs text-ink-500">Gunakan GPS atau masukkan koordinat manual.</p></div>@if($state['survey'])<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">Tersimpan</span>@endif</div>
-                <button type="button" @click="locate()" :disabled="locating" class="mt-4 min-h-11 w-full rounded-xl bg-ink-900 text-xs font-bold text-white dark:bg-ink-700"><span x-text="locating ? 'Mengambil lokasi…' : 'Gunakan lokasi saat ini'"></span></button>
-                <p x-show="error" x-text="error" class="mt-2 text-xs text-brand-600"></p>
-                <form method="POST" action="{{ route('technician.projects.location', $lop) }}" class="mt-3 space-y-3">@csrf @method('PUT')
-                    <input type="hidden" name="accuracy" x-model="accuracy"><input type="hidden" name="location_source" x-model="source">
-                    <div class="grid grid-cols-2 gap-2"><div><label class="text-[10px] font-bold text-ink-400">LATITUDE</label><input name="latitude" x-model="latitude" @input="source='manual'" required class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-2 text-xs dark:border-ink-700 dark:bg-ink-800"></div><div><label class="text-[10px] font-bold text-ink-400">LONGITUDE</label><input name="longitude" x-model="longitude" @input="source='manual'" required class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-2 text-xs dark:border-ink-700 dark:bg-ink-800"></div></div>
-                    <div class="grid grid-cols-2 gap-2"><button class="min-h-11 rounded-xl border border-ink-200 text-xs font-bold dark:border-ink-700">Simpan lokasi</button><a :href="latitude && longitude ? `https://maps.google.com/?q=${latitude},${longitude}` : '#'" target="_blank" class="grid min-h-11 place-items-center rounded-xl bg-ink-50 text-xs font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">Buka peta</a></div>
-                </form>
-            </div>
+            @include('technician.partials.location-form')
 
             <x-technician-evidence-uploader :lop="$lop" category="pre" title="Foto sebab/kondisi awal pekerjaan" description="Beberapa foto kondisi awal area pekerjaan sebelum instalasi." :existing="$evidenceFor('pre')" />
 

@@ -224,7 +224,7 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->assertSee('aria-disabled="true"', false); // stepper step berikutnya terkunci
     }
 
-    public function test_step_pra_requires_location_and_pre_but_insera_is_optional(): void
+    public function test_step_pra_requires_pre_but_location_and_insera_are_optional(): void
     {
         Storage::fake('public');
         [, $technician, $lop] = $this->assignedProject();
@@ -243,23 +243,23 @@ class TechnicianMobileWorkflowTest extends TestCase
             'category' => 'material_arrival', 'type' => 'PHOTO',
             'files' => [UploadedFile::fake()->image('m.jpg')],
         ]);
-        $this->actingAs($technician)->put(route('technician.projects.location', $lop), [
-            'latitude' => -6.2, 'longitude' => 106.8, 'accuracy' => 8, 'location_source' => 'gps',
-        ]);
-
         $progress = app(ProjectProgressService::class);
 
-        // Lokasi ada, foto pra belum -> step 3 belum lengkap.
+        // Lokasi boleh kosong, tetapi foto pra tetap wajib.
         $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
+        $this->actingAs($technician)->post(route('technician.projects.survey-complete', $lop))->assertSessionHasErrors('workflow');
 
-        // Foto pra global dan lokasi cukup, tanpa capture Insera.
+        // Foto pra cukup, tanpa lokasi atau capture Insera.
         $this->actingAs($technician)->post(route('technician.projects.evidence', $lop), [
             'category' => 'pre', 'type' => 'PHOTO',
             'files' => [UploadedFile::fake()->image('pra.jpg')],
         ]);
         $this->assertTrue($progress->summary($lop->fresh())['steps'][3]);
+        $this->assertTrue(app(TechnicianWorkflowService::class)->state($lop->fresh())['step3Complete']);
+        $this->assertDatabaseMissing('qe_surveys', ['qe_lop_id' => $lop->getKey()]);
         $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 3]))
-            ->assertOk()->assertSee('Capture Ticket Insera')->assertSee('Opsional')->assertSee('Tidak Ada');
+            ->assertOk()->assertSee('Capture Ticket Insera')->assertSee('Opsional')->assertSee('Tidak Ada')
+            ->assertSee('Tempel koordinat (Latitude, Longitude)')->assertSee('Boleh langsung lanjut tanpa lokasi.');
         $this->actingAs($technician)->post(route('technician.projects.survey-complete', $lop))->assertSessionHasNoErrors();
         $this->assertSame('progress', $lop->fresh()->status_lop->value);
 
@@ -274,6 +274,11 @@ class TechnicianMobileWorkflowTest extends TestCase
             ->post(route('technician.projects.survey-complete', $lop))
             ->assertRedirect();
         $this->assertSame('progress', $lop->fresh()->status_lop->value);
+
+        // Membuat lokasi opsional tidak boleh menjadikan foto Pra rejected lengkap.
+        $lop->evidences()->where('category', 'pre')->update(['status' => 'rejected']);
+        $this->assertFalse($progress->summary($lop->fresh())['steps'][3]);
+        $this->assertFalse(app(TechnicianWorkflowService::class)->state($lop->fresh())['step3Complete']);
     }
 
     public function test_material_arrival_is_its_own_step_two_and_gates_evidence_pra(): void
@@ -311,6 +316,32 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame(2, $summary['completed_steps']);
         $this->assertTrue($summary['steps'][2]);
         $this->assertSame(40, $summary['percentage']);
+    }
+
+    public function test_optional_location_can_be_saved_and_updated_but_invalid_pairs_and_other_technicians_are_rejected(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->put(route('technician.projects.location', $lop), [
+            'latitude' => -7.257472, 'longitude' => 112.752090, 'location_source' => 'manual',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseHas('qe_surveys', ['qe_lop_id' => $lop->getKey(), 'captured_by' => $technician->getKey(), 'location_source' => 'manual']);
+        $this->put(route('technician.projects.location', $lop), [
+            'latitude' => 0, 'longitude' => 0, 'location_source' => 'manual',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('0.0000000', $lop->fresh()->survey->latitude);
+        $this->assertSame('0.0000000', $lop->fresh()->survey->longitude);
+        foreach ([['latitude' => ''], ['longitude' => ''], ['latitude' => 91], ['longitude' => 181]] as $invalid) {
+            $this->put(route('technician.projects.location', $lop), [...[
+                'latitude' => 0, 'longitude' => 0, 'location_source' => 'manual',
+            ], ...$invalid])->assertSessionHasErrors(array_key_first($invalid));
+        }
+        $other = User::factory()->role('TEKNISI')->create();
+        $this->actingAs($other)->put(route('technician.projects.location', $lop), [
+            'latitude' => -8, 'longitude' => 115, 'location_source' => 'manual',
+        ])->assertForbidden();
+        $this->assertSame('0.0000000', $lop->fresh()->survey->latitude);
+        $this->assertDatabaseCount('qe_surveys', 1);
     }
 
     public function test_material_usage_recap_rejects_qty_above_reservation_and_computes_sisa(): void
@@ -536,7 +567,7 @@ class TechnicianMobileWorkflowTest extends TestCase
     }
 
     #[DataProvider('optionalCapturePrograms')]
-    public function test_complete_five_step_workflow_can_be_submitted_for_approval_without_optional_captures(string $program): void
+    public function test_complete_five_step_workflow_can_be_submitted_for_approval_without_optional_location_or_captures(string $program): void
     {
         Storage::fake('public');
         [$admin, $technician, $lop] = $this->assignedProject($program);
@@ -551,13 +582,6 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->actingAs($technician)->put(route('technician.projects.materials', $lop), [
             'items' => [['designator_id' => $designator->id_designator, 'qty' => 5]],
         ]);
-        $this->actingAs($technician)->put(route('technician.projects.location', $lop), [
-            'latitude' => -6.2000000,
-            'longitude' => 106.8166667,
-            'accuracy' => 8,
-            'location_source' => 'gps',
-        ]);
-
         if ($program === ProgramType::RELOK_UTILITAS->value) {
             $boq = $lop->boq()->create(['source' => 'import', 'status' => 'ready', 'created_by' => $admin->getKey()]);
             $boq->items()->create([
@@ -638,6 +662,9 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame('Approve', $summary['review_label']);
         app(EvidenceApprovalService::class)->completeReview($lop->fresh(), $admin);
         $this->assertSame('completed', $lop->fresh()->status_lop->value);
+        $this->assertDatabaseMissing('qe_surveys', ['qe_lop_id' => $lop->getKey()]);
+        $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 3]))
+            ->assertOk()->assertSee('Lokasi tidak diisi (opsional).')->assertDontSee('Simpan lokasi');
         $this->assertFalse($lop->evidences()->whereIn('category', ['insera', 'slot_port'])->exists());
     }
 }

@@ -297,7 +297,7 @@ class TechnicianWorkflowService
         $state = $this->state($lop);
 
         if (! $state['step3Complete']) {
-            throw ValidationException::withMessages(['workflow' => 'Lengkapi tag lokasi pekerjaan dan foto kondisi awal. Capture Ticket Insera opsional.']);
+            throw ValidationException::withMessages(['workflow' => 'Lengkapi evidence Material Tiba dan foto kondisi awal. Tag lokasi dan Capture Ticket Insera opsional.']);
         }
 
         if ($lop->status_lop === LopStatus::SURVEY) {
@@ -347,12 +347,11 @@ class TechnicianWorkflowService
         $afterIds = $validEvidence->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
         // Step 1 Reservasi · Step 2 Material Tiba · Step 3 Evidence Pra
-        // (lokasi + foto kondisi awal, TIDAK per designator) ·
+        // (foto kondisi awal global wajib, lokasi opsional) ·
         // Step 4 Progress (per designator) · Step 5 After (per designator).
         $step1 = $items->isNotEmpty() && $items->every(fn ($item) => $item->exists);
         $step2 = $step1 && MaterialArrivalRules::complete($lop, $validEvidence);
         $step3 = $step2
-            && $lop->survey !== null
             && $validEvidence->where('category', EvidenceCategory::PRE)->isNotEmpty();
         $step4 = $step1 && $reservedIds->diff($progressIds)->isEmpty();
         $materialUsageComplete = $step1 && $items->every(fn ($item) => ReservedDesignatorRules::actualComplete($item));

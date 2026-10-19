@@ -44,10 +44,9 @@ class ProjectProgressService
             1 => $items->isNotEmpty() && $items->every(fn ($item) => $item->exists),
             2 => $items->isNotEmpty()
                 && MaterialArrivalRules::complete($lop, $evidences),
-            // Pra wajib lokasi dan foto kondisi awal; capture Insera opsional.
+            // Pra wajib foto kondisi awal; lokasi dan capture Insera opsional.
             3 => $items->isNotEmpty()
-                && $lop->survey !== null
-                && $evidences->where('category', EvidenceCategory::PRE)->isNotEmpty(),
+                && $evidences->where('category', EvidenceCategory::PRE)->where('status', '!=', EvidenceStatus::REJECTED)->isNotEmpty(),
             4 => $items->isNotEmpty() && $reservedIds->diff($progressIds)->isEmpty(),
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()

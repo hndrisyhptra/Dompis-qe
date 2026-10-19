@@ -24,12 +24,12 @@
             <x-technician-evidence-uploader :$lop category="request_letter" type="DOCUMENT" title="Surat Permintaan" description="Dokumen acuan pekerjaan." :existing="$requestLetters" :allow-upload="false" :allow-replace="false" :show-status="false" />
         @endif
         <article class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">
-            <h3 class="text-sm font-bold">Tag lokasi pekerjaan</h3>
+            <h3 class="text-sm font-bold">Tag lokasi pekerjaan <span class="ml-1 text-[10px] font-semibold text-ink-500">Opsional</span></h3>
             @if ($state['survey'])
                 <p class="mt-2 text-xs text-ink-500">{{ $state['survey']->latitude }}, {{ $state['survey']->longitude }}</p>
                 <a href="https://maps.google.com/?q={{ $state['survey']->latitude }},{{ $state['survey']->longitude }}" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex min-h-11 items-center rounded-xl bg-brand-50 px-4 py-2 text-xs font-bold text-brand-600 transition hover:bg-brand-100 dark:bg-brand-900/20 dark:text-brand-300 dark:hover:bg-brand-900/40">Buka peta ↗</a>
             @else
-                <p class="mt-2 text-xs text-ink-500">Lokasi belum tersedia.</p>
+                <p class="mt-2 text-xs text-ink-500">Lokasi tidak diisi (opsional).</p>
             @endif
         </article>
         <x-technician-evidence-uploader :$lop category="pre" title="Foto sebab/kondisi awal pekerjaan" description="Lihat foto, status review, dan alasan reject." :existing="$evidenceFor('pre')" :allow-upload="false" :allow-replace="$canReplace" />
