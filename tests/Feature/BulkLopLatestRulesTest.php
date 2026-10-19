@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
+use App\Exceptions\SpreadsheetReadException;
+use App\Jobs\ProcessBulkLopImport;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Package;
@@ -17,6 +19,8 @@ use App\Services\BulkLopTemplateService;
 use App\Services\ImportBatchService;
 use App\Services\LopService;
 use App\Services\SpreadsheetReader;
+use Illuminate\Contracts\Bus\Dispatcher;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -208,6 +212,103 @@ class BulkLopLatestRulesTest extends TestCase
         app(BulkLopImportService::class)->process($batch, $actor);
 
         return $batch->refresh();
+    }
+
+    public function test_results_keep_all_chunks_and_failed_rows_explain_the_invalid_column(): void
+    {
+        [$admin] = $this->actors();
+        $rows = [];
+        for ($i = 0; $i < 56; $i++) {
+            $rows[] = ['INC-RESULT-'.$i, 'SDA', '', '', 'relok_utilitas', 'odp', '', in_array($i, [0, 26, 55]) ? '' : 'Pekerjaan', '', '', ''];
+        }
+        $batch = $this->processRows($admin, $rows);
+        $this->assertSame(56, $batch->rows()->count());
+        $this->assertSame(53, $batch->success_rows);
+        $this->assertSame(3, $batch->failed_rows);
+        $this->assertSame([2, 28, 57], $batch->rows()->where('status', 'failed')->pluck('row_number')->all());
+        $this->assertStringContainsString('Deskripsi Pekerjaan wajib diisi', $batch->rows()->where('reference', 'INC-RESULT-0')->value('message'));
+        $this->assertArrayHasKey('job_description', $batch->rows()->where('reference', 'INC-RESULT-0')->first()->result['errors']);
+        $this->actingAs($admin)->get(route('imports.show', [$batch, 'row_status' => 'failed']))->assertOk()
+            ->assertSee('INC-RESULT-0')->assertSee('INC-RESULT-26')->assertSee('INC-RESULT-55')
+            ->assertDontSee('INC-RESULT-1</p>', false)->assertSee('Deskripsi Pekerjaan wajib diisi')
+            ->assertViewHas('rows', fn ($result) => $result->total() === 3);
+        $this->get(route('imports.show', [$batch, 'page' => 2]))->assertOk()->assertViewHas('rows', fn ($r) => $r->total() === 56 && $r->count() === 6);
+        $this->get(route('imports.show', [$batch, 'row_status' => 'invalid']))->assertSessionHasErrors('row_status');
+        app(BulkLopImportService::class)->process($batch, $admin);
+        $this->assertSame(56, $batch->rows()->count());
+        $this->assertSame(53, QeLop::count());
+    }
+
+    public function test_file_and_database_failures_have_safe_reasons_and_preserve_finished_results(): void
+    {
+        [$admin] = $this->actors();
+        Storage::fake('local');
+        $batch = app(ImportBatchService::class)->create('bulk_lop', UploadedFile::fake()->createWithContent('wrong.csv', "wrong,header\nwrong,data"), $admin);
+        $job = new ProcessBulkLopImport($batch->getKey());
+        try {
+            $job->handle(app(BulkLopImportService::class));
+            $this->fail('Header salah harus ditolak.');
+        } catch (SpreadsheetReadException) {
+            $this->assertSame('failed', $batch->fresh()->status);
+        }
+        $this->assertStringContainsString('Header wajib tidak ditemukan', $batch->fresh()->error_message);
+        $this->actingAs($admin)->get(route('imports.show', $batch))->assertOk()->assertSee('Header wajib tidak ditemukan');
+        $error = new QueryException('mysql', 'INSERT SECRET_SQL', ['PRIVATE_BINDING'], new \RuntimeException('SECRET_CONNECTION', 22001));
+        $message = BulkLopImportService::failureMessage($error);
+        $this->assertStringContainsString('melebihi kapasitas', $message);
+        $this->assertStringNotContainsString('SECRET', $message);
+        $this->assertStringNotContainsString('PRIVATE', $message);
+        $this->assertStringContainsString('Worker antrean', BulkLopImportService::failureMessage(new \Error('Unknown named parameter $sheetName')));
+        $this->assertStringNotContainsString('SECRET', BulkLopImportService::failureMessage(new \RuntimeException('SECRET_RUNTIME')));
+        $batch->update(['status' => 'processing', 'total_rows' => 4]);
+        $batch->rows()->create(['row_number' => 2, 'status' => 'success', 'message' => 'Success']);
+        $batch->rows()->create(['row_number' => 3, 'status' => 'failed', 'message' => 'Invalid']);
+        $job->failed($error);
+        $this->assertSame(1, $batch->fresh()->success_rows);
+        $this->assertSame(1, $batch->fresh()->failed_rows);
+        $this->get(route('imports.show', $batch))->assertOk()->assertSee('Sebagian baris belum memiliki rincian hasil');
+        $batch->update(['status' => 'completed']);
+        $job->failed(new \RuntimeException('LATE_CALLBACK'));
+        $this->assertSame('completed', $batch->fresh()->status);
+        $this->assertDatabaseCount('qe_lops', 0);
+    }
+
+    public function test_common_row_errors_identify_what_needs_correction(): void
+    {
+        [$admin] = $this->actors();
+        $base = ['INC-REASON', 'SDA', '', '', 'relok_utilitas', 'odp', '', 'Pekerjaan', '', '', ''];
+        $cases = [[1, '', 'STO wajib diisi'], [1, 'MISSING', 'belum terdaftar'],
+            [2, 'WRONG', 'Branch tidak sesuai'], [3, '999', 'Area tidak sesuai'],
+            [4, 'NOT_A_PROGRAM', 'Program tidak dikenal'], [5, 'NOT_A_SEGMENT', 'Segmen tidak dikenal'],
+            [7, '', 'Deskripsi Pekerjaan wajib diisi'], [10, 'UNKNOWN_PACKAGE', 'Paket UNKNOWN_PACKAGE belum terdaftar']];
+        $data = [];
+        foreach ($cases as $i => [$column, $value]) {
+            $row = $base;
+            $row[0] .= '-'.$i;
+            $row[$column] = $value;
+            $data[] = $row;
+        }
+        $batch = $this->processRows($admin, $data);
+        $this->assertSame(count($cases), $batch->failed_rows);
+        foreach ($batch->rows as $i => $result) {
+            $this->assertStringContainsString($cases[$i][2], $result->message);
+        }
+    }
+
+    public function test_queue_dispatch_failure_returns_a_result_page_without_exposing_exception(): void
+    {
+        [$admin] = $this->actors();
+        Storage::fake('local');
+        $this->mock(Dispatcher::class, function ($mock) {
+            $mock->shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('SECRET_QUEUE_DETAIL'));
+        });
+        $this->actingAs($admin)->postJson(route('bulk-import.lop.store'), [
+            'file' => UploadedFile::fake()->createWithContent('queue.csv', "sto,program_type,segment,job_description\nSDA,relok_utilitas,odp,Pekerjaan"),
+        ])->assertOk()->assertJsonStructure(['result_url']);
+        $batch = QeImportBatch::firstOrFail();
+        $this->assertSame('failed', $batch->status);
+        $this->assertStringNotContainsString('SECRET', $batch->error_message);
+        $this->get(route('imports.show', $batch))->assertOk()->assertDontSee('SECRET_QUEUE_DETAIL');
     }
 
     private function payload(string $incident, ProgramType $program, array $segments): array

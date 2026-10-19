@@ -7,6 +7,7 @@ use App\Models\QeImportBatch;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ImportBatchController extends Controller
@@ -16,6 +17,15 @@ class ImportBatchController extends Controller
         $this->assertAccess($request, $batch);
 
         $rows = $batch->rows();
+        $rowStatus = 'all';
+        $storedRowCount = null;
+        if ($batch->type === 'bulk_lop') {
+            $rowStatus = $request->validate(['row_status' => ['sometimes', 'string', Rule::in(['all', 'failed', 'success'])]])['row_status'] ?? 'all';
+            $storedRowCount = $batch->rows()->count();
+            if ($rowStatus !== 'all') {
+                $rows->where('status', $rowStatus);
+            }
+        }
         if ($batch->type === 'boq') {
             // Baris tanpa volume tetap tercatat untuk audit dan ringkasan,
             // tetapi tidak perlu memenuhi tabel hasil yang dibaca pengguna.
@@ -24,7 +34,9 @@ class ImportBatchController extends Controller
 
         return view($batch->type === 'boq' ? 'imports.boq-result' : 'imports.show', [
             'batch' => $batch->load('uploader'),
-            'rows' => $rows->paginate(50),
+            'rows' => $rows->paginate(50)->withQueryString(),
+            'rowStatus' => $rowStatus,
+            'storedRowCount' => $storedRowCount,
         ]);
     }
 

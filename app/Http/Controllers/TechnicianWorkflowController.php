@@ -80,10 +80,10 @@ class TechnicianWorkflowController extends Controller
 
     public function location(StoreSurveyLocationRequest $request, QeLop $qe_lop): RedirectResponse
     {
-        $this->workflowService->saveLocation($qe_lop, $request->user(), $request->validated());
+        $survey = $this->workflowService->saveLocation($qe_lop, $request->user(), $request->validated());
 
         return redirect()->route('technician.projects.show', [$qe_lop, 'step' => 3])
-            ->with('status', 'Lokasi survey tersimpan.');
+            ->with('status', $survey ? 'Lokasi survey tersimpan.' : 'Lokasi dilewati. Anda dapat lanjut setelah foto kondisi awal lengkap.');
     }
 
     public function evidence(StoreTechnicianEvidenceRequest $request, QeLop $qe_lop): RedirectResponse

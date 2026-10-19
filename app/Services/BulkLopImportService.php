@@ -6,12 +6,15 @@ use App\Enums\LopBudgetType;
 use App\Enums\LopSegment;
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
+use App\Exceptions\SpreadsheetReadException;
 use App\Models\Package;
 use App\Models\QeImportBatch;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -33,6 +36,9 @@ class BulkLopImportService
 
     public function process(QeImportBatch $batch, User $actor): void
     {
+        if ($batch->refresh()->isFinished()) {
+            return;
+        }
         $batch->update(['status' => 'processing', 'started_at' => now(), 'error_message' => null]);
 
         $table = $this->reader->table(
@@ -44,7 +50,7 @@ class BulkLopImportService
         $batch->update(['total_rows' => count($table['rows'])]);
 
         if ($table['rows'] === []) {
-            throw new \RuntimeException('File tidak memiliki baris data LOP untuk diproses.');
+            throw new SpreadsheetReadException('File tidak memiliki baris data LOP untuk diproses. Isi sheet LOP dan upload ulang.', 'empty_rows');
         }
 
         $rows = array_map(fn (array $row): array => [
@@ -125,13 +131,14 @@ class BulkLopImportService
                     'reference' => $payload['incident'] ?: null,
                     'message' => $this->message($e),
                     'payload' => $this->safePayload($payload),
+                    'result' => ['errors' => $e instanceof ValidationException ? $e->errors() : [], 'suggestion' => 'Perbaiki data pada baris ini, lalu upload ulang hanya baris yang gagal.'],
                 ];
                 $failedRows++;
             }
 
             $processedRows = $index + 1;
             if (count($resultRows) >= 25 || $processedRows === $totalRows) {
-                $this->rowWriter->insert($batch, $resultRows);
+                $this->rowWriter->append($batch, $resultRows);
                 $resultRows = [];
                 $batch->update([
                     'success_rows' => $successRows,
@@ -149,6 +156,7 @@ class BulkLopImportService
                 ? 'completed'
                 : ($successRows > 0 ? 'partial' : 'failed'),
             'completed_at' => now(),
+            'error_message' => $failedRows > 0 ? "{$failedRows} dari {$totalRows} baris LOP gagal disimpan. Lihat penyebab pada Detail per Baris. Baris berhasil tidak perlu diupload ulang." : null,
         ]);
     }
 
@@ -172,7 +180,7 @@ class BulkLopImportService
         $serviceArea = $serviceAreas->get($data['sto']);
 
         if ($serviceArea === null) {
-            throw new \InvalidArgumentException("STO {$data['sto']} belum terdaftar di Master Service Area.");
+            throw new \InvalidArgumentException($data['sto'] === '' ? 'STO wajib diisi. Gunakan kode STO pada Referensi Lokasi di template.' : "STO {$data['sto']} belum terdaftar atau tidak aktif di Master Service Area. Periksa Referensi Lokasi pada template.");
         }
 
         $branch = $serviceArea->branch;
@@ -205,16 +213,27 @@ class BulkLopImportService
             'program_type' => ['required', Rule::enum(ProgramType::class)],
             'segment' => ['required', 'array', 'min:1', 'max:'.LopSegment::MAX_SELECTIONS],
             'segment.*' => [Rule::enum(LopSegment::class)],
-            'budget_type' => ['required', Rule::enum(LopBudgetType::class)],
+            'budget_type' => ['nullable', Rule::enum(LopBudgetType::class)],
             'job_description' => ['required', 'string', 'max:2000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'package_code' => ['nullable', 'string'],
         ], [
+            'required' => ':attribute wajib diisi.',
+            'string' => ':attribute harus berupa teks.',
+            'max.string' => ':attribute maksimal :max karakter.',
+            'incident.regex' => 'Incident harus diawali INC atau INP, diikuti huruf/angka/tanda hubung. Kosongkan jika ingin tiket otomatis.',
+            'program_type.enum' => 'Program tidak dikenal atau ambigu. Gunakan salah satu dari empat program pada template.',
+            'segment.*.enum' => 'Segmen tidak dikenal. Gunakan referensi segmen pada template.',
             'segment.max' => 'Maksimal 5 segmen untuk setiap program.',
             'segment.required' => 'Pilih minimal 1 segmen.',
             'segment.*.Illuminate\\Validation\\Rules\\Enum' => 'Segmen tidak dikenal. Gunakan referensi segmen pada template.',
             'program_type.Illuminate\\Validation\\Rules\\Enum' => 'Program tidak dikenal atau ambigu. Gunakan salah satu dari empat program pada template.',
+        ], [
+            'incident' => 'Incident', 'sto' => 'STO', 'branch' => 'Branch', 'area' => 'Area',
+            'program_type' => 'Program', 'segment' => 'Segmen', 'segment.*' => 'Segmen',
+            'job_description' => 'Deskripsi Pekerjaan', 'ihld_id' => 'ID IHLD', 'nama_lop' => 'Nama LOP',
+            'package_code' => 'Paket', 'budget_type' => 'Budget Type',
         ]);
         $validator->validate();
 
@@ -307,10 +326,48 @@ class BulkLopImportService
 
     private function message(Throwable $e): string
     {
+        if (! $e instanceof ValidationException && ! $e instanceof \InvalidArgumentException) {
+            report($e);
+        }
+
+        return self::failureMessage($e);
+    }
+
+    public static function failureMessage(?Throwable $e): string
+    {
         if ($e instanceof ValidationException) {
             return collect($e->errors())->flatten()->implode(' ');
         }
+        if ($e instanceof SpreadsheetReadException || $e instanceof \InvalidArgumentException) {
+            return mb_substr($e->getMessage(), 0, 1500);
+        }
+        if ($e instanceof QueryException) {
+            return match ((string) $e->getCode()) {
+                '42S02', '42S22' => 'Struktur database belum sesuai versi aplikasi. Minta administrator memeriksa migration sebelum mencoba ulang.',
+                '22001' => 'Ada teks yang melebihi kapasitas kolom database. Periksa panjang data dan migration terbaru.',
+                default => 'Data LOP tidak dapat disimpan ke database. Minta administrator memeriksa koneksi dan struktur database; detail teknis tidak ditampilkan demi keamanan.',
+            };
+        }
+        if ($e instanceof TimeoutExceededException) {
+            return 'Proses melewati batas waktu antrean. Periksa baris yang sudah tersimpan sebelum mengupload ulang file yang lebih kecil.';
+        }
+        if ($e instanceof \Error && str_contains($e->getMessage(), 'Unknown named parameter')) {
+            return 'Worker antrean masih memakai kode lama. Minta administrator restart worker lalu upload ulang.';
+        }
 
-        return mb_substr($e->getMessage(), 0, 1000);
+        return 'Terjadi kesalahan internal saat memproses LOP. Minta administrator memeriksa log berdasarkan ID batch; jangan upload ulang baris yang sudah berhasil.';
+    }
+
+    public function fail(QeImportBatch $batch, ?Throwable $exception): void
+    {
+        if ($batch->refresh()->isFinished()) {
+            return;
+        }
+        $batch->update([
+            'status' => 'failed', 'completed_at' => now(),
+            'success_rows' => $batch->rows()->where('status', 'success')->count(),
+            'failed_rows' => $batch->rows()->where('status', 'failed')->count(),
+            'error_message' => self::failureMessage($exception),
+        ]);
     }
 }

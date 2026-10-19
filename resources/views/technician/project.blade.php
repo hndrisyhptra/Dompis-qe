@@ -184,11 +184,11 @@
 
             @include('technician.partials.location-form')
 
-            <x-technician-evidence-uploader :lop="$lop" category="pre" title="Foto sebab/kondisi awal pekerjaan" description="Beberapa foto kondisi awal area pekerjaan sebelum instalasi." :existing="$evidenceFor('pre')" />
+            <div id="technician-pra-photos"><x-technician-evidence-uploader :lop="$lop" category="pre" title="Foto sebab/kondisi awal pekerjaan" description="Beberapa foto kondisi awal area pekerjaan sebelum instalasi." :existing="$evidenceFor('pre')" /></div>
 
             <x-technician-evidence-uploader :lop="$lop" category="insera" title="Capture Ticket Insera" description="Screenshot detail tiket dari aplikasi Insera." :existing="$evidenceFor('insera')" />
 
-            <form method="POST" action="{{ route('technician.projects.survey-complete', $lop) }}">@csrf<button class="min-h-12 w-full rounded-2xl {{ $state['step3Complete'] ? 'bg-brand-600 text-white' : 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }} text-sm font-extrabold">Selesaikan Survey & Lanjut Progress</button></form>
+            <form id="technician-pra-complete" method="POST" novalidate action="{{ route('technician.projects.survey-complete', $lop, false) }}">@csrf<button type="submit" form="technician-pra-complete" formnovalidate class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white">Lanjut Progress</button><p class="mt-2 text-center text-[10px] text-ink-500">Lokasi boleh kosong, termasuk saat GPS gagal. Foto kondisi awal tetap wajib diupload.</p>@unless($state['step3Complete'])<p class="mt-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Evidence wajib belum lengkap. Pastikan Material Tiba dan foto kondisi awal sudah berhasil diupload; bukan sekadar dipilih.</p>@endunless</form>
         </section>
     @elseif ($step === 4)
         <section class="mt-5 space-y-4">

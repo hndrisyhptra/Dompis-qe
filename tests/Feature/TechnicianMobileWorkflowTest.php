@@ -344,6 +344,54 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertDatabaseCount('qe_surveys', 1);
     }
 
+    public function test_empty_location_is_a_noop_and_pasted_pair_works_without_javascript(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $this->actingAs($technician)->post(route('technician.projects.pickup', $lop));
+        $this->put(route('technician.projects.location', $lop), [])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('qe_surveys', ['qe_lop_id' => $lop->getKey()]);
+        $this->put(route('technician.projects.location', $lop), ['coordinates' => '112.752090, -7.257472'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('-7.2574720', $lop->fresh()->survey->latitude);
+        $this->assertSame('112.7520900', $lop->fresh()->survey->longitude);
+        $this->assertSame('manual', $lop->fresh()->survey->location_source);
+        $before = $lop->fresh()->survey->getRawOriginal();
+        $this->put(route('technician.projects.location', $lop), ['latitude' => '', 'longitude' => '', 'coordinates' => ''])
+            ->assertSessionHasNoErrors();
+        $this->assertSame($before, $lop->fresh()->survey->getRawOriginal());
+        foreach (['-7', '-7,181', 'abc', 'https://maps.google.com/?q=-7,112'] as $invalid) {
+            $this->put(route('technician.projects.location', $lop), ['coordinates' => $invalid])
+                ->assertSessionHasErrors('coordinates');
+        }
+        $this->assertSame($before, $lop->fresh()->survey->getRawOriginal());
+    }
+
+    public function test_continue_form_has_no_location_validation_or_javascript_gate_even_when_pra_missing(): void
+    {
+        [, $technician, $lop] = $this->assignedProject();
+        $lop->update(['status_lop' => 'survey']);
+        $d = Designator::create(['code' => 'M-LOCATION-SKIP', 'item_name' => 'Skip GPS', 'unit' => 'pcs', 'designator_type_id' => DesignatorType::where('code', 'MATERIAL')->value('id_designator_type')]);
+        $lop->materialReservation()->create(['technician_id' => $technician->getKey()])->items()->create(['designator_id' => $d->getKey(), 'qty' => 1]);
+        $lop->evidences()->create(['category' => 'material_arrival', 'step' => 'BEFORE', 'type' => 'PHOTO', 'uploaded_by' => $technician->getKey(), 'file_path' => 'arrival.jpg', 'status' => 'pending']);
+        $response = $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 3]))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $form = $xpath->query('//form[@id="technician-pra-complete"]')->item(0);
+        $this->assertNotNull($form);
+        $this->assertTrue($form->hasAttribute('novalidate'));
+        $button = $xpath->query('.//button', $form)->item(0);
+        $this->assertFalse($button->hasAttribute('disabled'));
+        $this->assertFalse($button->hasAttribute(':disabled'));
+        $this->assertSame('technician-pra-complete', $button->getAttribute('form'));
+        $this->assertSame(0, $xpath->query('//input[@name="latitude" or @name="longitude"][@required]')->length);
+        $this->post(route('technician.projects.survey-complete', $lop))->assertSessionHasErrors('workflow');
+        $lop->evidences()->create(['category' => 'pre', 'step' => 'SURVEY', 'type' => 'PHOTO', 'uploaded_by' => $technician->getKey(), 'file_path' => 'pre.jpg', 'status' => 'pending']);
+        $this->post(route('technician.projects.survey-complete', $lop))->assertSessionHasNoErrors();
+        $this->get(route('technician.projects.show', [$lop, 'step' => 4]))->assertOk();
+        $this->assertDatabaseMissing('qe_surveys', ['qe_lop_id' => $lop->getKey()]);
+    }
+
     public function test_material_usage_recap_rejects_qty_above_reservation_and_computes_sisa(): void
     {
         Storage::fake('public');

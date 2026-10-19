@@ -25,7 +25,7 @@ export function technicianLocation(options = {}, geolocation = globalThis.naviga
         longitude: String(options.longitude ?? ""),
         accuracy: String(options.accuracy ?? ""),
         source: options.source === "gps" ? "gps" : "manual",
-        coordinates: "",
+        coordinates: String(options.coordinates ?? ""),
         coordinateError: "",
         error: "",
         dirty: Boolean(options.dirty),

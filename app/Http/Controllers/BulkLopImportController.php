@@ -7,6 +7,7 @@ use App\Http\Requests\StoreBulkImportRequest;
 use App\Jobs\ProcessBulkLopImport;
 use App\Models\QeImportBatch;
 use App\Models\QeLop;
+use App\Services\BulkLopImportService;
 use App\Services\BulkLopTemplateService;
 use App\Services\ImportBatchService;
 use App\Services\LopVisibilityService;
@@ -17,6 +18,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class BulkLopImportController extends Controller
 {
@@ -48,13 +50,20 @@ class BulkLopImportController extends Controller
         }
 
         $batch = $this->batchService->create('bulk_lop', $request->file('file'), $request->user());
-        ProcessBulkLopImport::dispatch($batch->id_import_batch);
+        $dispatchFailed = false;
+        try {
+            ProcessBulkLopImport::dispatch($batch->id_import_batch);
+        } catch (Throwable $exception) {
+            report($exception);
+            app(BulkLopImportService::class)->fail($batch, $exception);
+            $dispatchFailed = true;
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'File Bulk LOP masuk antrean dan sedang diproses.',
+                'message' => $dispatchFailed ? 'Import belum berhasil. Buka hasil untuk melihat penyebabnya.' : 'File Bulk LOP masuk antrean dan sedang diproses.',
                 'result_url' => route('imports.show', $batch, false),
-            ], 202);
+            ], $dispatchFailed ? 200 : 202);
         }
 
         return redirect()->route('imports.show', $batch)

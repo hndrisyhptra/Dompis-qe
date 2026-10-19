@@ -180,9 +180,16 @@ class TechnicianWorkflowService
         });
     }
 
-    public function saveLocation(QeLop $lop, User $technician, array $data): QeSurvey
+    public function saveLocation(QeLop $lop, User $technician, array $data): ?QeSurvey
     {
         $this->assertActiveAssignment($lop, $technician);
+
+        // Melewati lokasi bukan menyimpan survey kosong atau menghapus lokasi lama.
+        if (($data['latitude'] ?? null) === null && ($data['longitude'] ?? null) === null) {
+            return null;
+        }
+        unset($data['coordinates']);
+        $data['location_source'] = $data['location_source'] ?? 'manual';
 
         return QeSurvey::updateOrCreate(
             ['qe_lop_id' => $lop->id_qe_lops],

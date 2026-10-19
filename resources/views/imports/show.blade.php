@@ -41,10 +41,14 @@
     @endif
     @if($batch->error_message)<div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ $batch->error_message }}</div>@endif
 
+    @if ($batch->type === 'bulk_lop')
+        @include('imports._bulk-lop-results')
+    @else
     <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
         <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="font-bold">Detail per Baris</h2></div>
         <div class="overflow-x-auto"><table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800"><thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">Baris</th><th class="px-5 py-3">Referensi</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Keterangan</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@forelse($rows as $row)<tr><td class="px-5 py-4 font-mono text-xs">{{ $row->row_number }}</td><td class="px-5 py-4 font-semibold">{{ $row->reference ?: '—' }}</td><td class="px-5 py-4"><x-badge :variant="match($row->status) { 'success' => 'success', 'skipped' => 'warning', default => 'danger' }">{{ ucfirst($row->status) }}</x-badge></td><td class="max-w-xl px-5 py-4 text-xs leading-5 text-ink-500">{{ $row->message }}</td></tr>@empty<tr><td colspan="4" class="px-5 py-12 text-center text-ink-400">Hasil baris belum tersedia.</td></tr>@endforelse</tbody></table></div>
     </div>
+    @endif
     {{ $rows->links() }}
 </div>
 @endsection
