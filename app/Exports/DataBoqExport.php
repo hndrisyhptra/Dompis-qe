@@ -20,14 +20,19 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class DataBoqExport extends DefaultValueBinder implements FromGenerator, WithColumnFormatting, WithColumnWidths, WithCustomValueBinder, WithHeadings, WithStrictNullComparison, WithStyles, WithTitle
 {
+    /**
+     * @param  array<int, string>|null  $reportedIncidents  daftar incident pada
+     *                                                      rentang reported date; null = tanpa filter
+     */
     public function __construct(
         private readonly DataBoqExportService $service,
         private readonly User $user,
+        private readonly ?array $reportedIncidents = null,
     ) {}
 
     public function generator(): Generator
     {
-        yield from $this->service->rows($this->user);
+        yield from $this->service->rows($this->user, $this->reportedIncidents);
     }
 
     public function headings(): array

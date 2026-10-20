@@ -9,6 +9,7 @@ use App\Models\IncidentExclude;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Support\TicketReportedDate;
 use Generator;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -180,13 +181,7 @@ class TicketCoverageService
                 ->orWhere('workzone', 'like', '%'.$filters['q'].'%'));
         }
 
-        $reportedDate = $this->reportedDateExpression($source->getDriverName());
-        if ($filters['date_from'] !== '') {
-            $query->whereRaw("{$reportedDate} >= ?", [$filters['date_from']]);
-        }
-        if ($filters['date_to'] !== '') {
-            $query->whereRaw("{$reportedDate} <= ?", [$filters['date_to']]);
-        }
+        $reportedDate = TicketReportedDate::applyRange($query, $source->getDriverName(), $filters['date_from'], $filters['date_to']);
 
         $used = array_keys($occupancy);
         $usedSql = $used === [] ? '0 = 1' : 'UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($used), '?')).')';
@@ -227,22 +222,6 @@ class TicketCoverageService
         $tickets = $forExport ? $query : $query->forPage($page, 25)->get();
 
         return [$stats, $chartRows, $tickets, $total];
-    }
-
-    private function reportedDateExpression(string $driver): string
-    {
-        $value = 'TRIM(reported_date)';
-        if ($driver === 'sqlite') {
-            $rest = "SUBSTR({$value}, INSTR({$value}, '/') + 1)";
-            $day = "SUBSTR({$value}, 1, INSTR({$value}, '/') - 1)";
-            $month = "SUBSTR({$rest}, 1, INSTR({$rest}, '/') - 1)";
-            $year = "SUBSTR({$rest}, INSTR({$rest}, '/') + 1, 4)";
-            $slashDate = "DATE(PRINTF('%04d-%02d-%02d', {$year}, {$month}, {$day}))";
-        } else {
-            $slashDate = "DATE(STR_TO_DATE({$value}, '%d/%m/%Y'))";
-        }
-
-        return "CASE WHEN INSTR({$value}, '/') > 0 THEN {$slashDate} ELSE DATE({$value}) END";
     }
 
     private function ticketKind(?string $type): ?string

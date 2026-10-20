@@ -153,7 +153,7 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Matrix Program')
+            ->assertSee('Monitoring Wilayah')
             ->assertSee('Ringkasan performa', false)
             ->assertSee('Branch / Program', false)
             ->assertSee('branchOpen', false)

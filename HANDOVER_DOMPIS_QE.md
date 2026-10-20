@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **19 Oktober 2026**
+Terakhir diaudit: **20 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `0932d43` (`fix: opsional Tag Location & Ket Failed upload LOP`)
+HEAD dasar saat audit terbaru: `9e251d7` (`fix: dashboard monitoring`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -50,6 +50,8 @@ Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard 
 
 Pembaruan 19 Oktober 2026: Import AISS/Download Monitoring Ticket berada pada `e1ea9f0`, perbaikan form same-origin pada `e0cefe6`, dan Download Data LOP pada `e4e5601`. Designator khusus/capture/hapus evidence (7.47) sudah masuk `03d50b2`, Material Tiba per plan dan akses AISS (7.48) pada `085f6bb`, lokasi opsional (7.49) pada `6a591d3`, serta fallback lokasi APK dan hasil Bulk LOP (7.50) pada `0932d43`. Worktree bersih saat memulai perbaikan tujuan Detail LOP dari matrix dashboard dan Monitoring Ticket (7.51); task terbaru belum di-commit.
 
+Pembaruan 20 Oktober 2026: empat commit hari ini masih **belum tercatat di `CLAUDE.md`** tetapi sudah didokumentasikan di bagian 7.52–7.55: TSEL/PREMAN pada validasi program (`37e23f7`), GAP revenue memakai aktual penuh (`09c03c5`), exclude tiket Dompis beserta migration `incident_excludes` (`d19dc7e`), dan monitoring matrix (pengelompokan STO, judul Monitoring Wilayah, `9e251d7`). Worktree bersih sebelum task filter tanggal Data BOQ. **Belum di-commit saat dokumen ini diperbarui:** filter tanggal reported date pada Master Data → BOQ (7.56), perubahan judul assertion `AdminDashboardTest` mengikuti rename Anda, dan edit `monitoring.blade.php` milik user. Perubahan tersebut tidak menyentuh schema, workflow, import, atau source Android.
+
 ### 2.3 Status migration lokal
 
 Migration redundan untuk tabel `qe_boq_plans`, relasi `boq_plan_id`, dan kolom `file_hash` sudah dikeluarkan dari perubahan kerja. Migration `2026_10_02_000001_expand_boq_item_name_columns.php` tetap penting untuk uraian BOQ panjang.
@@ -63,6 +65,8 @@ Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap ser
 15 Oktober 2026 — Import AISS menambah migration `2026_10_15_000001_add_status_aiss_to_qe_lops_table.php` (nullable varchar 255). Migration baru belum dijalankan pada sesi ini. Percobaan audit read-only `migrate:status` dan `db:table qe_lops` terhalang sandbox dengan Operation not permitted pada koneksi MySQL lokal; schema/ledger lokal terkini tidak terverifikasi. Halaman Import AISS memeriksa kolom dan menonaktifkan upload jika migration belum tersedia. Memerlukan izin eksplisit sebelum migration lokal/produksi.
 
 16 Oktober 2026 — Migration `2026_10_16_000001_add_optional_capture_choices_to_qe_lops_table.php` menambah satu kolom JSON nullable untuk dua pilihan capture (bukan evidence dummy). Belum dijalankan pada database operasional; audit read-only migrate:status serta db:table qe_lops/qe_lop_histories tidak dapat terkoneksi dari environment sesi ini. Endpoint pilihan memberi validasi yang aman jika kolom belum tersedia. Rollback menolak menghapus kolom berisi pilihan. Minta izin terpisah sebelum menjalankan migration spesifik; jangan sekaligus menjalankan migration AISS yang belum disetujui.
+
+20 Oktober 2026 — Migration `2026_10_20_000001_create_incident_excludes_table.php` membuat tabel `incident_excludes` (unik per `incident`, alasan, pembuat, timestamps) untuk fitur exclude tiket (7.54). **Sudah dijalankan pada MySQL lokal dan lulus suite; status produksi belum diverifikasi — wajib dijalankan sebelum deploy fitur exclude.** Rollback hanya menghapus tabel ini dan tidak memengaruhi tabel lain. PENTING: `TicketCoverageService::dashboard` memuat `IncidentExclude` pada baris sebelum blok `try/catch` sumber tiket, sehingga bila migration belum berjalan **seluruh halaman Monitoring Ticket akan error 500** — bukan sekadar tombol exclude yang hilang. Tidak ada data operasional yang perlu di-backfill.
 
 ## 3. Arsitektur Aplikasi
 
@@ -339,6 +343,12 @@ Pemilihan paket reservasi otomatis:
 - `app/Http/Controllers/BulkLopImportController.php`
 - `resources/views/imports`
 - `resources/views/data-boqs/index.blade.php`
+- `app/Http/Controllers/DataBoqController.php`
+- `app/Http/Requests/DataBoqFilterRequest.php`
+- `app/Services/DataBoqExportService.php`
+- `app/Exports/DataBoqExport.php`
+- `app/Support/TicketReportedDate.php`
+- `app/Services/IncidentReportedDateService.php`
 
 ### 5.5 Dashboard dan nilai
 
@@ -353,6 +363,7 @@ Pemilihan paket reservasi otomatis:
 - `app/Http/Controllers/RevenueController.php`
 - `resources/views/dashboard/index.blade.php`
 - `resources/views/dashboard/partials/program-matrix.blade.php`
+- `resources/views/dashboard/partials/program-matrix-row.blade.php`
 - `resources/views/dashboard/partials/monitoring.blade.php`
 - `resources/views/revenue/index.blade.php`
 
@@ -752,7 +763,7 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 ### 7.42 Filter reported date dan penghapusan pilihan arsip — 15 Oktober 2026
 
 - Tiket Dompis menambahkan filter opsional `date_from`/`date_to` berformat YYYY-MM-DD melalui dua input tanggal. Tanggal mulai/akhir inklusif, boleh hanya satu batas, dan tanpa tanggal tetap semua periode. `TicketCoverageRequest` menolak tanggal kalender tidak valid serta akhir sebelum awal; min tanggal akhir di browser mengikuti perubahan tanggal mulai. Rentang dipertahankan pada pagination, tautan jenis/penggunaan, dan pencarian; Reset mengosongkannya. Filter berlaku pada KPI, grafik, dan daftar. Tanggal laporan tiap tiket tampil di bawah Incident dalam format DD/MM/YYYY.
-- Sumber canonical adalah `ticket.reported_date` (varchar), bukan `reported_date_dt`, created_at, atau tanggal LOP. Audit read-only sumber menemukan 52.809 nilai berformat ISO dan 502 berformat DD/MM/YYYY; contoh reported_date_dt mempunyai waktu berbeda dari nilai aslinya. `TicketCoverageService::reportedDateExpression()` mengekstrak hari ISO atau day-first slash dengan DATE/STR_TO_DATE pada MySQL, serta DATE/PRINTF/SUBSTR pada SQLite test. Tidak menggeser zona waktu. Tanggal kosong/tidak terbaca tetap terlihat bila tanpa filter, tetapi tidak masuk rentang tanggal yang dipilih.
+- Sumber canonical adalah `ticket.reported_date` (varchar), bukan `reported_date_dt`, created_at, atau tanggal LOP. Audit read-only sumber menemukan 52.809 nilai berformat ISO dan 502 berformat DD/MM/YYYY; contoh reported_date_dt mempunyai waktu berbeda dari nilai aslinya. `App\Support\TicketReportedDate::expression()` — semula metode privat `TicketCoverageService::reportedDateExpression()`, dipindah pada 20 Oktober 2026 (7.56) agar dipakai bersama dengan filter tanggal Data BOQ — mengekstrak hari ISO atau day-first slash dengan DATE/STR_TO_DATE pada MySQL, serta DATE/PRINTF/SUBSTR pada SQLite test. Tidak menggeser zona waktu. Tanggal kosong/tidak terbaca tetap terlihat bila tanpa filter, tetapi tidak masuk rentang tanggal yang dipilih.
 - Kartu, pilihan, label, dan parameter usage arsip pada 7.41 dihapus. Tiga KPI sekarang Total tiket, Belum memiliki LOP, dan Sudah memiliki LOP; usage valid hanya all/without_lop/with_lop. Metadata pemakaian tetap mencakup LOP soft-deleted untuk menjaga incident yang terikat unique constraint tidak dianggap bebas. Pemakaian lama tersebut ikut Sudah memiliki LOP, tetapi detail hanya memuat LOP aktif dalam scope. Referensi yang tidak tersedia (arsip/di luar scope) tidak menampilkan nama, IHLD, status, atau link LOP; cukup Detail LOP tidak tersedia. Tidak menghapus record LOP maupun histori.
 - Fixture sumber SQLite pada `InteractsWithIncidentTickets` menambahkan reported_date/reported_date_dt, tanpa migration aplikasi. `TicketCoverageTest` menjadi **17 tests / 187 assertions**: batas tengah malam/akhir hari, kedua format, day-first dengan digit tunggal, penggunaan kolom asli saat reported_date_dt berbeda hari, satu batas/reset/tanggal kosong atau tidak terbaca, validasi rentang, preservasi pagination, scope admin, penggabungan pemakaian arsip dan penghapusan UI/parameter arsip. Full suite **420 tests / 4183 assertions** lulus; Pint file PHP task, build Vite, view:cache, dan git diff --check lulus.
 - Pemeriksaan read-only MySQL pada koneksi environment sesi ini untuk 16 Mei 2026 membaca **36 tiket**, seluruhnya INFRACARE/belum memiliki LOP, dengan 25 rincian per halaman yang menampilkan 16/05/2026. EXPLAIN tetap memakai index jenis tiket dan PRIMARY; satu sampel rentang historis sekitar 2,72 detik (bukan benchmark produksi). Chrome headless pada fixture terpisah memeriksa desktop/mobile, input tanggal dan min dinamis, hilangnya pilihan arsip, dark mode, clipboard, serta tidak ada overflow/error JavaScript. Belum ada tes browser pada data autentikasi nyata atau deployment produksi.
@@ -849,10 +860,48 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Regression `LopDirectDetailTest` (4 cases) mencakup empat scope admin/Superadmin, LOP buatan user lain di scope, target tepat tanpa redirect, luar scope/arsip/guest/Teknisi, non-dialog, return URL/filter dan penolakan origin eksternal, serta mengikuti dua link responsive tiket sampai HTTP 200 LOP target. AdminDashboardTest memeriksa detail_url matrix serta halaman target; TicketCoverageTest diperbarui untuk link langsung. Suite navigasi lama tetap lulus.
 - Verifikasi: **504 tests / 5249 assertions** Laravel dan **54 frontend tests** lulus. Vite build, view:cache, route:list untuk lop.detail, Pint file PHP task dan git diff --check lulus. Tidak ada migration/schema/write data operasional, import nyata, restart worker, commit/push atau deploy. Browser/APK/produksi belum diuji; setelah pull clear/rebuild route/view cache agar route dan Blade baru digunakan. Tidak perlu migration untuk perbaikan ini.
 
+### 7.52 Tambah TSEL pada Recovery dan PREMAN pada Recovery/Preventive — 20 Oktober 2026 (commit `37e23f7`)
+
+- `ProgramType::incidentTicketTypeLabel()` kini: Recovery = `GAMAS, UNKNOWN, TSEL, atau PREMAN`; Preventive = `GAMAS, UNKNOWN, INFRACARE, atau PREMAN`. TSEL hanya diterima pada Recovery; PREMAN diterima pada keduanya. `IncidentTicketValidationService::matchesProgram()` memakai kecocokan mengandung untuk `GAMAS`/`TSEL` dan kecocokan persis untuk `UNKNOWN`/`INFRACARE`/`PREMAN`.
+- Validasi dipakai bersama oleh input manual LOP dan Bulk LOP, sehingga teks panduan sheet (`BulkLopTemplateService`), pesan per baris di `ImportBatchController`, label halaman Bulk LOP, dan pesan frontend `lop-form.test.mjs` semuanya mengikuti enum. Invariant lain tidak berubah: Revenue tanpa plan tetap hanya untuk Recovery.
+- Regression: `IncidentProgramValidationTest` bertambah kasus TSEL (hanya Recovery) dan PREMAN (kedua program), termasuk penolakan TSEL pada Preventive.
+
+### 7.53 GAP dan persentase realisasi memakai aktual penuh — 20 Oktober 2026 (commit `09c03c5`)
+
+- Sebelumnya `RevenueService` menghitung `gap_value = max(0, plan - plannedActual)` dan `realization_percentage` dari `plannedActual / plan`, sehingga GAP terlihat mengecil dan persentase terlihat lebih tinggi dari kartu Overview. Sekarang keduanya memakai `actual_value`: **GAP = Plan − Realisasi, persentase = Realisasi ÷ Plan**, berlaku pada per-program, agregat, dan `detailOverview`.
+- Aturan canonical tidak berubah: revenue realisasi hanya menghitung LOP `completed`, BOQ adalah snapshot, Recovery tanpa plan. `RevenueDashboardTest` disesuaikan.
+
+### 7.54 Exclude tiket Dompis dari monitoring — 20 Oktober 2026 (commit `d19dc7e`)
+
+- Tabel baru `incident_excludes` lewat `2026_10_20_000001_create_incident_excludes_table.php` (`incident` varchar 100 unik ternormalisasi, `keterangan_exclude` varchar 50, `created_by` FK `users.id_user` null-on-delete, timestamps). **Migration wajib dijalankan di produksi — lihat 2.3.**
+- `App\Enums\ExcludeReason`: `non_material` (Non Material), `temporer` (Temporer), `duplikat_open` (Duplikat Tiket Open). `ExcludeTicketRequest` mensyaratkan `SUPER_ADMIN|ADMIN`, `incident` maks 100, dan `reason` enum. `TicketCoverageService::exclude()` memakai `updateOrCreate` pada `incident` ternormalisasi `UPPER(TRIM())`; `unexclude()` menghapusnya.
+- Route `POST /incident-monitoring/tickets/exclude` dan `DELETE /incident-monitoring/tickets/{incident}/unexclude`, keduanya `auth` + `role:SUPER_ADMIN,ADMIN`.
+- Klasifikasi coverage kini bertiga dan berurutan, dengan LOP lebih dulu: `CASE WHEN with_lop THEN 'with_lop' WHEN excluded THEN 'excluded' ELSE 'without_lop'`. Konsekuensinya tiket yang sudah punya LOP tetap `with_lop` meski di-exclude. Tab filter `usage` bertambah `excluded`; tanpa LOP + excluded masuk `excluded`, sisanya `without_lop`. Baris membawa `exclude_reason`, dan export `TicketCoverageExport` mengikuti klasifikasi yang sama.
+- `tickets.blade.php` menambah tombol exclude/unexclude beserta pemilih alasan; `incident-monitoring/index.blade.php` menampilkan tab baru. `IncidentExcludeTest` (baru), `IncidentMonitoringTest`, dan `TicketCoverageTest` diperbarui.
+
+### 7.55 Monitoring matrix: pengelompokan STO dan judul Monitoring Wilayah — 20 Oktober 2026 (commit `9e251d7`)
+
+- `DashboardProgramMatrixService` menambah key `groups`, hanya untuk dimensi `service_area`: baris di-group berdasarkan nama STO (sudah `orderBy('name')` lalu `orderBy('workzone')`, dan `groupBy` mempertahankan urutan itu). Tiap grup berisi `name`, `count`, `summary` hasil merge metrics, dan `rows`. Dua konstanta penampung: `STO TANPA NAMA` untuk nama kosong dan `STO BELUM TERDATA` untuk baris `Service Area belum terdata`. Dimensi lain tetap `groups => []`.
+- `program-matrix.blade.php` merender baris header per grup (nama, jumlah STO, angka merge) sebagai `<tbody>` terpisah, lalu baris anak STO di dalamnya; partial baru `program-matrix-row.blade.php` memakai `<td>` bersama sehingga markup angka grup dan baris anak tidak terduplikasi. Accordion per **grup** (bukan per STO) lewat `x-data="{ openGroups: ... }"` dengan default terbuka bila total baris ≤ 10, sehingga ratusan STO bisa dilipat per wilayah tanpa kehilangan baris angka.
+- Judul panel `dashboard/index.blade.php` diganti **`Matrix Program` → `Monitoring Wilayah`**; subtitle hanya dirender untuk SUPER_ADMIN, dan label "Ringkasan per … sesuai scope akses Anda." dihapus dari panel maupun dari card program-matrix. Dua blok legenda dan satu baris penjelas masih ada dalam bentuk **dikomentari** (`{{-- ... --}}`), belum dihapus permanen. Perubahan `monitoring.blade.php` (`wrap-break-word`) milik user.
+- Regression `AdminDashboardTest::test_service_area_matrix_groups_sto_rows_by_name_and_stays_collapseable`. Assertion judul pada `AdminDashboardTest:156` disesuaikan dari `Matrix Program` ke `Monitoring Wilayah` karena rename di atas — perubahan file test ini masih belum di-commit (lihat 2.2).
+
+### 7.56 Filter tanggal reported date pada Master Data → Data BOQ — 20 Oktober 2026 (belum di-commit)
+
+- **Karena `qe_lops` tidak menyimpan tanggal laporan**, filter memakai sumber canonical `ticket.reported_date` pada koneksi read-only `mysql_dompis` — bukan `reported_date_dt`, `created_at`, atau tanggal LOP. Nilai di lapangan campuran ISO (sering disertai waktu) dan `DD/MM/YYYY`; tanggal kosong/tidak terbaca tetap tampil tanpa filter tetapi tidak pernah masuk rentang terpilih.
+- `App\Support\TicketReportedDate` menjadi satu-satunya tempat ekspresi parsing (MySQL: `STR_TO_DATE`, SQLite test: `PRINTF`) dan `applyRange()` untuk `>=`/`<=` inclusive. `TicketCoverageService` kini mendelegasikan ke sini lewat satu baris dan memakai nilai kembalian itu lagi untuk kolom `reported_day` — logika parse tidak lagi terpecah dua versi.
+- `App\Services\IncidentReportedDateService::incidentsBetween()` menerjemahkan rentang → daftar incident ternormalisasi `UPPER(TRIM())`, dan mengembalikan `null` bila kedua batas kosong. Pembedaan `null` (tanpa filter) versus `[]` (tak ada tiket pada rentang) yang menentukan apakah filter diterapkan.
+- Berbeda koneksi sehingga tidak bisa di-join; `DataBoqController::restrictReportedDates()` mengiris daftar itu di query lokal memakai `UPPER(TRIM(qe_lops.incident))` pada kedua sisi (sepadan dengan konvensi monitoring tiket). Filter diterapkan sebagai `whereHas('lop')` tambahan sehingga **tidak pernah melebarkan scope admin**, dan sumber tiket hanya dihubungi bila tanggal benar-benar diisi. Koneksi tiket yang mati ditangkap `try/catch` → banner peringatan plus hasil kosong, bukan hasil menyesatkan tanpa filter.
+- `DataBoqFilterRequest` memvalidasi `date_format:Y-m-d` dan `after_or_equal:date_from` dengan pesan Indonesia; halaman menampilkan `date_from`/`date_to` (input `min` terikat), teks "Filter aktif", link Reset, bantuan bahwa tanggal mengikuti reported date tiket, dan `action` eksplisit agar perubahan filter selalu kembali ke halaman 1. Filter berlaku untuk **kedua daftar** (BOQ Plan dan BOQ Aktual dari Reservasi Teknisi) — konsisten dengan perilaku pencarian `q`.
+- **Download Excel ikut filter tanggal.** `DataBoqExportService::rows()` menerima `?array $reportedIncidents` dan menerapkannya lewat `IncidentReportedDateService::applyTo()` pada query yang sama dengan daftar; `DataBoqExport` meneruskannya dari controller. Pembatasan dipindahkan dari metode privat `DataBoqController` ke service agar daftar dan export tidak mempunyai dua versi aturan. `null` = tanpa filter, `[]` = kosong, dan pembedaan itu tetap yang menentukan apakah query disentuh. Tautan `Download Excel` membawa `date_from`/`date_to` aktif dan judulnya berubah jadi "Download Data BOQ sesuai filter tanggal laporan dan scope akses"; tanpa filter tautan kembali polos. `export()` memakai `DataBoqFilterRequest` yang sama, sehingga rentang terbalik ditolak dengan pesan yang sama. Pencarian `q` **tetap tidak** dibawa ke export — sesuai perilaku yang sudah ada sejak sebelumnya. Bila sumber tiket mati saat mengunduh, request dibatalkan dengan `back()->with('error', ...)` dan pesan tampil di banner merah halaman, bukan file Excel kosong atau file tanpa filter.
+- Regression `DataBoqDateFilterTest` (11 cases): inklusif dua format tanggal, rentang terbuka + tanggal tak terbaca, list reservasi ikut tersaring, filter tidak bocor dari scope admin cabang, normalisasi spasi/kapital, rentang terbalik ditolak sebelum menyentuh sumber tiket, sumber tiket mati → banner, tautan unduh membawa rentang aktif, isi Excel mengikuti rentang (dua format, satu batas, tanpa filter), unduhan gagal dengan pesan saat sumber tiket mati, dan unduhan menolak rentang terbalik.
+- Verifikasi: **529 tests / 5429 assertions** Laravel lulus. Pint pada file PHP task lulus, `view:cache` dan `npm run build` lulus (Tailwind arbitrary value grid filter butuh build ulang), `git diff --check` bersih. Tidak ada migration/schema write data operasional dari task ini (migration `incident_excludes` sudah berjalan jauh sebelumnya, lihat 2.3), tidak ada import nyata, restart worker, commit/push, atau deploy. MySQL/produksi, Nginx, dan storage tidak diverifikasi; test memakai SQLite dengan `mysql_dompis` di-fake in-memory.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
 
+- **Migration `2026_10_20_000001_create_incident_excludes_table.php` wajib dijalankan di produksi** sebelum fitur exclude tiket (7.54) dipakai. Query `IncidentExclude` ada di luar blok `try/catch`, jadi tanpa tabel ini halaman Monitoring Ticket error 500. Sudah Ran di lokal; jalankan setelah commit siap dan backup/tag tersedia.
 - Migration `2026_10_16_000001_add_optional_capture_choices_to_qe_lops_table.php` belum dijalankan; minta izin sebelum aktivasi penyimpanan Tidak Ada. Schema/ledger MySQL lokal dan produksi belum diverifikasi pada task ini.
 - Pastikan migration perluasan panjang uraian sudah dijalankan pada tiap environment setelah mendapat izin dan backup/tag siap.
 - Migration Relok Tiang sudah terverifikasi pada lokal (batch 17, enum empat nilai); status server produksi belum diverifikasi.
@@ -884,8 +933,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-504 tests passed
-5249 assertions
+529 tests passed
+5429 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -898,10 +947,11 @@ Pemetaan test utama:
 - Material Tiba per plan Relok Utilitas: `MaterialArrivalPerDesignatorTest` (12 cases); pembatasan Import AISS/menu/worker/scope: `AissImportTest` (21 tests).
 - Designator khusus/pilihan capture/hapus evidence: `TechnicianSpecialDesignatorAndEvidenceTest` (21 cases); frontend evidence-optional.test.mjs (7) dan boq-editor.test.mjs (5).
 - Download Data LOP sesuai filter: `DataLopExportTest` (8 tests).
-- Monitoring tiket dan download Excel: `TicketCoverageTest` (28 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
+- Monitoring tiket dan download Excel: `TicketCoverageTest`; exclude tiket beserta alasan dan tab `excluded`: `IncidentExcludeTest` (8 tests); monitoring Incident pada LOP: `IncidentMonitoringTest`.
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
-- Validasi incident/program: `IncidentProgramValidationTest` (15 tests, termasuk INFRACARE khusus Preventive dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
+- Validasi incident/program: `IncidentProgramValidationTest` (18 tests, termasuk TSEL/PREMAN dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
+- Filter tanggal reported date pada Master Data → BOQ, termasuk Download Excel: `DataBoqDateFilterTest` (11 tests, inklusif dua format/rentang terbuka/list reservasi/guard scope/normalisasi insiden/validasi rentang/sumber tiket mati/tautan unduh/isi Excel/unduhan gagal).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
 - Pembatalan/arsip LOP semua status dan Active LOP pembuat: `LopCancellationTest` (termasuk retensi BOQ/evidence/file, stale actions, dan exclusion Revenue).

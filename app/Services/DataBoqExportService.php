@@ -12,9 +12,14 @@ class DataBoqExportService
     public function __construct(
         private readonly LopVisibilityService $visibility,
         private readonly LopBoqProjectionService $projection,
+        private readonly IncidentReportedDateService $reportedDates,
     ) {}
 
-    public function rows(User $user): Generator
+    /**
+     * @param  array<int, string>|null  $reportedIncidents  daftar incident hasil
+     *                                                      incidentsBetween(); null = tanpa filter tanggal
+     */
+    public function rows(User $user, ?array $reportedIncidents = null): Generator
     {
         $query = QeLop::query()
             ->where(fn (Builder $query) => $query->whereHas('boq')->orWhereHas('materialReservation.items'))
@@ -28,6 +33,7 @@ class DataBoqExportService
                 'serviceArea.branch.regionRef',
             ]);
         $this->visibility->apply($query, $user);
+        $this->reportedDates->applyTo($query, $reportedIncidents);
 
         foreach ($query->lazyById(100) as $lop) {
             foreach ($this->projection->masterDataLines($lop) as $line) {
