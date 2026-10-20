@@ -70,8 +70,8 @@ enum ProgramType: string
     public function incidentTicketType(): ?string
     {
         return match ($this) {
-            self::RECOVERY => 'GAMAS atau UNKNOWN',
-            self::PREVENTIVE => 'GAMAS, UNKNOWN, atau INFRACARE',
+            self::RECOVERY => 'GAMAS, UNKNOWN, TSEL, atau PREMAN',
+            self::PREVENTIVE => 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN',
             self::RELOK_TIANG => 'NON NUMBERING',
             self::RELOK_UTILITAS => null,
         };

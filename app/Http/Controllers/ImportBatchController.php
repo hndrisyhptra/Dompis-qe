@@ -16,6 +16,20 @@ class ImportBatchController extends Controller
     {
         $this->assertAccess($request, $batch);
 
+        if ($batch->isFinished() && ! session()->has('import_shown_summary_' . $batch->id_import_batch)) {
+            $message = sprintf(
+                'Import selesai. Total: %d baris, Berhasil: %d, Gagal: %d.',
+                $batch->total_rows,
+                $batch->success_rows,
+                $batch->failed_rows
+            );
+            if ($batch->status === 'partial') {
+                $message .= ' Beberapa baris gagal diproses.';
+            }
+            session()->flash('status', $message);
+            session()->put('import_shown_summary_' . $batch->id_import_batch, true);
+        }
+
         $rows = $batch->rows();
         $rowStatus = 'all';
         $storedRowCount = null;
@@ -32,6 +46,7 @@ class ImportBatchController extends Controller
             $rows->where('status', '!=', 'skipped');
         }
 
+        // Show all rows if total is reasonable, otherwise paginate with large page size
         return view($batch->type === 'boq' ? 'imports.boq-result' : 'imports.show', [
             'batch' => $batch->load('uploader'),
             'rows' => $rows->paginate(50)->withQueryString(),

@@ -57,7 +57,7 @@ function incidentForm(fetch, validateIncident = true) {
     vm.runInNewContext(component, { window, URLSearchParams, fetch });
     const model = window.lopForm({
         validateIncident,
-        incidentTicketTypes: { recovery: 'GAMAS atau UNKNOWN', preventive: 'GAMAS, UNKNOWN, atau INFRACARE', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
+        incidentTicketTypes: { recovery: 'GAMAS, UNKNOWN, TSEL, atau PREMAN', preventive: 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
         initial: { program_type: 'recovery', branch: 'SIDOARJO', sto: 'SDA', area: '3' },
     });
     const watchers = {};
@@ -157,7 +157,7 @@ test('REG ditemukan sebelum program dipilih, lalu Recovery tetap mengunci Simpan
         const selected = url.includes('program_type=recovery');
         return { ok: true, json: async () => ({
             found: true, jenis_tiket_2: 'REG', sto: 'KPS',
-            incident_validation: selected ? { valid: false, message: 'Gunakan tiket GAMAS atau UNKNOWN untuk QE Recovery. Tiket ini berjenis REG.' } : undefined,
+            incident_validation: selected ? { valid: false, message: 'Gunakan tiket GAMAS, UNKNOWN, TSEL, atau PREMAN untuk QE Recovery. Tiket ini berjenis REG.' } : undefined,
         }) };
     });
     model.form.program_type = '';

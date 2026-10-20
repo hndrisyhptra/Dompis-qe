@@ -85,7 +85,7 @@ class IncidentProgramValidationTest extends TestCase
         foreach (['recovery' => 'INC-UNKNOWN-REC', 'preventive' => 'INC-UNKNOWN-PREV'] as $program => $incident) {
             $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => $program]))
                 ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
-                ->assertJsonPath('incident_validation.required_type', $program === 'preventive' ? 'GAMAS, UNKNOWN, atau INFRACARE' : 'GAMAS atau UNKNOWN');
+                ->assertJsonPath('incident_validation.required_type', $program === 'preventive' ? 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN' : 'GAMAS, UNKNOWN, TSEL, atau PREMAN');
             $this->post(route('lop.store'), $this->payload($incident, $program))->assertSessionHasNoErrors();
             $this->assertDatabaseHas('qe_lops', ['incident' => $incident, 'program_type' => $program]);
         }
@@ -109,7 +109,7 @@ class IncidentProgramValidationTest extends TestCase
         foreach (['INC-INFRA', 'INC-INFRA-CASE'] as $incident) {
             $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => 'preventive']))
                 ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
-                ->assertJsonPath('incident_validation.required_type', 'GAMAS, UNKNOWN, atau INFRACARE');
+                ->assertJsonPath('incident_validation.required_type', 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN');
             $this->post(route('lop.store'), $this->payload($incident, 'preventive'))
                 ->assertRedirect(route('lop.create'))->assertSessionHasNoErrors();
             $lop = QeLop::where('incident', $incident)->firstOrFail();
@@ -118,6 +118,47 @@ class IncidentProgramValidationTest extends TestCase
             $this->assertSame('usulan', $lop->status_project->value);
             $this->assertSame(1, $lop->histories()->count());
         }
+    }
+
+    public function test_tsel_is_accepted_for_recovery_after_lookup_and_on_save(): void
+    {
+        $this->fakeIncidentTickets(['INC-TSEL' => 'TSEL', 'INC-TSEL-CASE' => '  tsel odc  ']);
+        foreach (['INC-TSEL', 'INC-TSEL-CASE'] as $incident) {
+            $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => 'recovery']))
+                ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
+                ->assertJsonPath('incident_validation.required_type', 'GAMAS, UNKNOWN, TSEL, atau PREMAN');
+            $this->post(route('lop.store'), $this->payload($incident, 'recovery'))
+                ->assertRedirect(route('lop.create'))->assertSessionHasNoErrors();
+            $lop = QeLop::where('incident', $incident)->firstOrFail();
+            $this->assertSame(ProgramType::RECOVERY, $lop->program_type);
+            $this->assertSame('draft', $lop->status_lop->value);
+            $this->assertNull($lop->status_project);
+        }
+    }
+
+    public function test_preman_is_accepted_for_recovery_and_preventive_after_lookup_and_on_save(): void
+    {
+        $this->fakeIncidentTickets(['INC-PREMAN-REC' => 'PREMAN', 'INC-PREMAN-PREV' => '  pReMaN  ']);
+        foreach (['recovery' => 'INC-PREMAN-REC', 'preventive' => 'INC-PREMAN-PREV'] as $program => $incident) {
+            $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => $program]))
+                ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
+                ->assertJsonPath('incident_validation.required_type', $program === 'preventive' ? 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN' : 'GAMAS, UNKNOWN, TSEL, atau PREMAN');
+            $this->post(route('lop.store'), $this->payload($incident, $program))->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('qe_lops', ['incident' => $incident, 'program_type' => $program]);
+        }
+        $this->post(route('lop.store'), $this->payload('INC-PREMAN-REC', 'relok_tiang'))->assertSessionHasErrors('incident');
+    }
+
+    public function test_bulk_import_accepts_preman_only_for_recovery_and_preventive(): void
+    {
+        $this->fakeIncidentTickets(['INC-PREMAN-REC' => 'PREMAN', 'INC-PREMAN-PREV' => 'PREMAN', 'INC-PREMAN-TIANG' => 'PREMAN']);
+        $batch = $this->import([['INC-PREMAN-REC', 'recovery'], ['INC-PREMAN-PREV', 'preventive'], ['INC-PREMAN-TIANG', 'relok_tiang']]);
+        $this->assertSame('partial', $batch->status);
+        $this->assertSame(2, $batch->success_rows);
+        $this->assertSame(1, $batch->failed_rows);
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-PREMAN-REC', 'program_type' => 'recovery']);
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-PREMAN-PREV', 'program_type' => 'preventive']);
+        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-PREMAN-TIANG']);
     }
 
     public function test_infracare_is_rejected_for_recovery_and_tiang_and_similar_labels_are_rejected_for_preventive(): void
@@ -246,7 +287,7 @@ class IncidentProgramValidationTest extends TestCase
     public function test_lookup_returns_program_validation_and_rechecks_when_program_changes(): void
     {
         $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => 'inc-gamas', 'program_type' => 'recovery']))
-            ->assertOk()->assertJsonPath('incident_validation.valid', true)->assertJsonPath('incident_validation.required_type', 'GAMAS atau UNKNOWN');
+            ->assertOk()->assertJsonPath('incident_validation.valid', true)->assertJsonPath('incident_validation.required_type', 'GAMAS, UNKNOWN, TSEL, atau PREMAN');
         $this->getJson(route('lop.ticket-lookup', ['incident' => 'INC-GAMAS', 'program_type' => 'relok_tiang']))
             ->assertOk()->assertJsonPath('incident_validation.valid', false)->assertJsonPath('incident_validation.required_type', 'NON NUMBERING');
         $this->getJson(route('lop.ticket-lookup', ['incident' => 'INP123456', 'program_type' => 'preventive']))
@@ -260,7 +301,7 @@ class IncidentProgramValidationTest extends TestCase
             ->assertOk()->assertJsonPath('found', true)->assertJsonPath('jenis_tiket_2', 'REG');
         $this->getJson(route('lop.ticket-lookup', ['incident' => 'INC47206386', 'program_type' => 'recovery']))
             ->assertOk()->assertJsonPath('incident_validation.valid', false)
-            ->assertJsonPath('incident_validation.message', 'Gunakan tiket GAMAS atau UNKNOWN untuk QE Recovery. Tiket ini berjenis REG.')
+            ->assertJsonPath('incident_validation.message', 'Gunakan tiket GAMAS, UNKNOWN, TSEL, atau PREMAN untuk QE Recovery. Tiket ini berjenis REG.')
             ->assertJsonPath('incident_validation.ticket_type', 'REG');
         $this->post(route('lop.store'), $this->payload('INC47206386', 'recovery'))->assertSessionHasErrors('incident');
         $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC47206386']);

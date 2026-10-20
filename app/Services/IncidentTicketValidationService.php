@@ -34,8 +34,8 @@ class IncidentTicketValidationService
         $type = trim((string) ($ticket['jenis_tiket_2'] ?? ''));
         $normalized = mb_strtoupper((string) preg_replace('/[\s_-]+/u', ' ', $type));
         $valid = match ($program) {
-            ProgramType::RECOVERY => str_contains($normalized, 'GAMAS') || $normalized === 'UNKNOWN',
-            ProgramType::PREVENTIVE => str_contains($normalized, 'GAMAS') || in_array($normalized, ['UNKNOWN', 'INFRACARE'], true),
+            ProgramType::RECOVERY => str_contains($normalized, 'GAMAS') || str_contains($normalized, 'TSEL') || in_array($normalized, ['UNKNOWN', 'PREMAN'], true),
+            ProgramType::PREVENTIVE => str_contains($normalized, 'GAMAS') || in_array($normalized, ['UNKNOWN', 'INFRACARE', 'PREMAN'], true),
             ProgramType::RELOK_TIANG => preg_match('/\bNON NUMBERING\b/u', $normalized) === 1,
             ProgramType::RELOK_UTILITAS => true,
         };
