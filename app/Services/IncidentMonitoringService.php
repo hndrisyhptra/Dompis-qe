@@ -142,8 +142,18 @@ class IncidentMonitoringService
             }
         }
         if ($filters['q'] !== '') {
-            $query->where(fn (Builder $q) => $q->where('incident', 'like', '%'.$filters['q'].'%')
-                ->orWhere('nama_lop', 'like', '%'.$filters['q'].'%')->orWhere('ihld_id', 'like', '%'.$filters['q'].'%'));
+            $needle = '%'.$filters['q'].'%';
+            $query->where(function (Builder $outer) use ($needle, $filters, $branches, $serviceAreas): void {
+                $outer->where(fn (Builder $q) => $q->where('incident', 'like', $needle)
+                    ->orWhere('nama_lop', 'like', $needle)->orWhere('ihld_id', 'like', $needle));
+                // Pencarian lokasi memakai nama branch dan workzone STO; baris legacy tanpa foreign key tetap terjangkau lewat kolom fallback.
+                $branchIds = $branches->filter(fn (Branch $branch) => str_contains(mb_strtoupper($branch->name), mb_strtoupper($filters['q'])))->modelKeys();
+                $outer->orWhereIn('branch_id', $branchIds)
+                    ->orWhere(fn (Builder $legacyBranch) => $legacyBranch->whereNull('branch_id')->where('branch', 'like', $needle));
+                $serviceAreaIds = $serviceAreas->filter(fn (ServiceArea $area) => str_contains(mb_strtoupper($area->workzone), mb_strtoupper($filters['q'])))->modelKeys();
+                $outer->orWhereIn('service_area_id', $serviceAreaIds)
+                    ->orWhere(fn (Builder $legacySto) => $legacySto->whereNull('service_area_id')->where('sto', 'like', $needle));
+            });
         }
         if ($filters['missing_ihld']) {
             $query->where(fn (Builder $q) => $q->whereNull('ihld_id')->orWhereRaw("TRIM(ihld_id) = ''"));

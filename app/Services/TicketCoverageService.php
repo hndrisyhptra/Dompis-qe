@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\ExcludeReason;
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\IncidentExclude;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
@@ -26,7 +28,7 @@ class TicketCoverageService
             'branch' => $input['branch'] ?? '',
             'service_area' => $input['service_area'] ?? '',
             'kind' => $input['kind'] ?? '',
-            'usage' => $input['usage'] ?? 'without_lop',
+            'usage' => in_array($input['usage'] ?? '', ['all', 'without_lop', 'with_lop', 'excluded'], true) ? $input['usage'] : 'without_lop',
             'date_from' => $input['date_from'] ?? '',
             'date_to' => $input['date_to'] ?? '',
             'q' => trim((string) ($input['q'] ?? '')),
@@ -54,6 +56,11 @@ class TicketCoverageService
                 'usage' => 'with_lop',
             ];
         }
+        // Load excluded incidents keyed by normalized incident.
+        $excluded = IncidentExclude::query()->get(['incident', 'keterangan_exclude'])
+            ->mapWithKeys(fn (IncidentExclude $exclude) => [
+                $this->normalize($exclude->incident) => $exclude->keterangan_exclude,
+            ]);
         $stats = null;
         $chartRows = collect();
         $tickets = collect();
@@ -63,11 +70,11 @@ class TicketCoverageService
         $page = (int) ($input['page'] ?? 1);
 
         if ($restrictWorkzones && $selectedAreas->isEmpty()) {
-            $stats = ['total' => 0, 'without_lop' => 0, 'with_lop' => 0];
+            $stats = ['total' => 0, 'without_lop' => 0, 'with_lop' => 0, 'excluded' => 0];
         } else {
             try {
                 [$stats, $chartRows, $tickets, $total] = $this->sourceData(
-                    $filters, $selectedAreas, $restrictWorkzones, $occupancy, $page, $forExport,
+                    $filters, $selectedAreas, $restrictWorkzones, $occupancy, $excluded->all(), $page, $forExport,
                 );
                 $checkedAt = now('Asia/Jakarta');
             } catch (Throwable $exception) {
@@ -86,10 +93,10 @@ class TicketCoverageService
                     $filters['service_area'] !== '' ? ($serviceAreas->firstWhere('id_service_area', (int) $filters['service_area'])?->workzone ?? 'STO di luar scope') : null,
                 ])) ?: 'Seluruh wilayah dalam scope',
                 'checkedAt' => $checkedAt,
-                'rows' => $this->exportRows($tickets instanceof Builder ? $tickets : null, $occupancy, $serviceAreas, $branches, $user),
+                'rows' => $this->exportRows($tickets instanceof Builder ? $tickets : null, $occupancy, $excluded->all(), $serviceAreas, $branches, $user),
             ];
         }
-        $rows = $this->presentRows($tickets, $occupancy, $serviceAreas, $branches, $user);
+        $rows = $this->presentRows($tickets, $occupancy, $excluded->all(), $serviceAreas, $branches, $user);
         $paginator = new LengthAwarePaginator($rows, $total, 25, $page, [
             'path' => route('incident-monitoring.tickets'),
             'query' => array_filter($filters, fn ($value) => $value !== ''),
@@ -107,10 +114,12 @@ class TicketCoverageService
             'checkedAt' => $checkedAt,
             'scopeLabel' => $scopeLabel,
             'scopeWarning' => $user->hasRole(UserRole::ADMIN) && $serviceAreas->isEmpty(),
+            'excludeReasons' => collect(ExcludeReason::cases())
+                ->mapWithKeys(fn (ExcludeReason $reason) => [$reason->value => $reason->label()]),
         ];
     }
 
-    private function presentRows(Collection $tickets, array $occupancy, Collection $serviceAreas, Collection $branches, User $user): Collection
+    private function presentRows(Collection $tickets, array $occupancy, array $excluded, Collection $serviceAreas, Collection $branches, User $user): Collection
     {
         $pageIds = $tickets->map(fn ($ticket) => $occupancy[$this->normalize($ticket->incident)]['id'] ?? null)->filter()->all();
         $visibleLops = $pageIds === [] ? collect() : $this->visibility->apply(QeLop::query()->whereIntegerInRaw('id_qe_lops', $pageIds), $user)
@@ -119,7 +128,7 @@ class TicketCoverageService
         $areasByWorkzone = $serviceAreas->keyBy(fn (ServiceArea $area) => $this->normalize($area->workzone));
         $branchesById = $branches->keyBy('id_branch');
 
-        return $tickets->map(function ($ticket) use ($occupancy, $visibleLops, $areasByWorkzone, $branchesById): array {
+        return $tickets->map(function ($ticket) use ($occupancy, $excluded, $visibleLops, $areasByWorkzone, $branchesById): array {
             $incident = $this->normalize($ticket->incident);
             $match = $occupancy[$incident] ?? null;
             $area = $areasByWorkzone->get($this->normalize($ticket->workzone));
@@ -132,11 +141,12 @@ class TicketCoverageService
                 'branch' => $area ? $branchesById->get($area->branch_id)?->name : null,
                 'usage' => $match['usage'] ?? 'without_lop',
                 'lop' => $match ? $visibleLops->get($match['id']) : null,
+                'exclude_reason' => $excluded[$incident] ?? null,
             ];
         });
     }
 
-    private function exportRows(?Builder $query, array $occupancy, Collection $areas, Collection $branches, User $user): Generator
+    private function exportRows(?Builder $query, array $occupancy, array $excluded, Collection $areas, Collection $branches, User $user): Generator
     {
         if ($query === null) {
             return;
@@ -144,17 +154,16 @@ class TicketCoverageService
         $lastId = null;
         do {
             $chunk = (clone $query)->when($lastId !== null, fn (Builder $q) => $q->where('id_ticket', '<', $lastId))->limit(500)->get();
-            yield from $this->presentRows($chunk, $occupancy, $areas, $branches, $user);
+            yield from $this->presentRows($chunk, $occupancy, $excluded, $areas, $branches, $user);
             $lastId = $chunk->last()?->id_ticket;
         } while ($chunk->count() === 500);
     }
 
-    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, int $page, bool $forExport = false): array
+    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, array $excluded, int $page, bool $forExport = false): array
     {
         $source = DB::connection('mysql_dompis');
         $types = $source->table('ticket')->distinct()->pluck('jenis_tiket_2')->filter(function ($type) use ($filters): bool {
-            $normalized = $this->normalize($type);
-            $kind = $normalized === 'INFRACARE' ? 'infracare' : (str_contains($normalized, 'GAMAS') ? 'gamas' : null);
+            $kind = $this->ticketKind($type);
 
             return $kind !== null && ($filters['kind'] === '' || $filters['kind'] === $kind);
         })->values();
@@ -181,18 +190,22 @@ class TicketCoverageService
 
         $used = array_keys($occupancy);
         $usedSql = $used === [] ? '0 = 1' : 'UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($used), '?')).')';
-        $coverage = "CASE WHEN {$usedSql} THEN 'with_lop' ELSE 'without_lop' END";
+        $excludedKeys = array_keys($excluded);
+        $excludedSql = $excludedKeys === [] ? '0 = 1' : 'UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($excludedKeys), '?')).')';
+        // without_lop: no LOP and not excluded; excluded: no LOP but excluded.
+        $coverage = "CASE WHEN {$usedSql} THEN 'with_lop' WHEN {$excludedSql} THEN 'excluded' ELSE 'without_lop' END";
         $groups = (clone $query)->select('jenis_tiket_2')
-            ->selectRaw("{$coverage} AS coverage, COUNT(*) AS total", $used)
+            ->selectRaw("{$coverage} AS coverage, COUNT(*) AS total", [...$used, ...$excludedKeys])
             ->groupBy('coverage', 'jenis_tiket_2')->get();
         $counts = $groups->groupBy('coverage')->map(fn (Collection $rows) => $rows->sum('total'));
         $stats = [
             'total' => (int) $counts->sum(),
             'without_lop' => (int) $counts->get('without_lop', 0),
             'with_lop' => (int) $counts->get('with_lop', 0),
+            'excluded' => (int) $counts->get('excluded', 0),
         ];
-        $chartRows = collect(['gamas' => 'GAMAS', 'infracare' => 'INFRACARE'])->map(function ($label, $kind) use ($groups): array {
-            $count = (int) $groups->filter(fn ($row) => ($this->normalize($row->jenis_tiket_2) === 'INFRACARE' ? 'infracare' : 'gamas') === $kind)->sum('total');
+        $chartRows = collect(['gamas' => 'GAMAS', 'infracare' => 'INFRACARE', 'preman' => 'PREMAN'])->map(function ($label, $kind) use ($groups): array {
+            $count = (int) $groups->filter(fn ($row) => $this->ticketKind($row->jenis_tiket_2) === $kind)->sum('total');
 
             return ['kind' => $kind, 'label' => $label, 'count' => $count];
         })->filter(fn ($row) => $row['count'] > 0)->sortByDesc('count')->values();
@@ -202,6 +215,9 @@ class TicketCoverageService
 
         if ($filters['usage'] === 'without_lop') {
             $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), array_keys($occupancy));
+            $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $excludedKeys);
+        } elseif ($filters['usage'] === 'excluded') {
+            $query->whereIn(DB::raw('UPPER(TRIM(incident))'), $excludedKeys);
         } elseif ($filters['usage'] !== 'all') {
             $query->whereIn(DB::raw('UPPER(TRIM(incident))'), $used);
         }
@@ -229,8 +245,34 @@ class TicketCoverageService
         return "CASE WHEN INSTR({$value}, '/') > 0 THEN {$slashDate} ELSE DATE({$value}) END";
     }
 
+    private function ticketKind(?string $type): ?string
+    {
+        $normalized = $this->normalize($type);
+
+        return match (true) {
+            $normalized === 'INFRACARE' => 'infracare',
+            // PREMAN hanya diakui persis; varian lain di luar cakupan monitoring.
+            $normalized === 'PREMAN' => 'preman',
+            str_contains($normalized, 'GAMAS') => 'gamas',
+            default => null,
+        };
+    }
+
     private function normalize(?string $value): string
     {
         return mb_strtoupper(trim((string) $value));
+    }
+
+    public function exclude(string $incident, string $reason, User $user): void
+    {
+        IncidentExclude::updateOrCreate(
+            ['incident' => $this->normalize($incident)],
+            ['keterangan_exclude' => $reason, 'created_by' => $user->id_user]
+        );
+    }
+
+    public function unexclude(string $incident): void
+    {
+        IncidentExclude::where('incident', $this->normalize($incident))->delete();
     }
 }

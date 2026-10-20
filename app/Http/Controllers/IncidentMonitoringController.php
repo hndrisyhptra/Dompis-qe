@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Exports\TicketCoverageExport;
+use App\Http\Requests\ExcludeTicketRequest;
 use App\Http\Requests\IncidentMonitoringRequest;
 use App\Http\Requests\TicketCoverageDownloadRequest;
 use App\Http\Requests\TicketCoverageRequest;
 use App\Services\IncidentMonitoringService;
 use App\Services\TicketCoverageService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -42,7 +44,7 @@ class IncidentMonitoringController extends Controller
         $data = $this->coverage->dashboard($request->user(), $filters, forExport: true);
         abort_if($data['sourceUnavailable'], 503, 'Data tiket Dompis belum dapat dimuat. Unduhan dibatalkan; coba kembali setelah koneksi tersedia.');
         $category = match ($filters['usage']) {
-            'without_lop' => 'belum-memiliki-lop', 'with_lop' => 'sudah-memiliki-lop', default => 'total-tiket'
+            'without_lop' => 'belum-memiliki-lop', 'with_lop' => 'sudah-memiliki-lop', 'excluded' => 'tiket-exclude', default => 'total-tiket'
         };
         $period = implode('_', array_filter([$filters['date_from'] ?? null, $filters['date_to'] ?? null])) ?: 'semua-periode';
         try {
@@ -51,5 +53,23 @@ class IncidentMonitoringController extends Controller
             report($exception);
             abort(503, 'Unduhan belum berhasil dibuat. Coba kembali; hubungi administrator jika berulang.');
         }
+    }
+
+    public function exclude(ExcludeTicketRequest $request): RedirectResponse
+    {
+        $this->coverage->exclude(
+            $request->validated('incident'),
+            $request->validated('reason'),
+            $request->user()
+        );
+
+        return back()->with('status', 'Tiket berhasil di-exclude.');
+    }
+
+    public function unexclude(string $incident): RedirectResponse
+    {
+        $this->coverage->unexclude($incident);
+
+        return back()->with('status', 'Tiket dikembalikan ke daftar.');
     }
 }

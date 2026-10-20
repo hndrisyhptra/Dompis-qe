@@ -35,13 +35,13 @@
         <form id="incident-filters" method="GET" action="{{ route('incident-monitoring.index') }}" @submit="loading = true"
               :class="filtersOpen ? '' : 'hidden lg:block'">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                <x-input name="q" id="incident-search" label="Cari incident, LOP, atau IHLD" :value="$filters['q']" :use-old="false" placeholder="Nomor atau nama…" maxlength="100" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
-                <x-select name="program" label="Program" placeholder="Semua program" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-input name="q" id="incident-search" label="Cari incident, LOP, IHLD" :value="$filters['q']" :use-old="false" placeholder="Nomor atau nama…" maxlength="100" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-select name="program" label="Program" placeholder="Semua program" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach (\App\Enums\ProgramType::cases() as $program)
                         <option value="{{ $program->value }}" @selected($filters['program'] === $program->value)>{{ $program->label() }}</option>
                     @endforeach
                 </x-select>
-                <x-select name="ticket_type" label="Jenis tiket" placeholder="Semua jenis tiket" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="ticket_type" label="Jenis tiket" placeholder="Semua jenis tiket" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($typeOptions as $type)
                         <option value="{{ $type['key'] }}" @selected($filters['ticket_type'] === $type['key'])>{{ $type['label'] }}</option>
                     @endforeach
@@ -49,12 +49,12 @@
                         <option value="{{ $filters['ticket_type'] }}" selected>Jenis pilihan tidak tersedia</option>
                     @endif
                 </x-select>
-                <x-select name="status" label="Status LOP" placeholder="Semua status" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="status" label="Status LOP" placeholder="Semua status" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach (\App\Enums\LopStatus::cases() as $status)
                         <option value="{{ $status->value }}" @selected($filters['status'] === $status->value)>{{ $status->label() }}</option>
                     @endforeach
                 </x-select>
-                <x-select name="region" label="Region" placeholder="Semua region dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="region" label="Region" placeholder="Semua region" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($regions as $region)
                         <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
                     @endforeach
@@ -62,7 +62,7 @@
                         <option value="{{ $filters['region'] }}" selected>Region di luar pilihan</option>
                     @endif
                 </x-select>
-                <x-select name="branch" label="Branch" placeholder="Semua branch dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="branch" label="Branch" placeholder="Semua branch" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($branches as $branch)
                         <option value="{{ $branch->getKey() }}" @selected((string) $filters['branch'] === (string) $branch->getKey())>{{ $branch->name }}</option>
                     @endforeach
@@ -70,7 +70,7 @@
                         <option value="{{ $filters['branch'] }}" selected>Branch di luar pilihan</option>
                     @endif
                 </x-select>
-                <x-select name="service_area" label="Service Area / STO" placeholder="Semua STO dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="service_area" label="Service Area / STO" placeholder="Semua STO" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($serviceAreas as $serviceArea)
                         <option value="{{ $serviceArea->getKey() }}" @selected((string) $filters['service_area'] === (string) $serviceArea->getKey())>{{ $serviceArea->workzone }}</option>
                     @endforeach
@@ -79,7 +79,7 @@
                     @endif
                 </x-select>
                 <div class="flex items-end gap-2">
-                    <x-button x-bind:disabled="loading" class="!min-h-11 !w-auto flex-1 !rounded-md !shadow-none disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></x-button>
+                    <x-button x-bind:disabled="loading" class="min-h-11! w-auto! flex-1 rounded-md! shadow-none! disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></x-button>
                     <a href="{{ route('incident-monitoring.index') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
                 </div>
             </div>
@@ -137,8 +137,8 @@
                     <li>
                         <a href="{{ $filterUrl(['ticket_type' => $row['key']]) }}" @click="loading = true" aria-label="{{ $row['label'] }}: {{ $row['count'] }} LOP. Filter jenis tiket."
                            class="grid min-h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-ink-800 sm:grid-cols-[minmax(140px,220px)_minmax(0,1fr)_64px]">
-                            <span class="break-words text-sm font-medium">{{ $row['label'] }}</span>
-                            <span aria-hidden="true" class="order-3 col-span-2 h-3 rounded-sm bg-ink-50 dark:bg-ink-800 sm:order-none sm:col-span-1 sm:h-4"><span class="block h-full rounded-sm bg-brand-600 dark:bg-brand-400" style="width: {{ $row['width'] }}%"></span></span>
+                            <span class="wrap-break-word text-sm font-medium">{{ $row['label'] }}</span>
+                            <span aria-hidden="true" class="order-3 col-span-2 h-3 rounded-sm bg-ink-50 dark:bg-ink-800 sm:order-0 sm:col-span-1 sm:h-4"><span class="block h-full rounded-sm bg-brand-600 dark:bg-brand-400" style="width: {{ $row['width'] }}%"></span></span>
                             <span class="text-right text-sm font-semibold tabular-nums">{{ number_format($row['count'], 0, ',', '.') }}</span>
                         </a>
                     </li>
@@ -171,11 +171,14 @@
                             <x-copyable-value :value="$lop->incident" label="Incident" class="text-sm" />
                             <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
                         </div>
-                        <p class="break-words text-sm font-medium">{{ $lop->nama_lop }}</p>
-                        <p class="text-xs text-ink-500 dark:text-ink-400">{{ $typesByLop[$lop->getKey()] }} · {{ $lop->program_type->label() }}</p>
+                        <p class="wrap-break-word text-sm font-medium">{{ $lop->nama_lop }}</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <x-badge variant="neutral">{{ $typesByLop[$lop->getKey()] }}</x-badge>
+                            <span class="text-xs text-ink-500 dark:text-ink-400">{{ $lop->program_type->label() }}</span>
+                        </div>
                         <dl class="grid grid-cols-2 gap-3 text-sm">
                             <div><dt class="text-xs text-ink-500 dark:text-ink-400">ID IHLD</dt><dd class="mt-1">@if (filled($lop->ihld_id))<x-copyable-value :value="$lop->ihld_id" label="ID IHLD" />@else<span class="text-ink-500 dark:text-ink-400">Belum diisi</span>@endif</dd></div>
-                            <div><dt class="text-xs text-ink-500 dark:text-ink-400">Branch / STO</dt><dd class="mt-1 break-words">{{ $lop->locationBranchName() }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() }}</span></dd></div>
+                            <div><dt class="text-xs text-ink-500 dark:text-ink-400">Branch / STO</dt><dd class="mt-1 wrap-break-word">{{ $lop->locationBranchName() }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() }}</span></dd></div>
                         </dl>
                         <a href="{{ route('lop.show', $lop) }}" class="inline-flex min-h-10 items-center text-sm font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300" aria-label="Detail LOP {{ $lop->incident }}">Detail LOP <span aria-hidden="true" class="ml-1">→</span></a>
                     </article>
@@ -191,10 +194,10 @@
                         @foreach ($lops as $lop)
                             <tr class="align-top hover:bg-ink-50/70 dark:hover:bg-ink-800/30">
                                 <td class="px-4 py-3"><x-copyable-value :value="$lop->incident" label="Incident" /></td>
-                                <td class="break-words px-3 py-4">{{ $typesByLop[$lop->getKey()] }}</td>
-                                <td class="px-3 py-4"><p class="line-clamp-2 break-words font-medium" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->program_type->label() }}</p></td>
+                                <td class="wrap-break-word px-3 py-4">{{ $typesByLop[$lop->getKey()] }}</td>
+                                <td class="px-3 py-4"><p class="line-clamp-2 wrap-break-word font-medium" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->program_type->label() }}</p></td>
                                 <td class="px-3 py-3">@if (filled($lop->ihld_id))<x-copyable-value :value="$lop->ihld_id" label="ID IHLD" />@else<span class="inline-block py-1.5 text-ink-500 dark:text-ink-400">Belum diisi</span>@endif</td>
-                                <td class="break-words px-3 py-4"><p>{{ $lop->locationBranchName() }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() }}</p></td>
+                                <td class="wrap-break-word px-3 py-4"><p>{{ $lop->locationBranchName() }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() }}</p></td>
                                 <td class="px-3 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
                                 <td class="px-3 py-4"><a href="{{ route('lop.show', $lop) }}" class="inline-flex min-h-8 items-center font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300" aria-label="Detail LOP {{ $lop->incident }}">Detail</a></td>
                             </tr>

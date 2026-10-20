@@ -100,6 +100,29 @@ class IncidentMonitoringTest extends TestCase
             ->assertDontSee('INC-ARCHIVED')->assertDontSee('UNUSED TYPE');
     }
 
+    public function test_search_matches_incident_lop_ihld_branch_name_and_sto_without_leaking_out_of_scope(): void
+    {
+        $l = $this->locations;
+        $this->lop('INP-SBY', ['ihld_id' => null]);
+        $this->lop('INP-DPS', sto: 'DPS-A');
+        $this->lop('INP-OUT', sto: 'OUT-A');
+        // Legacy row tanpa foreign key tetap terjangkau lewat kolom fallback branch/sto.
+        $this->lop('INP-LEGACY', sto: 'SBY-A', legacy: true);
+        // Nama branch.
+        $this->actingAs($this->super)->get(route('incident-monitoring.index', ['q' => 'Surabaya']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)
+            ->assertSee('INP-SBY')->assertSee('INP-LEGACY')->assertDontSee('INP-DPS')->assertDontSee('INP-OUT');
+        // Workzone STO.
+        $this->actingAs($this->super)->get(route('incident-monitoring.index', ['q' => 'DPS-A']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 1)->assertSee('INP-DPS')->assertDontSee('INP-SBY');
+        // Pencarian nama branch tidak meluaskan akses ke luar scope admin.
+        $admin = User::factory()->role('ADMIN')->create(['admin_scope_type' => 'branch', 'branch_id' => $l['sby']->getKey()]);
+        $this->actingAs($admin)->get(route('incident-monitoring.index', ['q' => 'Surabaya']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)->assertDontSee('INP-DPS')->assertDontSee('INP-OUT');
+        $this->actingAs($admin)->get(route('incident-monitoring.index', ['q' => 'DPS-A']))
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 0)->assertDontSee('INP-DPS');
+    }
+
     public function test_every_admin_scope_including_multi_sto_and_legacy_only_reads_visible_lops(): void
     {
         $l = $this->locations;

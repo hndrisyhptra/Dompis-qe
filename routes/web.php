@@ -87,6 +87,12 @@ Route::get('/incident-monitoring/tickets', [IncidentMonitoringController::class,
 Route::get('/incident-monitoring/tickets/download', [IncidentMonitoringController::class, 'download'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.tickets.download');
+Route::post('/incident-monitoring/tickets/exclude', [IncidentMonitoringController::class, 'exclude'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.tickets.exclude');
+Route::delete('/incident-monitoring/tickets/{incident}/unexclude', [IncidentMonitoringController::class, 'unexclude'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.tickets.unexclude');
 
 Route::get('/', function () {
     if (request()->user()->hasRole(UserRole::TEKNISI)) {

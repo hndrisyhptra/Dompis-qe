@@ -68,6 +68,31 @@ class TicketCoverageTest extends TestCase
         ], $attributes));
     }
 
+    public function test_preman_tickets_are_counted_searched_and_filterable_alongside_gamas_and_infracare(): void
+    {
+        $this->ticket('INC-PM-1', 'PREMAN');
+        $this->ticket('INC-PM-2', ' preman ');
+        $this->ticket('INC-PM-3', 'PREMAN GANGGUAN');
+        $this->ticket('INC-GM', 'GAMAS GPON');
+        $this->ticket('INC-IF', 'INFRACARE');
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['usage' => 'all']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 4)
+            ->assertViewHas('chartRows', fn ($rows) => $rows->firstWhere('kind', 'preman')['count'] === 2
+                && $rows->firstWhere('kind', 'gamas')['count'] === 1
+                && $rows->firstWhere('kind', 'infracare')['count'] === 1)
+            ->assertSee('PREMAN');
+        // Persis PREMAN yang dihitung; varian berawalan/berakhiran PREMAN di luar cakupan monitoring.
+        $this->get(route('incident-monitoring.tickets', ['kind' => 'preman', 'usage' => 'all']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2)
+            ->assertSee('INC-PM-1')->assertSee('INC-PM-2')->assertDontSee('INC-PM-3')->assertDontSee('INC-GM');
+        // Pencarian bekerja untuk tiket PREMAN.
+        $this->get(route('incident-monitoring.tickets', ['q' => 'INC-PM-1', 'usage' => 'all']))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 1)->assertSee('INC-PM-1');
+        $this->getJson(route('incident-monitoring.tickets', ['kind' => 'preman']))->assertOk();
+        $this->getJson(route('incident-monitoring.tickets', ['kind' => 'tsel']))->assertUnprocessable()->assertJsonValidationErrors('kind');
+    }
+
     public function test_default_page_lists_only_unused_infracare_and_gamas_tickets_and_keeps_coverage_totals(): void
     {
         $this->ticket('INC-FREE', 'GAMAS GPON');
@@ -82,7 +107,7 @@ class TicketCoverageTest extends TestCase
         $this->ticket('  ', 'GAMAS');
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets'))->assertOk()
             ->assertViewHas('filters', fn ($filters) => $filters['usage'] === 'without_lop')
-            ->assertViewHas('stats', ['total' => 4, 'without_lop' => 2, 'with_lop' => 2])
+            ->assertViewHas('stats', ['total' => 4, 'without_lop' => 2, 'with_lop' => 2, 'excluded' => 0])
             ->assertViewHas('chartRows', fn ($rows) => $rows->sum('count') === 4 && $rows->firstWhere('kind', 'gamas')['count'] === 2)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2 && $rows->first()['incident'] === 'INC-INFRACARE')
             ->assertSee('INC-FREE')->assertSee('INC-INFRACARE')->assertDontSee('INC-USED')->assertDontSee('INC-ARCHIVE')
@@ -137,7 +162,7 @@ class TicketCoverageTest extends TestCase
         $hidden = $this->lop('INC-RESTRICTED', 'DPS-A', ['nama_lop' => 'RAHASIA LOP AKTIF', 'ihld_id' => 'RAHASIA-IHLD']);
         $this->lop('INC-ARCHIVE-RESTRICTED', 'DPS-A', ['nama_lop' => 'RAHASIA ARSIP'])->delete();
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);
-        $this->actingAs($admin)->get(route('incident-monitoring.tickets'))->assertViewHas('stats', ['total' => 3, 'without_lop' => 1, 'with_lop' => 2])
+        $this->actingAs($admin)->get(route('incident-monitoring.tickets'))->assertViewHas('stats', ['total' => 3, 'without_lop' => 1, 'with_lop' => 2, 'excluded' => 0])
             ->assertSee('INC-FREE')->assertDontSee('INC-RESTRICTED')->assertDontSee('INC-ARCHIVE-RESTRICTED');
         $this->get(route('incident-monitoring.tickets', ['usage' => 'all']))->assertOk()
             ->assertSee('INC-RESTRICTED')->assertSee('Detail LOP tidak tersedia')->assertDontSee('RAHASIA')->assertDontSee(route('lop.show', $hidden), false)
@@ -216,7 +241,7 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC-USED-505');
         $this->ticket('INC-FREE');
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets'))->assertOk()
-            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1])->assertSee('INC-FREE')->assertDontSee('INC-USED-505');
+            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1, 'excluded' => 0])->assertSee('INC-FREE')->assertDontSee('INC-USED-505');
     }
 
     public function test_source_outage_is_not_reported_as_zero_tickets_and_recovers_without_stale_cache(): void
@@ -276,7 +301,7 @@ class TicketCoverageTest extends TestCase
         DB::connection('mysql_dompis')->table('ticket')->where('incident', 'INC-START')->update(['reported_date_dt' => '2026-10-14 17:00:00']);
         $filters = ['date_from' => '2026-10-15', 'date_to' => '2026-10-16'];
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets', $filters))->assertOk()
-            ->assertViewHas('stats', ['total' => 4, 'without_lop' => 3, 'with_lop' => 1])
+            ->assertViewHas('stats', ['total' => 4, 'without_lop' => 3, 'with_lop' => 1, 'excluded' => 0])
             ->assertViewHas('chartRows', fn ($rows) => $rows->sum('count') === 4)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 3 && $rows->first()['reported_date'] === '16/10/2026')
             ->assertSee('INC-SLASH-START')->assertSee('INC-END')->assertDontSee('INC-BEFORE')->assertDontSee('INC-AFTER')->assertDontSee('INC-MISSING');
@@ -342,7 +367,7 @@ class TicketCoverageTest extends TestCase
                     $xpath = new DOMXPath($document);
                     $this->assertSame('/incident-monitoring/tickets', $xpath->query('//form[@id="ticket-filters"]')->item(0)->getAttribute('action'));
                     $buttons = $xpath->query('//button[@data-ticket-download]');
-                    $this->assertSame(3, $buttons->length);
+                    $this->assertSame(4, $buttons->length);
                     foreach ($buttons as $button) {
                         $this->assertSame('/incident-monitoring/tickets/download', $button->getAttribute('formaction'));
                         $this->assertSame('ticket-filters', $button->getAttribute('form'));
@@ -381,14 +406,14 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC-NO-DATE');
         $this->lop('INC-FEB-START');
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['date_from' => '2024-02-01', 'date_to' => '2024-02-29', 'usage' => 'all']))->assertOk()
-            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1])
+            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1, 'excluded' => 0])
             ->assertViewHas('chartRows', fn ($rows) => $rows->sum('count') === 2)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2)
             ->assertDontSee('Bulan laporan')->assertSee('Download Excel')->assertDontSee('INC-JAN')->assertDontSee('INC-MAR')->assertDontSee('INC-NO-DATE');
         $this->get(route('incident-monitoring.tickets', ['date_from' => '2024-02-28', 'date_to' => '2024-02-29']))->assertOk()
-            ->assertViewHas('stats', ['total' => 1, 'without_lop' => 1, 'with_lop' => 0])->assertSee('INC-FEB-END')->assertDontSee('INC-FEB-START');
+            ->assertViewHas('stats', ['total' => 1, 'without_lop' => 1, 'with_lop' => 0, 'excluded' => 0])->assertSee('INC-FEB-END')->assertDontSee('INC-FEB-START');
         $this->get(route('incident-monitoring.tickets', ['date_from' => '2024-03-02', 'date_to' => '2024-03-31']))->assertOk()
-            ->assertViewHas('stats', ['total' => 0, 'without_lop' => 0, 'with_lop' => 0]);
+            ->assertViewHas('stats', ['total' => 0, 'without_lop' => 0, 'with_lop' => 0, 'excluded' => 0]);
     }
 
     private function downloadSheet(User $user, array $filters = []): Worksheet
@@ -402,7 +427,7 @@ class TicketCoverageTest extends TestCase
 
     private function exportedIncidents(Worksheet $sheet): array
     {
-        return $sheet->getHighestRow() <= 16 ? [] : array_column($sheet->rangeToArray('A17:A'.$sheet->getHighestRow(), null, false, false), 0);
+        return $sheet->getHighestRow() <= 17 ? [] : array_column($sheet->rangeToArray('A18:A'.$sheet->getHighestRow(), null, false, false), 0);
     }
 
     public function test_three_download_categories_include_consistent_summary_and_correct_rows_beyond_pagination(): void
@@ -432,20 +457,20 @@ class TicketCoverageTest extends TestCase
         $this->ticket('0000123', reportedDate: '16/10/2026 23:59:59');
         $this->lop('0000123', attributes: ['ihld_id' => '0009876', 'nama_lop' => '=1+1']);
         $sheet = $this->downloadSheet($this->super, ['usage' => 'all']);
-        $this->assertSame('0000123', $sheet->getCell('A17')->getValue());
-        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('A17')->getDataType());
-        $this->assertSame('0009876', $sheet->getCell('G17')->getValue());
-        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('G17')->getDataType());
-        $this->assertSame('=1+1', $sheet->getCell('H17')->getValue());
-        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('H17')->getDataType());
-        $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('B17')->getDataType());
-        $this->assertSame('2026-10-16', Date::excelToDateTimeObject($sheet->getCell('B17')->getValue())->format('Y-m-d'));
-        $this->assertSame('dd/mm/yyyy', $sheet->getStyle('B17')->getNumberFormat()->getFormatCode());
+        $this->assertSame('0000123', $sheet->getCell('A18')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('A18')->getDataType());
+        $this->assertSame('0009876', $sheet->getCell('G18')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('G18')->getDataType());
+        $this->assertSame('=1+1', $sheet->getCell('H18')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('H18')->getDataType());
+        $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('B18')->getDataType());
+        $this->assertSame('2026-10-16', Date::excelToDateTimeObject($sheet->getCell('B18')->getValue())->format('Y-m-d'));
+        $this->assertSame('dd/mm/yyyy', $sheet->getStyle('B18')->getNumberFormat()->getFormatCode());
         $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell('B12')->getDataType());
-        $this->assertSame('B17', $sheet->getFreezePane());
-        $this->assertSame('A16:J17', $sheet->getAutoFilter()->getRange());
-        $this->assertTrue($sheet->getStyle('H17')->getAlignment()->getWrapText());
-        $this->assertSame(-1.0, $sheet->getRowDimension(17)->getRowHeight());
+        $this->assertSame('B18', $sheet->getFreezePane());
+        $this->assertSame('A17:J18', $sheet->getAutoFilter()->getRange());
+        $this->assertTrue($sheet->getStyle('H18')->getAlignment()->getWrapText());
+        $this->assertSame(-1.0, $sheet->getRowDimension(18)->getRowHeight());
     }
 
     public function test_download_retains_all_scope_levels_multi_sto_and_outside_or_archived_identity_is_hidden(): void
@@ -475,7 +500,7 @@ class TicketCoverageTest extends TestCase
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $l['branches']['SBY']->getKey()]);
         $sheet = $this->downloadSheet($admin, ['usage' => 'with_lop']);
         $this->assertSame([2, 0, 2], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
-        foreach ($sheet->rangeToArray('G17:J18', null, false, false) as $row) {
+        foreach ($sheet->rangeToArray('G18:J19', null, false, false) as $row) {
             $this->assertSame([null, null, null, 'Detail LOP tidak tersedia'], $row);
         }
         $this->assertNotNull($hidden->fresh());
@@ -548,7 +573,7 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC1', reportedDate: '2026-10-16');
         $sheet = $this->downloadSheet($this->super, ['date_from' => '2026-11-01', 'date_to' => '2026-11-30']);
         $this->assertSame([0, 0, 0], array_column($sheet->rangeToArray('B12:B14', null, false, false), 0));
-        $this->assertSame(16, $sheet->getHighestRow());
+        $this->assertSame(17, $sheet->getHighestRow());
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);
         $sheet = $this->downloadSheet($admin, ['branch' => $this->locations['branches']['DPS']->getKey()]);
         $this->assertCount(0, $this->exportedIncidents($sheet));

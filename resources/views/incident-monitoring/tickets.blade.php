@@ -6,7 +6,7 @@
 @php
     $filterQuery = array_filter($filters, fn ($value) => $value !== '');
     $filterUrl = fn (array $changes = []) => route('incident-monitoring.tickets', array_filter(array_replace($filterQuery, $changes), fn ($value) => $value !== ''));
-    $usageLabels = ['all' => 'Semua tiket', 'without_lop' => 'Belum memiliki LOP', 'with_lop' => 'Sudah memiliki LOP'];
+    $usageLabels = ['all' => 'Semua tiket', 'without_lop' => 'Belum memiliki LOP', 'with_lop' => 'Sudah memiliki LOP', 'excluded' => 'Tiket Exclude'];
     $showLopColumns = $filters['usage'] !== 'without_lop';
     $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $filters['date_from'] !== '' || $filters['date_to'] !== '';
 @endphp
@@ -16,7 +16,7 @@
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-ink-900 dark:text-white">Monitoring Incident</h1>
             <p class="mt-1.5 text-sm text-ink-600 dark:text-ink-300">{{ $scopeLabel }}</p>
-            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Tiket INFRACARE dan yang mengandung GAMAS dari Dompis, termasuk yang belum memiliki LOP.</p>
+            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Tiket INFRACARE, yang mengandung GAMAS, dan PREMAN dari Dompis, termasuk yang belum memiliki LOP.</p>
         </div>
         <div class="flex items-center gap-3">
             <p x-show="loading" x-cloak role="status" class="text-sm text-ink-600 dark:text-ink-300">Memuat tiket…</p>
@@ -48,33 +48,34 @@
         <form id="ticket-filters" method="GET" action="{{ route('incident-monitoring.tickets', [], false) }}" @submit="if (!$event.submitter?.hasAttribute('data-ticket-download')) loading = true" :class="filtersOpen ? '' : 'hidden lg:block'">
             <input type="hidden" name="usage" value="{{ $filters['usage'] }}">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                <x-input name="q" id="ticket-search" label="Cari nomor incident atau workzone" :value="$filters['q']" :use-old="false" placeholder="Nomor incident atau STO…" maxlength="100" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
-                <x-select name="kind" label="Jenis tiket" placeholder="INFRACARE dan GAMAS" class="!rounded-md !border-ink-200 dark:!border-ink-700">
-                    <option value="gamas" @selected($filters['kind'] === 'gamas')>GAMAS (semua variasi)</option>
+                <x-input name="q" id="ticket-search" label="Cari nomor incident atau workzone" :value="$filters['q']" :use-old="false" placeholder="Nomor incident atau STO…" maxlength="100" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-select name="kind" label="Jenis tiket" placeholder="Semua jenis tiket" class="rounded-md! border-ink-200! dark:border-ink-700!">
+                    <option value="gamas" @selected($filters['kind'] === 'gamas')>GAMAS</option>
                     <option value="infracare" @selected($filters['kind'] === 'infracare')>INFRACARE</option>
+                    <option value="preman" @selected($filters['kind'] === 'preman')>PREMAN</option>
                 </x-select>
-                <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" x-model="dateFrom" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
-                <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" x-bind:min="dateFrom || undefined" class="!rounded-md !border-ink-200 dark:!border-ink-700" />
-                <x-select name="region" label="Region" placeholder="Semua region dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" x-model="dateFrom" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" x-bind:min="dateFrom || undefined" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-select name="region" label="Region" placeholder="Semua region" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($regions as $region)
                         <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
                     @endforeach
                     @if ($filters['region'] !== '' && ! $regions->contains($filters['region']))<option value="{{ $filters['region'] }}" selected>Region di luar pilihan</option>@endif
                 </x-select>
-                <x-select name="branch" label="Branch" placeholder="Semua branch dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="branch" label="Branch" placeholder="Semua branch" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($branches as $branch)
                         <option value="{{ $branch->getKey() }}" @selected((string) $filters['branch'] === (string) $branch->getKey())>{{ $branch->name }}</option>
                     @endforeach
                     @if ($filters['branch'] !== '' && ! $branches->contains('id_branch', (int) $filters['branch']))<option value="{{ $filters['branch'] }}" selected>Branch di luar pilihan</option>@endif
                 </x-select>
-                <x-select name="service_area" label="Service Area / STO" placeholder="Semua STO dalam scope" class="!rounded-md !border-ink-200 dark:!border-ink-700">
+                <x-select name="service_area" label="Service Area / STO" placeholder="Semua STO" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($serviceAreas as $serviceArea)
                         <option value="{{ $serviceArea->getKey() }}" @selected((string) $filters['service_area'] === (string) $serviceArea->getKey())>{{ $serviceArea->workzone }}</option>
                     @endforeach
                     @if ($filters['service_area'] !== '' && ! $serviceAreas->contains('id_service_area', (int) $filters['service_area']))<option value="{{ $filters['service_area'] }}" selected>STO di luar pilihan</option>@endif
                 </x-select>
                 <div class="flex items-end gap-2">
-                    <x-button x-bind:disabled="loading" class="!min-h-11 !w-auto flex-1 !rounded-md !shadow-none disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></x-button>
+                    <x-button x-bind:disabled="loading" class="min-h-11! w-auto! flex-1 rounded-md! shadow-none! disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></x-button>
                     <a href="{{ route('incident-monitoring.tickets') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
                 </div>
             </div>
@@ -92,9 +93,9 @@
         </div>
     @endif
 
-    <section aria-label="Ringkasan seluruh penggunaan tiket sesuai filter" class="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        @foreach ([['total', 'Total tiket', 'all'], ['without_lop', 'Belum memiliki LOP', 'without_lop'], ['with_lop', 'Sudah memiliki LOP', 'with_lop']] as [$key, $label, $usage])
-            <a href="{{ $filterUrl(['usage' => $usage]) }}" @click="loading = true" class="rounded-md border bg-white p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-ink-900 sm:p-5 {{ $loop->first ? 'col-span-2 lg:col-span-1' : '' }} {{ $filters['usage'] === $usage ? 'border-brand-300 dark:border-brand-600' : 'border-ink-100 hover:border-ink-300 dark:border-ink-800 dark:hover:border-ink-600' }}">
+    <section aria-label="Ringkasan seluruh penggunaan tiket sesuai filter" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        @foreach ([['total', 'Total tiket', 'all'], ['without_lop', 'Belum memiliki LOP', 'without_lop'], ['with_lop', 'Sudah memiliki LOP', 'with_lop'], ['excluded', 'Tiket Exclude', 'excluded']] as [$key, $label, $usage])
+            <a href="{{ $filterUrl(['usage' => $usage]) }}" @click="loading = true" class="rounded-md border bg-white p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-ink-900 sm:p-5 {{ $filters['usage'] === $usage ? 'border-brand-300 dark:border-brand-600' : 'border-ink-100 hover:border-ink-300 dark:border-ink-800 dark:hover:border-ink-600' }}">
                 <p class="text-sm font-medium text-ink-600 dark:text-ink-300">{{ $label }}</p>
                 <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums text-ink-900 dark:text-white" data-metric="{{ $key }}">{{ $stats === null ? '—' : number_format($stats[$key], 0, ',', '.') }}</p>
             </a>
@@ -106,7 +107,7 @@
             <h2 id="ticket-chart-heading" class="text-base font-semibold text-ink-900 dark:text-white">Jumlah tiket per jenis</h2>
             <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Ringkasan mencakup semua penggunaan tiket sesuai filter wilayah, jenis, tanggal, dan pencarian.</p>
             @if ($chartRows->isEmpty())<p class="py-5 text-sm text-ink-500 dark:text-ink-400">Tidak ada tiket yang sesuai filter.</p>@endif
-            <ul class="mt-3 space-y-1" aria-label="Jumlah tiket GAMAS dan INFRACARE">
+            <ul class="mt-3 space-y-1" aria-label="Jumlah tiket GAMAS, INFRACARE, dan PREMAN">
                 @foreach ($chartRows as $row)
                     <li><a href="{{ $filterUrl(['kind' => $row['kind']]) }}" @click="loading = true" aria-label="{{ $row['label'] }}: {{ $row['count'] }} tiket. Filter jenis tiket."
                            class="grid min-h-11 grid-cols-[100px_minmax(0,1fr)_56px] items-center gap-3 rounded-md px-2 py-2 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-ink-800">
@@ -146,15 +147,50 @@
             </div>
         @else
             <div class="divide-y divide-ink-100 dark:divide-ink-800 lg:hidden">
+                @php $showExcludeReasonMobile = $filters['usage'] === 'excluded'; @endphp
                 @foreach ($tickets as $row)
                     <article class="space-y-3 p-4">
                         <x-copyable-value :value="$row['incident']" label="Incident" class="text-sm" />
                         <p class="text-xs text-ink-500 dark:text-ink-400">Tanggal laporan: {{ $row['reported_date'] ?? 'Belum terisi' }}</p>
-                        <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : 'info'">{{ $usageLabels[$row['usage']] }}</x-badge></div>
-                        <p class="text-sm text-ink-600 dark:text-ink-300">{{ $row['branch'] ?? 'Branch belum terpetakan' }} / {{ $row['workzone'] }}</p>
-                        @if ($showLopColumns)
+                        @unless ($showExcludeReasonMobile)
+                            <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'warning' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></div>
+                            <p class="text-sm text-ink-600 dark:text-ink-300">{{ $row['branch'] ?? 'Branch belum terpetakan' }} / {{ $row['workzone'] }}</p>
+                        @else
+                            <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span></div>
+                            <p class="text-sm text-ink-600 dark:text-ink-300">{{ $row['branch'] ?? 'Branch belum terpetakan' }} / {{ $row['workzone'] }}</p>
+                            <p class="text-sm text-ink-600 dark:text-ink-300">Alasan: {{ $row['exclude_reason'] !== null ? ($excludeReasons[$row['exclude_reason']] ?? $row['exclude_reason']) : '—' }}</p>
+                        @endunless
+                        @unless ($showExcludeReasonMobile)
+                            @if ($filters['usage'] === 'without_lop')
+                                <div x-data="{ open: false }" class="relative">
+                                    <button type="button" @click="open = !open" :aria-expanded="open"
+                                            class="inline-flex min-h-10 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-700 hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800">
+                                        Exclude tiket
+                                    </button>
+                                    <div x-show="open" @click.outside="open = false" x-cloak
+                                         class="absolute left-0 z-20 mt-1 w-56 rounded-md border border-ink-200 bg-white p-3 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                                        <form method="POST" action="{{ route('incident-monitoring.tickets.exclude') }}" class="space-y-2">
+                                            @csrf
+                                            <input type="hidden" name="incident" value="{{ $row['incident'] }}">
+                                            <label for="m-reason-{{ $loop->index }}" class="block text-xs font-medium text-ink-600 dark:text-ink-300">Alasan exclude</label>
+                                            <select id="m-reason-{{ $loop->index }}" name="reason" required
+                                                    class="w-full rounded-md border border-ink-200 px-2 py-2 text-sm text-ink-900 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
+                                                @foreach ($excludeReasons as $value => $label)
+                                                    <option value="{{ $value }}">{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            <button type="submit"
+                                                    class="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">
+                                                Konfirmasi
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @endif
+                        @endunless
+                        @if ($showLopColumns && ! $showExcludeReasonMobile)
                             @if ($row['lop'])
-                                <p class="break-words text-sm font-medium">{{ $row['lop']->nama_lop }}</p>
+                                <p class="wrap-break-word text-sm font-medium">{{ $row['lop']->nama_lop }}</p>
                                 <div class="text-sm"><span class="text-xs text-ink-500 dark:text-ink-400">ID IHLD</span>@if(filled($row['lop']->ihld_id))<x-copyable-value :value="$row['lop']->ihld_id" label="ID IHLD" />@else<p class="mt-1 text-ink-500 dark:text-ink-400">Belum diisi</p>@endif</div>
                                 @if ($row['usage'] === 'with_lop')
                                     <div class="flex flex-wrap items-center justify-between gap-2"><x-badge :variant="$row['lop']->status_lop->badgeVariant()">{{ $row['lop']->status_lop->label() }}</x-badge><a href="{{ route('lop.detail', $row['lop'], false) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-10 items-center text-sm font-medium text-brand-600 hover:underline dark:text-brand-300">Detail LOP →</a></div>
@@ -165,11 +201,20 @@
                 @endforeach
             </div>
             <div class="hidden overflow-x-auto lg:block">
-                <table class="w-full text-left text-sm {{ $showLopColumns ? 'min-w-5xl' : '' }}">
+                @php
+                    $showExcludeAction = $filters['usage'] === 'without_lop';
+                    $showExcludeReason = $filters['usage'] === 'excluded';
+                    $showUsageColumn = ! $showExcludeReason;
+                    $showLopColumnsForTable = $showLopColumns && ! $showExcludeReason;
+                @endphp
+                <table class="w-full text-left text-sm {{ $showLopColumnsForTable ? 'min-w-5xl' : 'min-w-3xl' }}">
                     <caption class="sr-only">Tiket INFRACARE dan GAMAS beserta penggunaan LOP sesuai pilihan.</caption>
                     <thead class="border-b border-ink-100 bg-ink-50 text-xs font-medium text-ink-600 dark:border-ink-800 dark:bg-ink-800/50 dark:text-ink-300"><tr>
-                        <th scope="col" class="px-4 py-3">Incident</th><th scope="col" class="px-3 py-3">Jenis tiket</th><th scope="col" class="px-3 py-3">Branch / STO</th><th scope="col" class="px-3 py-3">Penggunaan</th>
-                        @if ($showLopColumns)<th scope="col" class="px-3 py-3">LOP / Status</th><th scope="col" class="px-3 py-3">ID IHLD</th><th scope="col" class="px-3 py-3">Aksi</th>@endif
+                        <th scope="col" class="px-4 py-3">Incident</th><th scope="col" class="px-3 py-3">Jenis tiket</th><th scope="col" class="px-3 py-3">Branch / STO</th>
+                        @if ($showUsageColumn)<th scope="col" class="px-3 py-3">Penggunaan</th>@endif
+                        @if ($showExcludeReason)<th scope="col" class="px-3 py-3">Alasan Exclude</th>@endif
+                        @if ($showLopColumnsForTable)<th scope="col" class="px-3 py-3">LOP / Status</th><th scope="col" class="px-3 py-3">ID IHLD</th><th scope="col" class="px-3 py-3">Aksi</th>@endif
+                        @if ($showExcludeAction)<th scope="col" class="px-3 py-3">Aksi</th>@endif
                     </tr></thead>
                     <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                         @foreach ($tickets as $row)
@@ -177,14 +222,45 @@
                                 <td class="px-4 py-3"><x-copyable-value :value="$row['incident']" label="Incident" /><p class="mt-1 text-xs text-ink-500 dark:text-ink-400" title="Tanggal laporan">{{ $row['reported_date'] ?? 'Tanggal laporan belum terisi' }}</p></td>
                                 <td class="px-3 py-4">{{ $row['ticket_type'] }}</td>
                                 <td class="px-3 py-4"><p>{{ $row['branch'] ?? 'Belum terpetakan' }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $row['workzone'] }}</p></td>
-                                <td class="px-3 py-4"><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : 'info'">{{ $usageLabels[$row['usage']] }}</x-badge></td>
-                                @if ($showLopColumns)
+                                @if ($showUsageColumn)<td class="px-3 py-4"><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'warning' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></td>@endif
+                                @if ($showExcludeReason)
+                                    <td class="px-3 py-4"><span class="text-sm">{{ $row['exclude_reason'] !== null ? ($excludeReasons[$row['exclude_reason']] ?? $row['exclude_reason']) : '—' }}</span></td>
+                                @endif
+                                @if ($showLopColumnsForTable)
                                     <td class="px-3 py-4">
-                                        @if ($row['lop'])<p class="max-w-xs break-words font-medium">{{ $row['lop']->nama_lop }}</p>@if($row['usage'] === 'with_lop')<div class="mt-2"><x-badge :variant="$row['lop']->status_lop->badgeVariant()">{{ $row['lop']->status_lop->label() }}</x-badge></div>@endif
+                                        @if ($row['lop'])<p class="max-w-xs wrap-break-word font-medium">{{ $row['lop']->nama_lop }}</p>@if($row['usage'] === 'with_lop')<div class="mt-2"><x-badge :variant="$row['lop']->status_lop->badgeVariant()">{{ $row['lop']->status_lop->label() }}</x-badge></div>@endif
                                         @else<span class="text-ink-500 dark:text-ink-400">{{ $row['usage'] === 'without_lop' ? '—' : 'Detail LOP tidak tersedia' }}</span>@endif
                                     </td>
                                     <td class="px-3 py-3">@if($row['lop'] && filled($row['lop']->ihld_id))<x-copyable-value :value="$row['lop']->ihld_id" label="ID IHLD" />@else<span class="inline-block py-1 text-ink-500 dark:text-ink-400">{{ $row['lop'] ? 'Belum diisi' : '—' }}</span>@endif</td>
                                     <td class="px-3 py-4">@if($row['lop'] && $row['usage'] === 'with_lop')<a href="{{ route('lop.detail', $row['lop'], false) }}" aria-label="Detail LOP {{ $row['incident'] }}" class="inline-flex min-h-8 items-center font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300">Detail</a>@else<span class="text-ink-500 dark:text-ink-400">—</span>@endif</td>
+                                @endif
+                                @if ($showExcludeAction)
+                                    <td class="px-3 py-4">
+                                        <div x-data="{ open: false }" class="relative">
+                                            <button type="button" @click="open = !open" :aria-expanded="open"
+                                                    class="inline-flex min-h-8 items-center rounded-md border border-ink-200 px-2.5 text-xs font-medium text-ink-700 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800">
+                                                Exclude
+                                            </button>
+                                            <div x-show="open" @click.outside="open = false" x-cloak
+                                                 class="absolute right-0 z-20 mt-1 w-52 rounded-md border border-ink-200 bg-white p-2 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                                                <form method="POST" action="{{ route('incident-monitoring.tickets.exclude') }}" class="space-y-2">
+                                                    @csrf
+                                                    <input type="hidden" name="incident" value="{{ $row['incident'] }}">
+                                                    <label for="reason-{{ $loop->index }}" class="block text-xs font-medium text-ink-600 dark:text-ink-300">Alasan exclude</label>
+                                                    <select id="reason-{{ $loop->index }}" name="reason" required
+                                                            class="w-full rounded-md border border-ink-200 px-2 py-1.5 text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
+                                                        @foreach ($excludeReasons as $value => $label)
+                                                            <option value="{{ $value }}">{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <button type="submit"
+                                                            class="w-full rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-brand-500">
+                                                        Konfirmasi
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </td>
                                 @endif
                             </tr>
                         @endforeach
