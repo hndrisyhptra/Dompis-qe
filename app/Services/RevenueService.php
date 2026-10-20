@@ -39,7 +39,7 @@ class RevenueService
         $actualValue = (float) $programRows->sum('actual_value');
         $plannedActualValue = (float) $programRows->sum('planned_actual_value');
         $recoveryRow = $programRows->firstWhere('program', ProgramType::RECOVERY->value);
-        $gapValue = (float) max(0, $planValue - $plannedActualValue);
+        $gapValue = (float) max(0, $planValue - $actualValue);
 
         $stats = [
             'unclassified_boq_count' => (int) $programRows->sum('unclassified_boq_count'),
@@ -49,7 +49,7 @@ class RevenueService
             'recovery_actual_value' => (float) ($recoveryRow['actual_value'] ?? 0),
             'gap_value' => $gapValue,
             'realization_percentage' => $planValue > 0
-                ? (int) round(($plannedActualValue / $planValue) * 100)
+                ? (int) round(($actualValue / $planValue) * 100)
                 : null,
         ];
 
@@ -238,8 +238,8 @@ class RevenueService
                 'plan_value' => $plan,
                 'actual_value' => $actual,
                 'planned_actual_value' => $plannedActual,
-                'gap_value' => max(0, $plan - $plannedActual),
-                'realization_percentage' => $plan > 0 ? (int) round(($plannedActual / $plan) * 100) : null,
+                'gap_value' => max(0, $plan - $actual),
+                'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
                 'programs' => $programs,
             ];
         })->values();
@@ -283,8 +283,8 @@ class RevenueService
             'plan_value' => $plan,
             'actual_value' => $actual,
             'planned_actual_value' => $plannedActual,
-            'gap_value' => max(0, $plan - $plannedActual),
-            'realization_percentage' => $plan > 0 ? (int) round(($plannedActual / $plan) * 100) : null,
+            'gap_value' => max(0, $plan - $actual),
+            'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
             'has_plan' => $program !== ProgramType::RECOVERY,
             'plan_bar_percentage' => (int) round(($plan / $chartMax) * 100),
             'actual_bar_percentage' => (int) round(($actual / $chartMax) * 100),

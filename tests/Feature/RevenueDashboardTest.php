@@ -60,8 +60,8 @@ class RevenueDashboardTest extends TestCase
                 && $stats['actual_value'] === 500_000.0
                 && $stats['planned_actual_value'] === 400_000.0
                 && $stats['recovery_actual_value'] === 100_000.0
-                && $stats['gap_value'] === 200_000.0
-                && $stats['realization_percentage'] === 67)
+                && $stats['gap_value'] === 100_000.0
+                && $stats['realization_percentage'] === 83)
             ->assertViewHas('programRows', fn ($rows) => $rows->count() === 4
                 && $rows->firstWhere('program', 'recovery')['plan_value'] === 0.0
                 && $rows->firstWhere('program', 'recovery')['actual_value'] === 100_000.0
