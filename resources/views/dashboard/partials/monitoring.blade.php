@@ -138,7 +138,7 @@
                                             <template x-for="event in activityEvents" :key="event.key">
                                                 <li class="flex flex-col gap-2 py-3 sm:flex-row sm:gap-5">
                                                     <time class="shrink-0 text-[10px] font-semibold text-ink-500 dark:text-ink-400 sm:w-32" x-text="event.time"></time>
-                                                    <div class="min-w-0 flex-1"><p class="text-xs font-bold text-ink-800 dark:text-ink-100" x-text="event.label"></p><p x-show="event.note" class="mt-1 whitespace-pre-line break-words text-[11px] text-ink-500 dark:text-ink-400" x-text="event.note"></p></div>
+                                                    <div class="min-w-0 flex-1"><p class="text-xs font-bold text-ink-800 dark:text-ink-100" x-text="event.label"></p><p x-show="event.note" class="mt-1 whitespace-pre-line wrap-break-word text-[11px] text-ink-500 dark:text-ink-400" x-text="event.note"></p></div>
                                                     <span class="w-fit self-start rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" x-text="event.actor_label"></span>
                                                 </li>
                                             </template>

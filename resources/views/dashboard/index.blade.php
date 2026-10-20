@@ -170,8 +170,10 @@
         <article id="dashboard-panel-program" role="tabpanel" aria-labelledby="dashboard-tab-program" x-show="dashboardTab === 'program'" x-cloak class="rounded-md border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Program</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $isSuperAdmin ? 'Total dan posisi LOP berdasarkan Region, Branch, dan Program.' : 'Ringkasan per '.$programMatrix['heading'].' sesuai scope akses Anda.' }}</p>
+                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Monitoring Wilayah</h2>
+                    @if ($isSuperAdmin)
+                        <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total dan posisi LOP berdasarkan Region, Branch, dan Program.</p>
+                    @endif
                 </div>
                 <form method="GET" action="{{ route('dashboard') }}" x-data="{ changing: false }" @submit="changing = true" :aria-busy="changing" class="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
                     <input type="hidden" name="tab" value="program">
@@ -185,10 +187,20 @@
                         </select>
                         <button type="submit" :disabled="changing" class="min-h-10 rounded-md border border-ink-200 bg-ink-50 px-3 text-xs font-bold disabled:opacity-60 dark:border-ink-700 dark:bg-ink-800" x-text="changing ? 'Memuat…' : 'Tampilkan'">Tampilkan</button>
                     </div>
-                    <p class="text-[10px] text-ink-400">Widget dan monitoring mengikuti program yang dipilih.</p>
+                    {{-- <p class="text-[10px] text-ink-400">Widget dan monitoring mengikuti program yang dipilih.</p> --}}
                 </form>
             </div>
-            <div class="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400"><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Assign = status Assigned</span><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Unassign = status Unassigned</span><span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">Persentase = Complete ÷ Total</span></div>
+            {{-- <div class="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold text-ink-500 dark:text-ink-400">
+                <span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">
+                    Assign = penugasan teknisi dan masuk tahap realisasi
+                </span>
+                <span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">
+                    Unassign = masih berupa usulan atau belum terassign ke teknisi
+                </span>
+                <span class="rounded-md bg-ink-50 px-2.5 py-1 dark:bg-ink-800">
+                    Persentase = Complete ÷ Total
+                </span>
+            </div> --}}
 
             @if (! $isSuperAdmin)
                 @include('dashboard.partials.program-matrix')

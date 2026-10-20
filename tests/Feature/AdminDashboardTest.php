@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
+use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -162,6 +163,48 @@ class AdminDashboardTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, false));
+    }
+
+    public function test_service_area_matrix_groups_sto_rows_by_name_and_stays_collapseable(): void
+    {
+        $surabaya = Branch::create(['code' => 'SBY', 'name' => 'SURABAYA', 'region' => 'REGION JATIM']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $surabaya->id_branch]);
+
+        ServiceArea::create(['workzone' => 'ABT', 'name' => 'SUMENEP', 'branch_id' => $surabaya->id_branch]);
+        ServiceArea::create(['workzone' => 'ABU', 'name' => 'SUMENEP', 'branch_id' => $surabaya->id_branch]);
+        $sampang = ServiceArea::create(['workzone' => 'KPP', 'name' => 'SAMPANG', 'branch_id' => $surabaya->id_branch]);
+        ServiceArea::create(['workzone' => 'ZZZ', 'name' => '', 'branch_id' => $surabaya->id_branch]);
+
+        // STO legacy lewat kolom sto dan FK service_area_id harus masuk kelompok yang sama.
+        $this->makeLop($admin, 'GROUP-ABT', 'SURABAYA', 'recovery', 'draft')->update(['sto' => 'ABT']);
+        $this->makeLop($admin, 'GROUP-ABU', 'SURABAYA', 'preventive', 'completed')->update(['sto' => 'ABU']);
+        $this->makeLop($admin, 'GROUP-KPP', 'SURABAYA', 'recovery', 'assigned')->update(['service_area_id' => $sampang->id_service_area]);
+        $this->makeLop($admin, 'GROUP-ZZZ', 'SURABAYA', 'recovery', 'waiting_approval')->update(['sto' => 'ZZZ']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('openGroups', false)
+            ->assertSee('Lipat semua', false)
+            ->assertViewHas('programMatrix', function (array $matrix): bool {
+                $groups = collect($matrix['groups'])->keyBy('name');
+
+                return $matrix['dimension'] === 'service_area'
+                    && collect($matrix['rows'])->every(fn (array $row) => $row['group'] !== null)
+                    && count($matrix['rows']) === 4
+                    // SAMPANG harus mendahului SUMENEP agar satu kelompok selalu berdekatan.
+                    && collect($matrix['groups'])->pluck('name')->search('SAMPANG')
+                        < collect($matrix['groups'])->pluck('name')->search('SUMENEP')
+                    && $groups['SUMENEP']['count'] === 2
+                    && $groups['SUMENEP']['summary']['total'] === 2
+                    && $groups['SUMENEP']['summary']['complete'] === 1
+                    && $groups['SUMENEP']['summary']['percentage'] === 50
+                    && count($groups['SUMENEP']['rows']) === 2
+                    && $groups['SAMPANG']['count'] === 1
+                    && $groups['SAMPANG']['summary']['assigned'] === 1
+                    && $groups['STO TANPA NAMA']['count'] === 1
+                    && collect($matrix['groups'])->sum(fn (array $group) => $group['summary']['total']) === $matrix['summary']['total'];
+            });
     }
 
     public function test_matrix_drill_down_returns_matching_lops_without_leaking_other_admin_scope(): void
