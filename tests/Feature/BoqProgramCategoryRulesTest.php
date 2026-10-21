@@ -72,7 +72,7 @@ class BoqProgramCategoryRulesTest extends TestCase
         $this->assertSame($expectedPlan, (float) ($projection->report($lop, 'plan')['grand']['total_plan'] ?? 0));
         $rows = iterator_to_array(app(DataBoqExportService::class)->rows($f['owner']));
         $this->assertCount($utilitas ? 4 : 2, $rows);
-        $this->assertSame($expectedActual, (float) array_sum(array_column($rows, 9)));
+        $this->assertSame($expectedActual, (float) array_sum(array_column($rows, 10)));
         $book = app(AissBoqExportService::class)->workbook($lop);
         try {
             $sheet = $book->getActiveSheet();

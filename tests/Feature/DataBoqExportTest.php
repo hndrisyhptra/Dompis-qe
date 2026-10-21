@@ -41,7 +41,7 @@ class DataBoqExportTest extends TestCase
         $this->boq($recovery, $owner, $material, $service);
 
         $sheet = $this->download($owner);
-        $this->assertSame(['ID IHLD', 'Incident', 'Nama LOP', 'Designator', 'Item', 'Kategori', 'Reservasi', 'Aktual', 'Harga', 'Total'], $sheet->rangeToArray('A1:J1')[0]);
+        $this->assertSame(['ID IHLD', 'Incident', 'Reported Date', 'Nama LOP', 'Designator', 'Item', 'Kategori', 'Reservasi', 'Aktual', 'Harga', 'Total'], $sheet->rangeToArray('A1:K1')[0]);
         $this->assertSame('000987654321', $sheet->getCell('A2')->getValue());
         $this->assertSame('000987654321', $sheet->getCell('A3')->getValue());
         $this->assertNull($sheet->getCell('A4')->getValue());
@@ -49,17 +49,18 @@ class DataBoqExportTest extends TestCase
         $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('A2')->getDataType());
         $this->assertSame('000123', $sheet->getCell('B2')->getValue());
         $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('B2')->getDataType());
-        $this->assertSame('=1+1', $sheet->getCell('C2')->getValue());
-        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('C2')->getDataType());
-        $rows = collect($sheet->rangeToArray('A2:J5', null, false, false));
-        $materialRow = $rows->first(fn ($row) => $row[1] === '000123' && $row[3] === 'M-EXPORT');
-        $serviceRow = $rows->first(fn ($row) => $row[1] === '000123' && $row[3] === 'J-EXPORT');
-        $this->assertSame([10.0, 3.0, 100.0, 300.0], array_slice($materialRow, 6));
-        $this->assertSame([10.0, 3.0, 40.0, 120.0], array_slice($serviceRow, 6));
-        $unassignedRow = $rows->first(fn ($row) => $row[1] === 'REC-IMPORT' && $row[3] === 'M-EXPORT');
-        $this->assertSame([5.0, null, 100.0, null], array_slice($unassignedRow, 6));
+        // Nama LOP tetap memaksa teks agar nilai mirip formula tidak dievaluasi.
+        $this->assertSame('=1+1', $sheet->getCell('D2')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('D2')->getDataType());
+        $rows = collect($sheet->rangeToArray('A2:K5', null, false, false));
+        $materialRow = $rows->first(fn ($row) => $row[1] === '000123' && $row[4] === 'M-EXPORT');
+        $serviceRow = $rows->first(fn ($row) => $row[1] === '000123' && $row[4] === 'J-EXPORT');
+        $this->assertSame([10.0, 3.0, 100.0, 300.0], array_slice($materialRow, 7));
+        $this->assertSame([10.0, 3.0, 40.0, 120.0], array_slice($serviceRow, 7));
+        $unassignedRow = $rows->first(fn ($row) => $row[1] === 'REC-IMPORT' && $row[4] === 'M-EXPORT');
+        $this->assertSame([5.0, null, 100.0, null], array_slice($unassignedRow, 7));
         $this->assertSame('A2', $sheet->getFreezePane());
-        $this->assertSame('A1:J4', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('A1:K4', $sheet->getAutoFilter()->getRange());
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
         $this->assertDatabaseHas('qe_boq_items', ['qe_boq_id' => $plan->boq->getKey(), 'designator_code' => 'M-EXPORT', 'qty' => 5, 'unit_price' => 100]);
     }
@@ -75,8 +76,8 @@ class DataBoqExportTest extends TestCase
         $lop = $this->lop($owner, 'RES-ONLY', ['program_type' => 'relok_utilitas', 'branch_id' => $branch->getKey(), 'branch' => $branch->name]);
         $this->reserve($lop, $owner, $material, 10, 0);
         $sheet = $this->download($owner);
-        $this->assertSame([null, 'RES-ONLY', 'LOP RES-ONLY', 'M-EXPORT', 'Material export', 'MATERIAL', 10.0, 0.0, 25.0, 0.0], $sheet->rangeToArray('A2:J2', null, false, false)[0]);
-        $this->assertSame([null, 'RES-ONLY', 'LOP RES-ONLY', 'J-EXPORT', 'Jasa export', 'JASA', 10.0, 0.0, null, null], $sheet->rangeToArray('A3:J3', null, false, false)[0]);
+        $this->assertSame([null, 'RES-ONLY', null, 'LOP RES-ONLY', 'M-EXPORT', 'Material export', 'MATERIAL', 10.0, 0.0, 25.0, 0.0], $sheet->rangeToArray('A2:K2', null, false, false)[0]);
+        $this->assertSame([null, 'RES-ONLY', null, 'LOP RES-ONLY', 'J-EXPORT', 'Jasa export', 'JASA', 10.0, 0.0, null, null], $sheet->rangeToArray('A3:K3', null, false, false)[0]);
         $this->assertDatabaseCount('qe_boqs', 0);
         $this->assertDatabaseCount('qe_material_reservation_items', 1);
     }
@@ -155,7 +156,7 @@ class DataBoqExportTest extends TestCase
         $this->assertSame(1, $sheet->getHighestRow());
         $this->assertSame('ID IHLD', $sheet->getCell('A1')->getValue());
         $this->assertSame('Incident', $sheet->getCell('B1')->getValue());
-        $this->assertSame('Total', $sheet->getCell('J1')->getValue());
+        $this->assertSame('Total', $sheet->getCell('K1')->getValue());
     }
 
     public function test_backend_gate_denies_export_even_without_role_middleware(): void

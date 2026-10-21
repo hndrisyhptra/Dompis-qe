@@ -67,7 +67,7 @@
                                 $reservationItems = $lop->reservation_editor_items;
                             @endphp
                             <tr x-data="boqEditor('{{ base64_encode($reservationItems->toJson()) }}', null, { materialOnly: true, maxItems: 100 })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
-                                <td class="px-5 py-4"><p class="font-bold">{{ $lop->incident }}</p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
+                                <td class="px-5 py-4"><p class="flex flex-wrap items-baseline gap-2"><span class="font-bold">{{ $lop->incident }}</span><span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $lop->reported_date ?: '—' }}</span></p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
                                 <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $summary['package_label'] }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $summary['item_count'] }} item aktual</p></td>
                                 <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
                                 <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['material_total'], 0, ',', '.') }}</td>
@@ -122,7 +122,10 @@
 
                         <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}', null, { materialOnly: {{ $boq->lop->program_type->includesBoqServices() ? 'false' : 'true' }} })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                             <td class="px-5 py-4">
-                                <p class="font-bold">{{ $boq->lop->incident }}</p>
+                                <p class="flex flex-wrap items-baseline gap-2">
+                                    <span class="font-bold">{{ $boq->lop->incident }}</span>
+                                    <span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $boq->lop->reported_date ?: '—' }}</span>
+                                </p>
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
                                 <span class="mt-2 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[9px] font-bold text-ink-500 dark:bg-ink-800">{{ $boq->lop->status_lop->label() }}</span>
                             </td>

@@ -38,9 +38,11 @@ class DataBoqExportService
 
         foreach ($query->lazyById(100) as $lop) {
             foreach ($this->projection->masterDataLines($lop) as $line) {
+                // Urutan kolom harus tetap selaras dengan DataBoqExport::headings().
                 yield [
                     $lop->ihld_id,
                     $lop->incident,
+                    $lop->reported_date,
                     $lop->nama_lop,
                     $line['designator_code'],
                     $line['designator_name'],

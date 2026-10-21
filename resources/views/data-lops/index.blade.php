@@ -42,7 +42,7 @@
                 <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                     @forelse($lops as $lop)
                         <tr x-data="{ detail: false, remove: false }" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
-                            <td class="px-5 py-4"><p class="font-bold text-ink-900 dark:text-white">{{ $lop->incident }}</p><p class="mt-1 max-w-sm truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p></td>
+                            <td class="px-5 py-4"><p class="flex flex-wrap items-baseline gap-2"><span class="font-bold text-ink-900 dark:text-white">{{ $lop->incident }}</span><span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $lop->reported_date ?: '—' }}</span></p><p class="mt-1 max-w-sm truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p></td>
                             <td class="px-5 py-4"><p class="font-semibold">{{ $lop->sto ?: '—' }}</p><p class="text-xs text-ink-400">{{ $lop->branch ?: '—' }}</p></td>
                             <td class="px-5 py-4 text-xs">{{ $lop->program_type->label() }}</td>
                             <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>

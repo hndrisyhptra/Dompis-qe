@@ -134,7 +134,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         }
         $rows = iterator_to_array(app(DataBoqExportService::class)->rows($this->admin));
         $this->assertCount(4, $rows);
-        $this->assertSame(49.0, (float) array_sum(array_column($rows, 9)));
+        $this->assertSame(49.0, (float) array_sum(array_column($rows, 10)));
         $expectedPlan = $program === 'recovery' ? 0.0 : 65.0;
         foreach ([
             $this->admin,

@@ -204,7 +204,11 @@ class DataBoqDateFilterTest extends TestCase
         // LOP tanpa tanggal terbaca tidak boleh diam-diam masuk rentang mana pun.
         $this->boqWithItem($this->lop($user, 'INC-DL-UNKNOWN'), $user, $material);
 
-        $this->assertSame(['INC-DL-IN'], $this->sheetIncidents($this->download($user, ['date_from' => '2026-10-15', 'date_to' => '2026-10-15'])));
+        $sheet = $this->download($user, ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']);
+        $this->assertSame(['INC-DL-IN'], $this->sheetIncidents($sheet));
+
+        // Kolom Reported Date membawa tanggal dari kolom lokal LOP.
+        $this->assertSame('2026-10-15', $sheet->getCell('C2')->getValue());
 
         $this->assertSame(
             ['INC-DL-IN', 'INC-DL-OUT'],
@@ -225,6 +229,21 @@ class DataBoqDateFilterTest extends TestCase
             ->from(route('data-boqs.index'))
             ->get(route('data-boqs.export', ['date_from' => '2026-10-16', 'date_to' => '2026-10-15']))
             ->assertSessionHasErrors(['date_to' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.']);
+    }
+
+    public function test_reported_date_is_shown_next_to_the_incident_on_both_master_tables(): void
+    {
+        $user = $this->user();
+        $this->boq($this->lop($user, 'INC-DATED', ['reported_date' => '2026-10-15']), $user);
+        $this->boq($this->lop($user, 'INC-UNSET'), $user);
+
+        // Tanpa filter aktif, tanggal yang tampil di halaman hanya berasal dari sel tabel.
+        $boqs = $this->actingAs($user)->get(route('data-boqs.index'))->assertOk();
+        $this->assertMatchesRegularExpression('/INC-DATED<\/span>\s*<span[^>]*>2026-10-15<\/span>/', $boqs->getContent());
+        $this->assertMatchesRegularExpression('/INC-UNSET<\/span>\s*<span[^>]*>—<\/span>/', $boqs->getContent());
+
+        $lops = $this->get(route('data-lops.index'))->assertOk();
+        $this->assertMatchesRegularExpression('/INC-DATED<\/span>\s*<span[^>]*>2026-10-15<\/span>/', $lops->getContent());
     }
 
     public function test_reversed_range_is_rejected_on_the_list(): void

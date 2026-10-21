@@ -50,7 +50,7 @@ Proyeksi BOQ dan pasangan jasa Recovery sudah masuk commit `c4cf256`; dashboard 
 
 Pembaruan 19 Oktober 2026: Import AISS/Download Monitoring Ticket berada pada `e1ea9f0`, perbaikan form same-origin pada `e0cefe6`, dan Download Data LOP pada `e4e5601`. Designator khusus/capture/hapus evidence (7.47) sudah masuk `03d50b2`, Material Tiba per plan dan akses AISS (7.48) pada `085f6bb`, lokasi opsional (7.49) pada `6a591d3`, serta fallback lokasi APK dan hasil Bulk LOP (7.50) pada `0932d43`. Worktree bersih saat memulai perbaikan tujuan Detail LOP dari matrix dashboard dan Monitoring Ticket (7.51); task terbaru belum di-commit.
 
-Pembaruan 20 Oktober 2026: empat commit hari ini masih **belum tercatat di `CLAUDE.md`** tetapi sudah didokumentasikan di bagian 7.52–7.55: TSEL/PREMAN pada validasi program (`37e23f7`), GAP revenue memakai aktual penuh (`09c03c5`), exclude tiket Dompis beserta migration `incident_excludes` (`d19dc7e`), dan monitoring matrix (pengelompokan STO, judul Monitoring Wilayah, `9e251d7`). Worktree bersih sebelum task filter tanggal Data BOQ. **Belum di-commit saat dokumen ini diperbarui:** filter tanggal reported date pada Master Data → BOQ (7.56) beserta migrasi kolom `qe_lops.reported_date`, perubahan judul assertion `AdminDashboardTest` mengikuti rename Anda, dan edit `monitoring.blade.php` milik user. Karena filter tanggal kini menyimpan tanggal di `qe_lops`, pekerjaan ini **menyentuh schema** (lihat 2.3) tetapi tidak mengubah workflow, import, atau source Android.
+Pembaruan 20 Oktober 2026: empat commit hari ini masih **belum tercatat di `CLAUDE.md`** tetapi sudah didokumentasikan di bagian 7.52–7.55: TSEL/PREMAN pada validasi program (`37e23f7`), GAP revenue memakai aktual penuh (`09c03c5`), exclude tiket Dompis beserta migration `incident_excludes` (`d19dc7e`), dan monitoring matrix (pengelompokan STO, judul Monitoring Wilayah, `9e251d7`). Worktree bersih sebelum task filter tanggal Data BOQ. **Belum di-commit saat dokumen ini diperbarui:** filter tanggal reported date pada Master Data → BOQ (7.56) beserta migrasi kolom `qe_lops.reported_date`, kolom Reported Date pada tabel master dan Download Excel (7.57), perubahan judul assertion `AdminDashboardTest` mengikuti rename Anda, dan edit `monitoring.blade.php` milik user. Karena filter tanggal kini menyimpan tanggal di `qe_lops`, pekerjaan ini **menyentuh schema** (lihat 2.3) tetapi tidak mengubah workflow, import, atau source Android.
 
 ### 2.3 Status migration lokal
 
@@ -902,6 +902,14 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Regression `DataBoqDateFilterTest` (12 cases): inklusif dua batas, rentang terbuka + tanggal tak terbaca, list reservasi ikut tersaring, filter tidak bocor dari scope admin cabang, salinan tanggal saat create (ISO, hari-dulu, tak terbaca, `INP`), penyegaran saat incident diedit, sinkronisasi backfill beserta rerun tanpa perubahan, tautan unduh membawa rentang aktif, isi Excel mengikuti rentang (rentang penuh/satu batas/tanpa filter), rentang terbalik ditolak di daftar maupun di export, dan filter + export tetap jalan saat koneksi tiket rusak. `IncidentProgramValidationTest` memastikan prefetch tipe tiket tetap satu query batch untuk seluruh baris.
 - Verifikasi: **530 tests / 5437 assertions** Laravel lulus. Pint pada file PHP task lulus, `view:cache` dan `npm run build` lulus, `git diff --check` bersih. **Migrasi kolom dan command sync sudah dijalankan pada MySQL lokal** (lihat 2.3); tidak ada import nyata, restart worker, commit/push, atau deploy. MySQL/produksi, Nginx, dan storage tidak diverifikasi; test memakai SQLite dengan `mysql_dompis` di-fake in-memory.
 
+### 7.57 Kolom Reported Date pada tabel master dan Download Excel — 21 Oktober 2026 (belum di-commit)
+
+- `DataBoqExport` menambah kolom **`Reported Date` di posisi C**, di antara `Incident` dan `Nama LOP`, sehingga seluruh penomoran kolom setelahnya bergeser. `DataBoqExportService::rows()` menyisipkan `$lop->reported_date`; penyesuaian kolom apa pun **wajib disinkronkan dengan `headings()`**, dan nilai kosong tetap `null` (sel benar-benar kosong) mengikuti `WithStrictNullComparison`.
+- Penyesuaian teknis yang menyertainya: `bindValue` memaksa teks pada A–G sehingga proteksi nilai mirip formula pada `Nama LOP` berpindah ke kolom D, `columnFormats` numerik pindah ke H–K, `columnWidths` disusun ulang (Reported Date 16), `wrapText` pindah ke D dan F, dan autofilter menjadi `A1:K`.
+- Ketiga tabel kini memperlihatkan tanggal **di samping incident** sebagai teks kecil `text-[10px] tabular-nums` abu-abu dengan `title="Tanggal laporan incident"`: `master-data/lops` (sel LOP) dan `master-data/boqs` untuk **kedua daftar** (BOQ Plan serta BOQ Aktual dari Reservasi Teknisi). Nilai kosong tampil `—`, bukan sel kosong. Format memakai ISO `Y-m-d` apa adanya — sengaja sama dengan kolom Excel dan nilai pada input filter, supaya tidak ada dua format untuk tanggal yang sama.
+- Test yang menyesuaikan: `DataBoqExportTest` (posisi kolom, `=1+1` pindah ke D2, autofilter A1:K, baris lengkap dengan kolom kosong), `TechnicianSpecialDesignatorAndEvidenceTest` dan `BoqProgramCategoryRulesTest` (indeks kolom Total 9 → 10). Regression baru `DataBoqDateFilterTest::test_reported_date_is_shown_next_to_the_incident_on_both_master_tables` memastikan tanggal tampil berdampingan dengan incident di kedua halaman, `—` untuk LOP tanpa tanggal, dan kolom C Excel membawa tanggal dari kolom lokal.
+- Verifikasi: **531 tests / 5443 assertions** lulus. Pint pada file task lulus, `view:cache` dan `npm run build` lulus, `git diff --check` bersih. Tidak ada migrasi atau schema baru dari perubahan ini — kolom `qe_lops.reported_date` sudah tersedia dan terisi dari 7.56.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -939,8 +947,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-530 tests passed
-5437 assertions
+531 tests passed
+5443 assertions
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.
@@ -957,7 +965,8 @@ Pemetaan test utama:
 - BOQ AISS per Completed: `AissBoqExportTest` (7 tests, ekspor tanpa template/header/font/lebar/actual/snapshot/paket/role/scope/legacy/null/zero/arsip).
 - Validasi incident/program: `IncidentProgramValidationTest` (18 tests, termasuk TSEL/PREMAN dan upload CSV/XLSX melalui job); frontend `lop-form.test.mjs` (16 tests).
 - Download Data BOQ: `DataBoqExportTest` (6 tests, XLSX/snapshot/aktual/null/zero/role/scope/legacy/pagination/arsip).
-- Filter tanggal reported date pada Master Data → BOQ, termasuk Download Excel: `DataBoqDateFilterTest` (12 tests, inklusif dua batas/rentang terbuka/list reservasi/guard scope/salinan saat create/penyegaran saat edit/sync backfill/tautan unduh/isi Excel/validasi rentang/filter tetap jalan saat sumber tiket mati).
+- Filter tanggal reported date pada Master Data → BOQ, termasuk Download Excel: `DataBoqDateFilterTest` (13 tests, inklusif dua batas/rentang terbuka/list reservasi/guard scope/salinan saat create/penyegaran saat edit/sync backfill/tautan unduh/isi Excel/validasi rentang/tampilan kolom Reported Date/filter tetap jalan saat sumber tiket mati).
+- Kolom Reported Date pada tabel master dan export Data BOQ: `DataBoqExportTest` (6 tests, posisi kolom/formula-injection/nilai nol dan kosong/scope/pagination/arsip).
 - LOP dan permission: `LopWorkflowTest`, `LopPermissionTest`, `LopManualInputTest`.
 - Autentikasi/session: `LoginTest`, `SessionExpiryTest` (CSRF diaktifkan pada regression), `LogoutConfirmationTest`, `AccountPasswordTest`; frontend auth-session.test.mjs (11 passed), seluruh frontend (20 passed).
 - Pembatalan/arsip LOP semua status dan Active LOP pembuat: `LopCancellationTest` (termasuk retensi BOQ/evidence/file, stale actions, dan exclusion Revenue).
