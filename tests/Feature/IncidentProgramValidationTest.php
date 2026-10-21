@@ -346,7 +346,12 @@ class IncidentProgramValidationTest extends TestCase
         $batch = $this->import([['INC-GAMAS', 'recovery'], ['INC-GAMAS', 'recovery'], ['INC-NON', 'relok_tiang'], ['INC-NON', 'preventive']]);
         $this->assertSame(2, $batch->success_rows);
         $this->assertSame(2, $batch->failed_rows);
-        $this->assertCount(1, $connection->getQueryLog());
+        $queries = collect($connection->getQueryLog())->pluck('query');
+        // Prefetch tipe tiket tetap satu query batch untuk seluruh baris,
+        // bukan satu query per baris seperti sebelum di-cache.
+        $this->assertCount(1, $queries->filter(fn (string $query) => str_contains($query, 'jenis_tiket_2')));
+        // Salinan reported_date hanya diambil untuk LOP yang benar-benar dibuat.
+        $this->assertCount(2, $queries->filter(fn (string $query) => str_contains($query, 'reported_date')));
         $this->assertStringContainsString('baris', $batch->rows()->where('status', 'failed')->first()->message);
         $connection->disableQueryLog();
     }

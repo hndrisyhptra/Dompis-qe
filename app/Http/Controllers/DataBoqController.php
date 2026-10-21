@@ -26,7 +26,6 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Throwable;
 
 class DataBoqController extends Controller
 {
@@ -40,20 +39,6 @@ class DataBoqController extends Controller
     {
         $dateFrom = trim((string) $request->input('date_from'));
         $dateTo = trim((string) $request->input('date_to'));
-        $hasDateFilter = $dateFrom !== '' || $dateTo !== '';
-        // null = tanpa filter; [] = tak ada tiket pada rentang atau sumber tiket mati.
-        $reportedIncidents = null;
-        $sourceUnavailable = false;
-
-        if ($hasDateFilter) {
-            try {
-                $reportedIncidents = $reportedDates->incidentsBetween($dateFrom, $dateTo);
-            } catch (Throwable $exception) {
-                report($exception);
-                $sourceUnavailable = true;
-                $reportedIncidents = [];
-            }
-        }
 
         $query = QeBoq::query()->whereHas('lop')->with(['lop', 'package', 'items.designator.type']);
 
@@ -66,7 +51,7 @@ class DataBoqController extends Controller
                 ->orWhere('nama_lop', 'like', "%{$search}%"));
         }
 
-        $query->whereHas('lop', fn (Builder $lop) => $reportedDates->applyTo($lop, $reportedIncidents));
+        $query->whereHas('lop', fn (Builder $lop) => $reportedDates->applyRange($lop, $dateFrom, $dateTo));
 
         $reservationQuery = QeLop::query()
             ->with([
@@ -83,7 +68,7 @@ class DataBoqController extends Controller
             $reservationQuery->where(fn ($q) => $q->where('incident', 'like', "%{$search}%")
                 ->orWhere('nama_lop', 'like', "%{$search}%"));
         }
-        $reportedDates->applyTo($reservationQuery, $reportedIncidents);
+        $reportedDates->applyRange($reservationQuery, $dateFrom, $dateTo);
 
         $reservationBoqs = $reservationQuery->latest()->paginate(15, ['*'], 'reservation_page')->withQueryString();
         $canEditReservations = $request->user()->hasRole(...UserRole::adminLevel());
@@ -118,31 +103,20 @@ class DataBoqController extends Controller
             'search' => $search ?? '',
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
-            'sourceUnavailable' => $sourceUnavailable,
         ]);
     }
 
-    public function export(DataBoqFilterRequest $request, DataBoqExportService $service, IncidentReportedDateService $reportedDates): BinaryFileResponse|RedirectResponse
+    public function export(DataBoqFilterRequest $request, DataBoqExportService $service): BinaryFileResponse
     {
         $this->authorize('export-data-boqs');
 
-        $dateFrom = trim((string) $request->input('date_from'));
-        $dateTo = trim((string) $request->input('date_to'));
-        $reportedIncidents = null;
-
-        if ($dateFrom !== '' || $dateTo !== '') {
-            try {
-                $reportedIncidents = $reportedDates->incidentsBetween($dateFrom, $dateTo);
-            } catch (Throwable $exception) {
-                report($exception);
-
-                // Mengunduh tanpa filter akan menyesatkan, jadi unduhan dibatalkan.
-                return back()->with('error', 'Sumber tiket Dompis sedang tidak tersedia, unduhan dengan filter tanggal tidak dapat diproses. Silakan coba lagi beberapa saat.');
-            }
-        }
-
         return Excel::download(
-            new DataBoqExport($service, $request->user(), $reportedIncidents),
+            new DataBoqExport(
+                $service,
+                $request->user(),
+                trim((string) $request->input('date_from')),
+                trim((string) $request->input('date_to')),
+            ),
             'data-boq-'.now()->format('Ymd-His').'.xlsx',
         );
     }

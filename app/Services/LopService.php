@@ -35,7 +35,26 @@ class LopService
         private readonly LopNamingService $namingService,
         private readonly BoqService $boqService,
         private readonly ManualIncidentService $manualIncident,
+        private readonly IncidentReportedDateService $reportedDates,
     ) {}
+
+    /**
+     * Salinan tanggal laporan tiket untuk kolom qe_lops.reported_date.
+     *
+     * Incident INP buatan sistem dan nilai yang tidak ditemukan tetap null.
+     * Sumber tiket yang sedang mati tidak boleh menggagalkan penyimpanan LOP —
+     * tanggalnya dapat menyusul lewat `php artisan dompis:sync-reported-date`.
+     */
+    private function reportedDateFor(string $incident): ?string
+    {
+        $incident = mb_strtoupper(trim($incident));
+
+        if ($incident === '' || str_starts_with($incident, 'INP')) {
+            return null;
+        }
+
+        return $this->reportedDates->datesFor([$incident])[$incident] ?? null;
+    }
 
     /**
      * Semua program menyimpan maksimal lima segmen unik dengan urutan pilihan.
@@ -72,6 +91,7 @@ class LopService
                 $data['incident'] = $this->manualIncident->generate($branch, $program);
             }
             $data['budget_type'] = $program->budgetType()->value;
+            $reportedDate = $this->reportedDateFor($data['incident']);
 
             // Untuk penamaan, teruskan array segmen (LopNamingService akan join dengan _)
             $namingData = array_merge($data, ['segment' => $normalizedSegment]);
@@ -93,6 +113,7 @@ class LopService
                 'job_description' => $data['job_description'],
                 'ticket_summary' => $data['ticket_summary'] ?? null,
                 'datek' => $data['datek'] ?? null,
+                'reported_date' => $reportedDate,
                 'ihld_id' => $data['ihld_id'] ?? null,
                 'package_id' => $data['package_id'] ?? null,
                 'status_lop' => LopStatus::DRAFT,
@@ -132,6 +153,8 @@ class LopService
             'job_description' => $data['job_description'],
             'ticket_summary' => $data['ticket_summary'] ?? null,
             'datek' => $data['datek'] ?? null,
+            // Incident bisa berubah saat edit, jadi tanggal laporannya ikut disegarkan.
+            'reported_date' => $this->reportedDateFor($data['incident']),
             'ihld_id' => $data['ihld_id'] ?? null,
         ]);
 

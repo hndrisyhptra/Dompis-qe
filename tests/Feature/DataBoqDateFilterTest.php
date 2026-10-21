@@ -12,6 +12,7 @@ use App\Models\QeLop;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\LopService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -23,29 +24,25 @@ use Tests\TestCase;
 /**
  * Filter tanggal laporan pada Master Data > BOQ.
  *
- * Tanggal laporan tidak ada di dompis_qe sehingga direferensikan dari
- * ticket.reported_date pada koneksi read-only mysql_dompis.
+ * Nilainya dibaca dari kolom lokal qe_lops.reported_date yang disalin dari
+ * ticket.reported_date (koneksi read-only mysql_dompis) saat LOP dibuat.
+ * Halaman dan export tidak lagi menyentuh koneksi tiket.
  */
 class DataBoqDateFilterTest extends TestCase
 {
     use InteractsWithIncidentTickets, RefreshDatabase;
 
-    public function test_reported_date_range_is_inclusive_for_iso_and_day_first_formats(): void
+    public function test_reported_date_range_is_inclusive_on_both_bounds(): void
     {
         $user = $this->user();
-        $this->source();
-        $this->ticket('INC-BEFORE', '2026-10-14 23:59:59');
-        $this->ticket('INC-START', '2026-10-15 00:00:00');
-        $this->ticket('INC-SLASH-START', '15/10/2026 23:59:59');
-        $this->ticket('INC-END', '2026-10-16 23:59:59');
-        $this->ticket('INC-AFTER', '2026-10-17 00:00:00');
-        foreach (['INC-BEFORE', 'INC-START', 'INC-SLASH-START', 'INC-END', 'INC-AFTER'] as $incident) {
-            $this->boq($this->lop($user, $incident), $user);
-        }
+        $this->boq($this->lop($user, 'INC-BEFORE', ['reported_date' => '2026-10-14']), $user);
+        $this->boq($this->lop($user, 'INC-START', ['reported_date' => '2026-10-15']), $user);
+        $this->boq($this->lop($user, 'INC-END', ['reported_date' => '2026-10-16']), $user);
+        $this->boq($this->lop($user, 'INC-AFTER', ['reported_date' => '2026-10-17']), $user);
 
         $this->actingAs($user)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-16']))
             ->assertOk()
-            ->assertViewHas('boqs', fn ($boqs) => $this->incidents($boqs) === ['INC-END', 'INC-SLASH-START', 'INC-START'])
+            ->assertViewHas('boqs', fn ($boqs) => $this->incidents($boqs) === ['INC-END', 'INC-START'])
             ->assertViewHas('dateFrom', '2026-10-15')
             ->assertViewHas('dateTo', '2026-10-16')
             ->assertSee('Filter aktif')
@@ -56,18 +53,14 @@ class DataBoqDateFilterTest extends TestCase
     public function test_open_range_and_missing_dates_keep_every_boq_visible(): void
     {
         $user = $this->user();
-        $this->source();
-        $this->ticket('INC-A', '2026-10-14 23:59:59');
-        $this->ticket('INC-B', '2026-10-17 00:00:00');
-        $this->ticket('INC-UNREADABLE', 'not-a-date');
-        foreach (['INC-A', 'INC-B', 'INC-UNREADABLE'] as $incident) {
-            $this->boq($this->lop($user, $incident), $user);
-        }
+        $this->boq($this->lop($user, 'INC-A', ['reported_date' => '2026-10-14']), $user);
+        $this->boq($this->lop($user, 'INC-B', ['reported_date' => '2026-10-17']), $user);
+        // Tanggal tidak terbaca tetap null: terlihat tanpa filter, tak pernah masuk rentang.
+        $this->boq($this->lop($user, 'INC-UNREADABLE'), $user);
 
         $this->actingAs($user)->get(route('data-boqs.index'))
             ->assertOk()
-            ->assertViewHas('boqs', fn ($boqs) => count($this->incidents($boqs)) === 3)
-            ->assertViewHas('sourceUnavailable', false);
+            ->assertViewHas('boqs', fn ($boqs) => count($this->incidents($boqs)) === 3);
 
         $this->get(route('data-boqs.index', ['date_from' => '2026-10-15']))
             ->assertOk()
@@ -82,11 +75,11 @@ class DataBoqDateFilterTest extends TestCase
     {
         $user = $this->user();
         $designator = $this->designator($user);
-        $this->source();
-        $this->ticket('INC-RESERVED-IN', '2026-10-15 09:00:00');
-        $this->ticket('INC-RESERVED-OUT', '2026-10-20 09:00:00');
-        foreach (['INC-RESERVED-IN', 'INC-RESERVED-OUT'] as $incident) {
-            $lop = $this->lop($user, $incident);
+        foreach ([
+            'INC-RESERVED-IN' => '2026-10-15',
+            'INC-RESERVED-OUT' => '2026-10-20',
+        ] as $incident => $reportedDate) {
+            $lop = $this->lop($user, $incident, ['reported_date' => $reportedDate]);
             $reservation = $lop->materialReservation()->create(['technician_id' => $user->getKey(), 'status' => 'draft']);
             $reservation->items()->create(['designator_id' => $designator->getKey(), 'qty' => 5]);
         }
@@ -110,11 +103,8 @@ class DataBoqDateFilterTest extends TestCase
         $outsideArea = ServiceArea::create(['workzone' => 'BOQZB', 'name' => 'STO BOQ B', 'branch_id' => $outside->getKey(), 'region_id' => $region->getKey()]);
         $admin = $this->user(UserRole::ADMIN, ['admin_scope_type' => 'branch', 'branch_id' => $inside->getKey()]);
 
-        $this->source();
-        $this->ticket('INC-INSIDE', '2026-10-15 09:00:00');
-        $this->ticket('INC-OUTSIDE', '2026-10-15 09:00:00');
-        $this->boq($this->lop($admin, 'INC-INSIDE', ['branch_id' => $inside->getKey(), 'service_area_id' => $insideArea->getKey()]), $admin);
-        $this->boq($this->lop($admin, 'INC-OUTSIDE', ['branch_id' => $outside->getKey(), 'service_area_id' => $outsideArea->getKey()]), $admin);
+        $this->boq($this->lop($admin, 'INC-INSIDE', ['reported_date' => '2026-10-15', 'branch_id' => $inside->getKey(), 'service_area_id' => $insideArea->getKey()]), $admin);
+        $this->boq($this->lop($admin, 'INC-OUTSIDE', ['reported_date' => '2026-10-15', 'branch_id' => $outside->getKey(), 'service_area_id' => $outsideArea->getKey()]), $admin);
 
         // Rentang yang mencakup kedua tiket tidak boleh melebarkan scope admin.
         $this->actingAs($admin)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']))
@@ -122,59 +112,74 @@ class DataBoqDateFilterTest extends TestCase
             ->assertViewHas('boqs', fn ($boqs) => $this->incidents($boqs) === ['INC-INSIDE']);
     }
 
-    public function test_incident_matching_ignores_case_and_surrounding_whitespace(): void
+    public function test_creating_a_lop_copies_reported_date_from_the_ticket_source(): void
     {
-        $user = $this->user();
+        $this->location();
+        $admin = $this->user();
         $this->source();
-        $this->ticket('  inc-normalized  ', '2026-10-15 09:00:00');
-        $this->boq($this->lop($user, 'INC-NORMALIZED'), $user);
+        $this->ticket('INC-ISO', '2026-10-15 23:59:59');
+        $this->ticket('INC-SLASH', '15/10/2026 09:00:00');
+        $this->ticket('INC-UNREADABLE', 'not-a-date');
 
-        $this->actingAs($user)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']))
-            ->assertOk()
-            ->assertViewHas('boqs', fn ($boqs) => $this->incidents($boqs) === ['INC-NORMALIZED']);
+        $iso = app(LopService::class)->create($this->payload('INC-ISO'), $admin);
+        $slash = app(LopService::class)->create($this->payload('INC-SLASH'), $admin);
+        $unreadable = app(LopService::class)->create($this->payload('INC-UNREADABLE'), $admin);
+        $manual = app(LopService::class)->create($this->payload(''), $admin);
+
+        $this->assertSame('2026-10-15', $iso->reported_date);
+        // Format hari-dulu mengikuti parsing tiket, bukan teks mentahnya.
+        $this->assertSame('2026-10-15', $slash->reported_date);
+        $this->assertNull($unreadable->reported_date);
+        $this->assertStringStartsWith('INP', $manual->incident);
+        $this->assertNull($manual->reported_date);
     }
 
-    public function test_reversed_range_is_rejected_before_the_ticket_source_is_queried(): void
+    public function test_editing_the_incident_refreshes_the_reported_date(): void
     {
-        $user = $this->user();
+        $this->location();
+        $admin = $this->user();
         $this->source();
-        $this->ticket('INC-A', '2026-10-15 09:00:00');
-        $this->boq($this->lop($user, 'INC-A'), $user);
+        $this->ticket('INC-OLD', '2026-10-15 09:00:00');
+        $this->ticket('INC-NEW', '16/10/2026 09:00:00');
 
-        $this->actingAs($user)->from(route('data-boqs.index'))
-            ->get(route('data-boqs.index', ['date_from' => '2026-10-16', 'date_to' => '2026-10-15']))
-            ->assertSessionHasErrors(['date_to' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.']);
+        $service = app(LopService::class);
+        $lop = $service->create($this->payload('INC-OLD'), $admin);
+        $this->assertSame('2026-10-15', $lop->reported_date);
 
-        $this->get(route('data-boqs.index', ['date_from' => '15/10/2026']))
-            ->assertSessionHasErrors(['date_from' => 'Tanggal mulai harus berupa tanggal yang valid.']);
+        $service->update($lop->fresh(), $this->payload('INC-NEW'));
+
+        $this->assertSame('2026-10-16', $lop->fresh()->reported_date);
     }
 
-    public function test_unavailable_ticket_source_warns_instead_of_silently_dropping_the_filter(): void
+    public function test_sync_command_backfills_missing_reported_dates(): void
     {
         $user = $this->user();
         $this->source();
-        $this->ticket('INC-KEPT', '2026-10-15 09:00:00');
-        $this->boq($this->lop($user, 'INC-KEPT'), $user);
+        $this->ticket('INC-SYNC', '16/10/2026 09:00:00');
+        $this->ticket('INC-MISSING', '2026-10-15 09:00:00');
 
-        // Sumber kedua diarahkan ke basis data tanpa tabel ticket.
-        config()->set('database.connections.mysql_dompis', [
-            'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false,
-        ]);
-        DB::purge('mysql_dompis');
+        $synced = $this->lop($user, 'INC-SYNC');
+        $missing = $this->lop($user, 'INC-MISSING');
+        $unknown = $this->lop($user, 'INC-NOT-ON-TICKET');
 
-        $this->actingAs($user)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']))
-            ->assertOk()
-            ->assertSee('Sumber tiket Dompis sedang tidak tersedia')
-            ->assertViewHas('sourceUnavailable', true)
-            ->assertViewHas('boqs', fn ($boqs) => $boqs->isEmpty());
+        $this->artisan('dompis:sync-reported-date')
+            ->expectsOutputToContain('2 dari 3 LOP diperbarui.')
+            ->assertSuccessful();
+
+        $this->assertSame('2026-10-16', $synced->fresh()->reported_date);
+        $this->assertSame('2026-10-15', $missing->fresh()->reported_date);
+        $this->assertNull($unknown->fresh()->reported_date);
+
+        // Berjalan ulang tanpa perubahan tidak mengubah apa pun.
+        $this->artisan('dompis:sync-reported-date')
+            ->expectsOutputToContain('0 dari 1 LOP diperbarui.')
+            ->assertSuccessful();
     }
 
     public function test_download_link_carries_the_active_date_range(): void
     {
         $user = $this->user();
-        $this->source();
-        $this->ticket('INC-LINK', '2026-10-15 09:00:00');
-        $this->boq($this->lop($user, 'INC-LINK'), $user);
+        $this->boq($this->lop($user, 'INC-LINK', ['reported_date' => '2026-10-15']), $user);
 
         $this->actingAs($user)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-16']))
             ->assertOk()
@@ -190,62 +195,71 @@ class DataBoqDateFilterTest extends TestCase
     {
         $user = $this->user();
         $material = $this->designator($user);
-        $this->source();
-        $this->ticket('INC-DL-IN', '2026-10-15 09:00:00');
-        $this->ticket('INC-DL-SLASH', '15/10/2026 23:59:59');
-        $this->ticket('INC-DL-OUT', '2026-10-20 09:00:00');
-        foreach (['INC-DL-IN', 'INC-DL-SLASH', 'INC-DL-OUT'] as $incident) {
-            $this->boqWithItem($this->lop($user, $incident), $user, $material);
+        foreach ([
+            'INC-DL-IN' => '2026-10-15',
+            'INC-DL-OUT' => '2026-10-20',
+        ] as $incident => $reportedDate) {
+            $this->boqWithItem($this->lop($user, $incident, ['reported_date' => $reportedDate]), $user, $material);
         }
+        // LOP tanpa tanggal terbaca tidak boleh diam-diam masuk rentang mana pun.
+        $this->boqWithItem($this->lop($user, 'INC-DL-UNKNOWN'), $user, $material);
 
-        // Rentang harian yang hanya menangkap dua tiket pertama.
-        $sheet = $this->download($user, ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']);
-        $this->assertSame(['INC-DL-IN', 'INC-DL-SLASH'], $this->sheetIncidents($sheet));
+        $this->assertSame(['INC-DL-IN'], $this->sheetIncidents($this->download($user, ['date_from' => '2026-10-15', 'date_to' => '2026-10-15'])));
 
-        // Satu batas bawah saja.
         $this->assertSame(
-            ['INC-DL-IN', 'INC-DL-SLASH', 'INC-DL-OUT'],
+            ['INC-DL-IN', 'INC-DL-OUT'],
             $this->sheetIncidents($this->download($user, ['date_from' => '2026-10-15'])),
         );
 
-        // Tanpa filter seluruh periode ikut.
         $this->assertSame(
-            ['INC-DL-IN', 'INC-DL-SLASH', 'INC-DL-OUT'],
+            ['INC-DL-IN', 'INC-DL-OUT', 'INC-DL-UNKNOWN'],
             $this->sheetIncidents($this->download($user, [])),
         );
-    }
-
-    public function test_excel_download_aborts_with_a_message_when_ticket_source_is_unavailable(): void
-    {
-        $user = $this->user();
-        $this->source();
-
-        config()->set('database.connections.mysql_dompis', [
-            'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false,
-        ]);
-        DB::purge('mysql_dompis');
-
-        // Mengunduh tanpa filter berarti mengabaikan filter yang diminta user.
-        $this->actingAs($user)
-            ->from(route('data-boqs.index', ['date_from' => '2026-10-15']))
-            ->get(route('data-boqs.export', ['date_from' => '2026-10-15']))
-            ->assertRedirect(route('data-boqs.index', ['date_from' => '2026-10-15']))
-            ->assertSessionHas('error');
-
-        $this->get(route('data-boqs.index'))
-            ->assertOk()
-            ->assertSee('Sumber tiket Dompis sedang tidak tersedia, unduhan dengan filter tanggal tidak dapat diproses', false);
     }
 
     public function test_excel_download_rejects_a_reversed_range_like_the_list_does(): void
     {
         $user = $this->user();
-        $this->source();
 
         $this->actingAs($user)
             ->from(route('data-boqs.index'))
             ->get(route('data-boqs.export', ['date_from' => '2026-10-16', 'date_to' => '2026-10-15']))
             ->assertSessionHasErrors(['date_to' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.']);
+    }
+
+    public function test_reversed_range_is_rejected_on_the_list(): void
+    {
+        $user = $this->user();
+
+        $this->actingAs($user)->from(route('data-boqs.index'))
+            ->get(route('data-boqs.index', ['date_from' => '2026-10-16', 'date_to' => '2026-10-15']))
+            ->assertSessionHasErrors(['date_to' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.']);
+
+        $this->get(route('data-boqs.index', ['date_from' => '15/10/2026']))
+            ->assertSessionHasErrors(['date_from' => 'Tanggal mulai harus berupa tanggal yang valid.']);
+    }
+
+    public function test_filter_and_export_work_when_the_ticket_source_is_down(): void
+    {
+        $user = $this->user();
+        $material = $this->designator($user);
+        $this->boqWithItem($this->lop($user, 'INC-KEPT', ['reported_date' => '2026-10-15']), $user, $material);
+        $this->boqWithItem($this->lop($user, 'INC-OUT', ['reported_date' => '2026-10-20']), $user, $material);
+
+        // Koneksi tiket diarahkan ke berkas yang gagal dibuka: filter lokal tidak boleh ikut rusak.
+        config()->set('database.connections.mysql_dompis', [
+            'driver' => 'sqlite', 'database' => '/tidak/ada/basis-data/ticket.sqlite', 'prefix' => '', 'foreign_key_constraints' => false,
+        ]);
+        DB::purge('mysql_dompis');
+
+        $this->actingAs($user)->get(route('data-boqs.index', ['date_from' => '2026-10-15', 'date_to' => '2026-10-15']))
+            ->assertOk()
+            ->assertViewHas('boqs', fn ($boqs) => $this->incidents($boqs) === ['INC-KEPT']);
+
+        $this->assertSame(
+            ['INC-KEPT'],
+            $this->sheetIncidents($this->download($user, ['date_from' => '2026-10-15', 'date_to' => '2026-10-15'])),
+        );
     }
 
     /** @return array<int, string> */
@@ -277,6 +291,27 @@ class DataBoqDateFilterTest extends TestCase
             ->sort()
             ->values()
             ->all();
+    }
+
+    /** Referensi lokasi agar LopService dapat menyelesaikan branch dan STO. */
+    private function location(): void
+    {
+        $area = Area::updateOrCreate(['code' => '3'], ['name' => 'Area 3', 'is_active' => true]);
+        $region = Region::updateOrCreate(['code' => 'JATIM'], ['name' => 'REGION JATIM', 'area_id' => $area->id_area, 'is_active' => true]);
+        $branch = Branch::updateOrCreate(['code' => 'SDA'], ['name' => 'SIDOARJO', 'region' => $region->name, 'region_id' => $region->id_region, 'is_active' => true]);
+        ServiceArea::updateOrCreate(['workzone' => 'SDA'], ['name' => 'SIDOARJO', 'branch_id' => $branch->id_branch, 'region_id' => $region->id_region, 'is_active' => true]);
+    }
+
+    /** @return array<string, mixed> */
+    private function payload(string $incident): array
+    {
+        return [
+            'incident' => $incident,
+            'nama_lop' => 'LOP '.$incident,
+            'program_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3',
+            'segment' => 'odp', 'job_description' => 'Kerja lapangan',
+        ];
     }
 
     private function source(): void

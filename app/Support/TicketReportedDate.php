@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use DateTimeImmutable;
 use Illuminate\Database\Query\Builder;
 
 /**
@@ -54,5 +55,39 @@ class TicketReportedDate
         }
 
         return $reportedDate;
+    }
+
+    /**
+     * Versi PHP dari expression() untuk menyimpan tanggal ke qe_lops.reported_date.
+     *
+     * Mengikuti aturan yang sama: nilai berisi garis miring dibaca hari-dulu
+     * (DD/MM/YYYY), selain itu ISO (YYYY-MM-DD; waktu setelahnya diabaikan).
+     * Mengembalikan null bila kosong atau tidak terbaca, supaya tanggal yang
+     * tidak pasti tidak pernah tersimpan sebagai tanggal palsu.
+     */
+    public static function normalize(?string $raw): ?string
+    {
+        $value = trim((string) $raw);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_contains($value, '/')) {
+            $parts = array_map('intval', explode('/', $value, 3));
+            if (count($parts) !== 3) {
+                return null;
+            }
+
+            [$day, $month, $year] = $parts;
+            $value = sprintf('%04d-%02d-%02d', $year, $month, $day);
+        } else {
+            $value = substr($value, 0, 10);
+        }
+
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        // Pencocokan ulang menangkap tanggal kalender tidak valid seperti 2026-02-30.
+        return $parsed !== false && $parsed->format('Y-m-d') === $value ? $value : null;
     }
 }

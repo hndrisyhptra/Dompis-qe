@@ -16,10 +16,11 @@ class DataBoqExportService
     ) {}
 
     /**
-     * @param  array<int, string>|null  $reportedIncidents  daftar incident hasil
-     *                                                      incidentsBetween(); null = tanpa filter tanggal
+     * Baris export mengikuti filter tanggal laporan yang sama dengan daftar BOQ,
+     * dibaca dari kolom lokal qe_lops.reported_date. Rentang kosong berarti
+     * tanpa filter, dan tetap diterapkan walau disaring pencarian.
      */
-    public function rows(User $user, ?array $reportedIncidents = null): Generator
+    public function rows(User $user, string $dateFrom = '', string $dateTo = ''): Generator
     {
         $query = QeLop::query()
             ->where(fn (Builder $query) => $query->whereHas('boq')->orWhereHas('materialReservation.items'))
@@ -33,7 +34,7 @@ class DataBoqExportService
                 'serviceArea.branch.regionRef',
             ]);
         $this->visibility->apply($query, $user);
-        $this->reportedDates->applyTo($query, $reportedIncidents);
+        $this->reportedDates->applyRange($query, $dateFrom, $dateTo);
 
         foreach ($query->lazyById(100) as $lop) {
             foreach ($this->projection->masterDataLines($lop) as $line) {

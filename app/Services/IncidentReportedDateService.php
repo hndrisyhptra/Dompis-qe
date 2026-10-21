@@ -5,73 +5,76 @@ namespace App\Services;
 use App\Support\TicketReportedDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
- * Menyediakan daftar incident dari sumber tiket Dompis untuk suatu rentang
- * reported_date.
+ * Menyalin tanggal laporan incident dari sumber tiket Dompis ke qe_lops.
  *
- * Dipakai halaman yang tabel utamanya `qe_lops` (misalnya Data BOQ) karena
- * tanggal laporan tidak tersimpan di dompis_qe sehingga tidak bisa di-join
- * lintas koneksi. Hasilnya dipakai sebagai daftar pembanding di query lokal,
- * bukan sebagai sumber baris, sehingga tetap tunduk pada scope admin.
+ * Sumber canonical tetap `ticket.reported_date` pada koneksi read-only
+ * mysql_dompis, tetapi nilainya disimpan sebagai DATE pada
+ * `qe_lops.reported_date` sehingga filter dan sort halaman berbasis LOP tidak
+ * perlu query lintas koneksi di tiap request.
  */
 class IncidentReportedDateService
 {
     /**
-     * Incident dengan reported_date berada dalam rentang inclusive.
+     * Tanggal laporan per incident, ternormalisasi Y-m-d atau null bila tidak terbaca.
      *
-     * Mengembalikan null bila kedua batas kosong, supaya pemanggil tahu tidak
-     * ada filter yang perlu diterapkan (berbeda dengan daftar kosong yang
-     * berarti tidak ada tiket pada rentang tersebut).
-     *
-     * @return array<int, string>|null sudah dinormalisasi UPPER(TRIM()) agar
-     *                                 sepadan dengan pemakaian incident di aplikasi
-     *
-     * @throws \Throwable bila sumber tiket tidak tersedia
+     * @param  array<int, string>  $incidents
+     * @return array<string, string|null> kunci UPPER(TRIM(incident))
      */
-    public function incidentsBetween(string $from, string $to): ?array
+    public function datesFor(array $incidents): array
     {
-        if ($from === '' && $to === '') {
-            return null;
+        $incidents = collect($incidents)
+            ->map(fn (string $incident): string => mb_strtoupper(trim($incident)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($incidents->isEmpty()) {
+            return [];
         }
 
-        $source = DB::connection('mysql_dompis');
-        $query = $source->table('ticket')->whereRaw("TRIM(incident) <> ''");
-        TicketReportedDate::applyRange($query, $source->getDriverName(), $from, $to);
+        $dates = [];
 
-        return $query->distinct()
-            ->pluck('incident')
-            ->map(fn (string $incident): string => mb_strtoupper(trim($incident)))
-            ->unique()
-            ->values()
-            ->all();
+        try {
+            $source = DB::connection('mysql_dompis');
+
+            foreach ($incidents->chunk(500) as $chunk) {
+                // Kolom incident berindex (tidak UPPER/TRIM agar index tetap
+                // terpakai); kolasi ci pada sumber tiket sudah menutup beda
+                // kapital, dan sisi LOP sudah dinormalisasi aplikasi.
+                $rows = $source->table('ticket')
+                    ->whereIn('incident', $chunk->all())
+                    ->get(['incident', 'reported_date']);
+
+                foreach ($rows as $row) {
+                    $key = mb_strtoupper(trim($row->incident));
+                    $dates[$key] ??= TicketReportedDate::normalize($row->reported_date);
+                }
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        return $dates;
     }
 
     /**
-     * Batasi query LOP pada daftar hasil incidentsBetween().
+     * Terapkan rentang tanggal laporan pada query yang memakai qe_lops.reported_date.
      *
-     * null berarti tanpa filter sehingga query tidak disentuh. [] berarti
-     * sumber tiket tidak punya satu pun incident pada rentang — atau sumbernya
-     * sedang tidak tersedia — jadi query harus menghasilkan kosong, bukan
-     * diabaikan dan menampilkan data tanpa filter.
-     *
-     * Normalisasi UPPER(TRIM()) dipakai pada kedua sisi agar sepadan dengan
-     * pemakaian incident di halaman monitoring tiket.
-     *
-     * @param  array<int, string>|null  $incidents
+     * Aturannya sama di daftar BOQ, list reservasi, dan export sehingga tidak
+     * ada dua versi: batas kosong dibiarkan terbuka, dan baris dengan tanggal
+     * null tetap terlihat tanpa filter tetapi tidak pernah masuk rentang terpilih.
      */
-    public function applyTo(Builder $query, ?array $incidents): void
+    public function applyRange(Builder $query, string $from, string $to): void
     {
-        if ($incidents === null) {
-            return;
+        if ($from !== '') {
+            $query->where('reported_date', '>=', $from);
         }
 
-        if ($incidents === []) {
-            $query->whereRaw('0 = 1');
-
-            return;
+        if ($to !== '') {
+            $query->where('reported_date', '<=', $to);
         }
-
-        $query->whereIn(DB::raw('UPPER(TRIM(qe_lops.incident))'), $incidents);
     }
 }

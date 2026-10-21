@@ -19,14 +19,6 @@
         <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{{ $errors->first() }}</div>
     @endif
 
-    @if (session('error'))
-        <div role="alert" class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{{ session('error') }}</div>
-    @endif
-
-    @if ($sourceUnavailable)
-        <div role="alert" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Sumber tiket Dompis sedang tidak tersedia, sehingga filter tanggal laporan belum bisa diterapkan. Hasil ditampilkan kosong agar tidak menyesatkan; silakan coba lagi beberapa saat.</div>
-    @endif
-
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Master Data</p>
@@ -52,7 +44,7 @@
             <label><span class="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Laporan sampai</span><input name="date_to" type="date" value="{{ $dateTo }}" :min="dateFrom || undefined" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></label>
             <div class="flex items-end"><button class="min-h-11 w-full rounded-xl bg-ink-900 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-ink-800 dark:bg-white dark:text-ink-900 dark:hover:bg-ink-100">Cari Data BOQ</button></div>
         </div>
-        <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Rentang tanggal mengikuti reported date tiket Dompis, bukan tanggal pembuatan LOP. Kosongkan keduanya untuk seluruh periode.</p>
+        <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Rentang tanggal mengikuti reported date tiket Dompis yang tersimpan pada LOP, bukan tanggal pembuatan LOP. Kosongkan keduanya untuk seluruh periode.</p>
         @if ($dateFrom !== '' || $dateTo !== '')
             <p class="mt-2 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $dateFrom !== '' ? 'Dari '.$dateFrom.'; ' : '' }}{{ $dateTo !== '' ? 'Sampai '.$dateTo : '' }}</p>
         @endif

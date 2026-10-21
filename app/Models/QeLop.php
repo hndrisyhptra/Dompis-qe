@@ -44,6 +44,7 @@ class QeLop extends Model
         'job_description',
         'ticket_summary',
         'datek',
+        'reported_date',
         'ihld_id',
         'package_id',
         'boq_snapshot',
