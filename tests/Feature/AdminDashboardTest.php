@@ -49,6 +49,22 @@ class AdminDashboardTest extends TestCase
                 && $monitoring['rows']->first()['total_lops'] === 1);
     }
 
+    public function test_admin_dashboard_exposes_capture_control_next_to_program_filter(): void
+    {
+        $sidoarjo = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $sidoarjo->id_branch]);
+        $this->makeLop($admin, 'CAPTURE-SDA', 'SIDOARJO');
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee("dashboardRegionCapture('SIDOARJO', '#dashboard-program-matrix')", false)
+            ->assertSeeInOrder(['Monitoring Wilayah', 'dashboard-program-image-format', 'Pilih Program'], false)
+            ->assertSee('id="dashboard-program-matrix"', false)
+            ->assertSee('dashboard-program-image-format', false)
+            ->assertSee('Capture', false);
+    }
+
     public function test_admin_without_branch_sees_safe_empty_dashboard(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => null]);
@@ -230,6 +246,23 @@ class AdminDashboardTest extends TestCase
             ->assertJsonMissing(['incident' => 'DRILL-SBY']);
         $this->get(route('lop.detail', $target))->assertOk()->assertViewIs('lop.detail')
             ->assertSee('Project DRILL-SDA')->assertDontSee('Project DRILL-SBY');
+    }
+
+    public function test_super_admin_dashboard_exposes_region_image_capture(): void
+    {
+        Branch::create(['code' => 'DPS', 'name' => 'DENPASAR', 'region' => 'REGION BALNUS']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $superAdmin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $this->makeLop($admin, 'CAPTURE-BALNUS', 'DENPASAR');
+
+        $this->actingAs($superAdmin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee("dashboardRegionCapture('REGION BALNUS')", false)
+            ->assertSee('data-capture-ignore', false)
+            ->assertSeeInOrder(['Ringkasan performa', 'region-image-format-0'], false)
+            ->assertSee('Capture', false)
+            ->assertSee('JPG / JPEG', false);
     }
 
     private function makeLop(

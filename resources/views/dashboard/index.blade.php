@@ -167,12 +167,14 @@
     </nav>
 
     <section class="space-y-6">
-        <article id="dashboard-panel-program" role="tabpanel" aria-labelledby="dashboard-tab-program" x-show="dashboardTab === 'program'" x-cloak class="rounded-md border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
+        <article id="dashboard-panel-program" role="tabpanel" aria-labelledby="dashboard-tab-program" x-show="dashboardTab === 'program'" x-cloak @if (! $isSuperAdmin) x-data="dashboardRegionCapture(@js($scopeLabel), '#dashboard-program-matrix')" @endif class="rounded-md border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Monitoring Wilayah</h2>
                     @if ($isSuperAdmin)
                         <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Total dan posisi LOP berdasarkan Region, Branch, dan Program.</p>
+                    @else
+                        <x-dashboard-capture-controls id="dashboard-program-image-format" :label="$scopeLabel" class="mt-3" />
                     @endif
                 </div>
                 <form method="GET" action="{{ route('dashboard') }}" x-data="{ changing: false }" @submit="changing = true" :aria-busy="changing" class="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
@@ -208,13 +210,17 @@
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
-                    <div class="overflow-hidden rounded-md border border-emerald-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-ink-900">
+                    <div x-data="dashboardRegionCapture(@js($region['name']))" x-ref="captureArea" class="overflow-hidden rounded-md border border-emerald-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="flex min-w-0 items-center gap-3">
+                            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
                                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5"/></svg>
                                 </span>
-                                <div class="min-w-0"><p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p><p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p></div>
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
+                                    <p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p>
+                                </div>
+                                <x-dashboard-capture-controls :id="'region-image-format-'.$loop->index" :label="$groupLabel" class="w-full shrink-0 sm:w-auto" />
                             </div>
                             <div class="grid grid-cols-5 gap-2 sm:min-w-105">
                                 @foreach ([

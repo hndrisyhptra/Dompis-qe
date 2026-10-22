@@ -12,13 +12,13 @@
     $groupOpenDefault = count($programMatrix['rows']) <= 10;
     $groupOpenState = collect($programMatrix['groups'])->mapWithKeys(fn (array $group, int $index) => [$index => $groupOpenDefault])->all();
 @endphp
-<div class="mt-5 overflow-hidden rounded-md border border-ink-200 dark:border-ink-700" @if ($isGrouped) x-data="{ openGroups: @js($groupOpenState) }" @endif>
+<div id="dashboard-program-matrix" class="mt-5 overflow-hidden rounded-md border border-ink-200 dark:border-ink-700" @if ($isGrouped) x-data="{ openGroups: @js($groupOpenState) }" @endif>
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 bg-ink-50 px-4 py-3 dark:border-ink-700 dark:bg-ink-800">
         <p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $scopeLabel }}</p>
         <span class="text-[10px] text-ink-500 dark:text-ink-400">
             @if ($isGrouped)
                 {{ count($programMatrix['groups']) }} kelompok · {{ count($programMatrix['rows']) }} STO · Klik angka untuk melihat LOP
-                <button type="button" @click="openGroups = Object.fromEntries(Object.keys(openGroups).map(k => [k, !Object.values(openGroups).every(Boolean)]))"
+                <button type="button" @click="openGroups = Object.fromEntries(Object.keys(openGroups).map(k => [k, !Object.values(openGroups).every(Boolean)]))" data-capture-ignore
                         class="ml-2 rounded-md border border-ink-200 px-2 py-1 font-bold text-ink-600 transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:border-ink-700 dark:text-ink-300 dark:hover:border-emerald-800 dark:hover:text-emerald-300">
                     <span x-text="Object.values(openGroups).every(Boolean) ? 'Lipat semua' : 'Buka semua'">Buka semua</span>
                 </button>

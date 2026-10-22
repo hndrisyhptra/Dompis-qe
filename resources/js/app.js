@@ -10,6 +10,7 @@ installAuthSessionGuard();
 
 import Alpine from "alpinejs";
 import imageCompression from "browser-image-compression";
+import { toJpeg, toPng } from "html-to-image";
 
 const COMPRESS_OPTS = {
     maxWidthOrHeight: 1920,
@@ -1810,6 +1811,164 @@ window.dashboardBranchMonitoring = (
             if (requestId === this.requestId) this.error = error.message;
         } finally {
             if (requestId === this.requestId) this.loading = false;
+        }
+    },
+});
+
+window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
+    format: "png",
+    capturing: false,
+    captureError: "",
+
+    filename() {
+        const slug =
+            String(regionName || "region")
+                .toLowerCase()
+                .normalize("NFKD")
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "") || "region";
+        const date = new Date().toISOString().slice(0, 10);
+
+        return `${slug}-${date}.${this.format === "jpeg" ? "jpg" : "png"}`;
+    },
+
+    async download() {
+        if (this.capturing) return;
+
+        const node =
+            this.$refs?.captureArea ||
+            (targetSelector ? document.querySelector(targetSelector) : null);
+        if (!node) return;
+
+        this.capturing = true;
+        this.captureError = "";
+        let holder = null;
+
+        try {
+            const background = (() => {
+                let element = node;
+                while (element) {
+                    const color = getComputedStyle(element).backgroundColor;
+                    if (
+                        color &&
+                        color !== "rgba(0, 0, 0, 0)" &&
+                        color !== "transparent"
+                    ) {
+                        return color;
+                    }
+                    element = element.parentElement;
+                }
+
+                return document.documentElement?.classList?.contains("dark")
+                    ? "#0d1117"
+                    : "#ffffff";
+            })();
+
+            // Direktif Alpine (@click, :class, x-...) bukan nama atribut XML
+            // yang valid, sehingga SVG gagal dimuat bila ikut diserialisasi.
+            // Sanitasi dilakukan pada clone agar DOM/Alpine tidak terganggu.
+            const clone = node.cloneNode(true);
+            clone.removeAttribute("id");
+            [clone, ...(clone.querySelectorAll?.("*") || [])].forEach(
+                (element) => {
+                    if (!element?.attributes) return;
+
+                    Array.from(element.attributes).forEach((attribute) => {
+                        const name = attribute.name;
+                        if (
+                            name.startsWith("x-") ||
+                            name.startsWith("@") ||
+                            name.startsWith(":")
+                        ) {
+                            element.removeAttribute(name);
+                        }
+                    });
+                },
+            );
+
+            const originalWidth = Math.ceil(
+                node.getBoundingClientRect().width,
+            );
+            clone.style.width = `${originalWidth}px`;
+            clone.style.maxWidth = "none";
+            clone.style.margin = "0";
+            clone.style.pointerEvents = "none";
+
+            holder = document.createElement("div");
+            holder.style.cssText =
+                "position:fixed;left:-200000px;top:0;width:0;height:0;overflow:visible;pointer-events:none;";
+            holder.setAttribute("aria-hidden", "true");
+            holder.appendChild(clone);
+            document.body.appendChild(holder);
+
+            // Tabel matriks lebih lebar dari kartu pada layar sempit. Saat
+            // dicapture, lebarkan clone agar semua kolom masuk dan area scroll
+            // tidak ikut tergambar.
+            const table = clone.querySelector?.("table");
+            if (table) {
+                const scrollArea = table.closest?.(".overflow-x-auto");
+                if (scrollArea) {
+                    scrollArea.style.overflow = "visible";
+                }
+
+                // Jangan pecah nama service area menjadi dua baris.
+                clone
+                    .querySelectorAll?.("button .wrap-break-word")
+                    .forEach((label) => {
+                        label.style.whiteSpace = "nowrap";
+                        label.style.wordBreak = "normal";
+                        label.style.overflowWrap = "normal";
+                    });
+
+                table.style.width = "max-content";
+                table.style.minWidth = "max-content";
+                const naturalWidth = Math.ceil(
+                    table.getBoundingClientRect().width,
+                );
+                const captureWidth = Math.max(originalWidth, naturalWidth + 2);
+
+                clone.style.width = `${captureWidth}px`;
+                table.style.width = "100%";
+                table.style.minWidth = `${naturalWidth}px`;
+            }
+
+            const options = {
+                pixelRatio: 2,
+                cacheBust: true,
+                skipFonts: true,
+                backgroundColor: background,
+                filter: (element) =>
+                    !element.hasAttribute?.("data-capture-ignore"),
+            };
+
+            const render = (renderOptions) =>
+                this.format === "jpeg"
+                    ? toJpeg(clone, { ...renderOptions, quality: 0.95 })
+                    : toPng(clone, renderOptions);
+
+            let dataUrl;
+            try {
+                dataUrl = await render(options);
+            } catch (firstError) {
+                // Ukuran canvas atau resource tertentu bisa gagal pada
+                // perangkat dengan batas memori rendah; coba rasio lebih kecil.
+                console.error(
+                    "Gagal membuat gambar region dashboard (mencoba ulang)",
+                    firstError,
+                );
+                dataUrl = await render({ ...options, pixelRatio: 1 });
+            }
+
+            const link = document.createElement("a");
+            link.download = this.filename();
+            link.href = dataUrl;
+            link.click();
+        } catch (error) {
+            console.error("Gagal membuat gambar region dashboard", error);
+            this.captureError = "Gagal membuat gambar. Coba lagi.";
+        } finally {
+            holder?.remove();
+            this.capturing = false;
         }
     },
 });
