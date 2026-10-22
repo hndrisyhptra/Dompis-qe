@@ -15,6 +15,7 @@ enum LopSegment: string
     case OTB = 'otb';
     case GPON = 'gpon';
     case MINI_OLT = 'mini_olt';
+    case REGEL = 'regel';
 
     /** Normalisasi segmen tanpa memotong pilihan agar batas tetap divalidasi. */
     public static function normalizeInput(mixed $input): array
@@ -53,6 +54,7 @@ enum LopSegment: string
             self::OTB => 'OTB',
             self::GPON => 'GPON',
             self::MINI_OLT => 'Mini OLT',
+            self::REGEL => 'Regel',
         };
     }
 }
