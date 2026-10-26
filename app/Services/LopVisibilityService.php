@@ -10,6 +10,7 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use WeakMap;
 
 /**
  * Sumber tunggal pembatasan data LOP untuk role ADMIN.
@@ -17,6 +18,8 @@ use Illuminate\Support\Collection;
  */
 class LopVisibilityService
 {
+    private const VIEW_ACCESS = 'dompis.lop_view_access';
+
     /** @var array<string, Collection> */
     private array $branchIdsCache = [];
 
@@ -60,7 +63,44 @@ class LopVisibilityService
             return true;
         }
 
+        $prepared = request()->attributes->get(self::VIEW_ACCESS);
+        if (request()->isMethod('GET') && $prepared instanceof WeakMap && isset($prepared[$lop])) {
+            $entry = $prepared[$lop];
+            if ($entry['context'] === $this->viewContext($user, $lop)) {
+                return $entry['allowed'];
+            }
+        }
+
         return $this->apply(QeLop::query()->whereKey($lop->getKey()), $user)->exists();
+    }
+
+    /** Batch only the models rendered by this GET; mutations always query current access. */
+    public function prepareForView(User $user, Collection $lops): void
+    {
+        if (! request()->isMethod('GET') || ! $user->hasRole(UserRole::ADMIN) || $lops->isEmpty()) {
+            return;
+        }
+
+        $allowed = $this->apply(QeLop::query()->whereKey($lops->map->getKey()->all()), $user)
+            ->pluck('id_qe_lops')->flip();
+        $prepared = request()->attributes->get(self::VIEW_ACCESS);
+        if (! $prepared instanceof WeakMap) {
+            $prepared = new WeakMap;
+            request()->attributes->set(self::VIEW_ACCESS, $prepared);
+        }
+        foreach ($lops as $lop) {
+            $prepared[$lop] = ['context' => $this->viewContext($user, $lop), 'allowed' => $allowed->has($lop->getKey())];
+        }
+    }
+
+    private function viewContext(User $user, QeLop $lop): array
+    {
+        return [
+            $user->getKey(), $user->admin_scope_type, $user->area_id, $user->region_id, $user->branch_id,
+            $user->service_area_id, $user->serviceAreas->modelKeys(),
+            $lop->getConnectionName(), $lop->getKey(), $lop->exists,
+            $lop->branch_id, $lop->branch, $lop->service_area_id, $lop->sto, (string) $lop->deleted_at,
+        ];
     }
 
     public function canUseLocation(User $user, int $branchId, int $serviceAreaId): bool

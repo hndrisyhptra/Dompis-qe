@@ -43,8 +43,11 @@ class DataLopController extends Controller
             $branchQuery->whereIn('id_branch', $this->visibility->accessibleBranchIds($request->user()));
         }
 
+        $lops = $query->latest()->paginate(20)->withQueryString();
+        $this->visibility->prepareForView($request->user(), $lops->getCollection());
+
         return view('data-lops.index', [
-            'lops' => $query->latest()->paginate(20)->withQueryString(),
+            'lops' => $lops,
             'programs' => ProgramType::cases(),
             'statuses' => LopStatus::cases(),
             'branches' => $branchQuery->get(),

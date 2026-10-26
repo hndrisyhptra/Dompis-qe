@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Enums\ProgramType;
 use App\Models\Package;
 use App\Models\QeLop;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 
 /**
  * Menyatukan representasi nilai BOQ Plan dan fallback BOQ Aktual yang
@@ -37,6 +39,21 @@ class LopBoqValueService
     public function referencePackageId(): ?int
     {
         return $this->referencePackage()?->id_package;
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function summarizeMany(EloquentCollection $lops): Collection
+    {
+        $lops->loadMissing([
+            'package', 'boq.package', 'boq.items.designator.type',
+            'materialReservation.items.designator.type',
+            'branchRef.regionRef', 'serviceArea.region', 'serviceArea.branch.regionRef',
+        ]);
+        $actualLops = $lops->filter(fn (QeLop $lop) => $lop->boq === null || $lop->program_type === ProgramType::RECOVERY);
+
+        return $this->projection->withPreparedPrices($actualLops, fn () => $lops->mapWithKeys(
+            fn (QeLop $lop) => [$lop->getKey() => $this->summarize($lop)],
+        ));
     }
 
     /** @return array<string, mixed> */

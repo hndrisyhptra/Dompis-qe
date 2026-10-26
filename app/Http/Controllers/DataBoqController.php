@@ -71,9 +71,10 @@ class DataBoqController extends Controller
         $reportedDates->applyRange($reservationQuery, $dateFrom, $dateTo);
 
         $reservationBoqs = $reservationQuery->latest()->paginate(15, ['*'], 'reservation_page')->withQueryString();
+        $summaries = $this->boqValues->summarizeMany($reservationBoqs->getCollection());
         $canEditReservations = $request->user()->hasRole(...UserRole::adminLevel());
-        $reservationBoqs->getCollection()->each(function (QeLop $lop) use ($canEditReservations): void {
-            $lop->setAttribute('effective_boq', $this->boqValues->summarize($lop));
+        $reservationBoqs->getCollection()->each(function (QeLop $lop) use ($canEditReservations, $summaries): void {
+            $lop->setAttribute('effective_boq', $summaries->get($lop->getKey()));
             $lop->setAttribute('reservation_version', ReservationBoqService::version($lop->materialReservation));
             // Seluruh LOP sudah difilter scope pada query; jangan query policy per baris Blade.
             $lop->setAttribute('reservation_editable', $canEditReservations && MaterialReservationRules::editable($lop));

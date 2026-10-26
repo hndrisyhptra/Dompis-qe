@@ -67,7 +67,7 @@ class LopController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader', 'boq',
+                'survey', 'evidences.uploader', 'boq.items.designator',
             ])
             ->where('status_lop', '!=', LopStatus::COMPLETED->value);
 
@@ -118,6 +118,7 @@ class LopController extends Controller
         }
 
         $lops = $query->latest()->paginate(20)->withQueryString();
+        $this->visibility->prepareForView($request->user(), $lops->getCollection());
         foreach ($lops->getCollection() as $lop) {
             $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
             $lop->setAttribute('approval_summary', $this->approvalService->summary($lop));
@@ -161,13 +162,14 @@ class LopController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader', 'boq',
+                'survey', 'evidences.uploader', 'boq.items.designator',
             ])
             ->where('status_lop', LopStatus::COMPLETED->value);
 
         $query = $this->scopeForUser($query, $request);
 
         $lops = $query->latest()->paginate(20)->withQueryString();
+        $this->visibility->prepareForView($request->user(), $lops->getCollection());
         foreach ($lops->getCollection() as $lop) {
             $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
             $lop->setAttribute('approval_summary', $this->approvalService->summary($lop));

@@ -10,6 +10,8 @@ use App\Models\QeBoqItem;
 use App\Models\QeLop;
 use App\Models\QeMaterialReservationItem;
 use App\Support\ReservedDesignatorRules;
+use Closure;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,6 +24,42 @@ use Illuminate\Support\Collection;
 class LopBoqProjectionService
 {
     public function __construct(private readonly RegionalPackageResolver $regionalPackages) {}
+
+    private ?array $preparedPrices = null;
+
+    /** Keep price reuse inside one synchronous batch, including when rendering throws. */
+    public function withPreparedPrices(EloquentCollection $lops, Closure $callback): mixed
+    {
+        if ($lops->isEmpty()) {
+            return $callback();
+        }
+        $lops->loadMissing([
+            'package', 'boq.package', 'materialReservation.items.designator.type',
+            'branchRef.regionRef', 'serviceArea.region', 'serviceArea.branch.regionRef',
+        ]);
+        $previous = $this->preparedPrices;
+        $this->preparedPrices = ['services' => null, 'prices' => null, 'reference_resolved' => false, 'reference' => null];
+        try {
+            $packages = $lops->map(fn (QeLop $lop) => $this->packageFor($lop))->filter()->unique('id_package');
+            $items = $lops->flatMap(fn (QeLop $lop) => $lop->materialReservation?->items ?? collect());
+            $serviceCodes = $lops->filter(fn (QeLop $lop) => $lop->program_type->includesBoqServices())
+                ->flatMap(fn (QeLop $lop) => $lop->materialReservation?->items ?? collect())
+                ->map(fn ($item) => $this->serviceCode($item->designator?->code))->filter()->unique()->values();
+            $services = $serviceCodes->isEmpty() ? collect() : Designator::query()->with('type')
+                ->whereIn('code', $serviceCodes)->get()->toBase()->keyBy(fn (Designator $item) => mb_strtoupper($item->code));
+            $ids = $items->pluck('designator_id')->concat($services->pluck('id_designator'))->filter()->unique()->values();
+            $prices = $packages->isEmpty() || $ids->isEmpty() ? collect() : DesignatorPackagePrice::query()
+                ->whereIn('package_id', $packages->pluck('id_package'))->whereIn('designator_id', $ids)
+                ->get(['package_id', 'designator_id', 'price'])->groupBy('package_id')
+                ->map(fn (Collection $rows) => $rows->pluck('price', 'designator_id'));
+            $this->preparedPrices['services'] = $services;
+            $this->preparedPrices['prices'] = $prices;
+
+            return $callback();
+        } finally {
+            $this->preparedPrices = $previous;
+        }
+    }
 
     /** @return array<int, array<string, mixed>> */
     public function masterDataLines(QeLop $lop): array
@@ -61,9 +99,7 @@ class LopBoqProjectionService
 
         $hasSnapshot = $lop->boq !== null;
         $hasPlan = $lop->program_type !== ProgramType::RECOVERY && $hasSnapshot;
-        $package = $hasSnapshot
-            ? ($lop->boq?->package ?? $lop->package)
-            : ($this->regionalPackages->forLop($lop) ?? $lop->package ?? $this->referencePackage());
+        $package = $this->packageFor($lop);
 
         $lines = match ($report) {
             'plan' => $hasPlan ? $this->planLines($lop) : collect(),
@@ -165,18 +201,23 @@ class LopBoqProjectionService
             ? $items->map(fn (QeMaterialReservationItem $item): ?string => $this->serviceCode($item->designator?->code))
                 ->filter()->unique()->values()
             : collect();
-        $serviceDesignators = $serviceCodes->isEmpty()
-            ? collect()
-            : Designator::query()->with('type')->whereIn('code', $serviceCodes)->get()->keyBy(fn (Designator $item): string => mb_strtoupper($item->code));
+        if ($this->preparedPrices !== null) {
+            $serviceDesignators = $this->preparedPrices['services']->only($serviceCodes->all());
+        } else {
+            $serviceDesignators = $serviceCodes->isEmpty() ? collect() : Designator::query()->with('type')
+                ->whereIn('code', $serviceCodes)->get()->keyBy(fn (Designator $item): string => mb_strtoupper($item->code));
+        }
 
         $designatorIds = $items->pluck('designator_id')
             ->concat($serviceDesignators->pluck('id_designator'))->filter()->unique()->values();
-        $prices = $package === null
-            ? collect()
-            : DesignatorPackagePrice::query()
+        if ($this->preparedPrices !== null) {
+            $prices = $package === null ? collect() : $this->preparedPrices['prices']->get($package->getKey(), collect());
+        } else {
+            $prices = $package === null ? collect() : DesignatorPackagePrice::query()
                 ->where('package_id', $package->id_package)
                 ->whereIn('designator_id', $designatorIds)
                 ->pluck('price', 'designator_id');
+        }
 
         return $items->flatMap(function (QeMaterialReservationItem $item) use ($includeServicePair, $serviceDesignators, $prices): array {
             $material = $item->designator;
@@ -292,6 +333,21 @@ class LopBoqProjectionService
 
     private function referencePackage(): ?Package
     {
-        return Package::query()->whereHas('prices')->orderByDesc('id_package')->first();
+        if ($this->preparedPrices === null) {
+            return Package::query()->whereHas('prices')->orderByDesc('id_package')->first();
+        }
+        if (! $this->preparedPrices['reference_resolved']) {
+            $this->preparedPrices['reference'] = Package::query()->whereHas('prices')->orderByDesc('id_package')->first();
+            $this->preparedPrices['reference_resolved'] = true;
+        }
+
+        return $this->preparedPrices['reference'];
+    }
+
+    private function packageFor(QeLop $lop): ?Package
+    {
+        return $lop->boq !== null
+            ? ($lop->boq->package ?? $lop->package)
+            : ($this->regionalPackages->forLop($lop) ?? $lop->package ?? $this->referencePackage());
     }
 }
