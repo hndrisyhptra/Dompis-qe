@@ -19,6 +19,15 @@ use Illuminate\Database\Query\Builder;
  */
 class TicketReportedDate
 {
+    /**
+     * Batas bawah reported_date yang boleh dibaca Monitoring Incident.
+     * Nilai env divalidasi ulang; bila tidak valid, kembali ke 1 September 2026.
+     */
+    public static function floor(): string
+    {
+        return self::normalize((string) config('incident-monitoring.reported_from')) ?? '2026-09-01';
+    }
+
     /** Ekspresi SQL yang menghasilkan DATE dari reported_date campuran. */
     public static function expression(string $driver): string
     {

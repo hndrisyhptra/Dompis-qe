@@ -8,7 +8,10 @@
     $filterUrl = fn (array $changes = []) => route('incident-monitoring.tickets', array_filter(array_replace($filterQuery, $changes), fn ($value) => $value !== ''));
     $usageLabels = ['all' => 'Semua tiket', 'without_lop' => 'Belum memiliki LOP', 'with_lop' => 'Sudah memiliki LOP', 'excluded' => 'Tiket Exclude'];
     $showLopColumns = $filters['usage'] !== 'without_lop';
-    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $filters['date_from'] !== '' || $filters['date_to'] !== '';
+    $reportedFrom = \App\Support\TicketReportedDate::floor();
+    $reportedFromLabel = \Illuminate\Support\Carbon::createFromFormat('!Y-m-d', $reportedFrom)->format('d/m/Y');
+    $hasCustomDates = $filters['date_from'] !== $reportedFrom || $filters['date_to'] !== now('Asia/Jakarta')->toDateString();
+    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $hasCustomDates;
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-5" x-data="{ loading: false, dateFrom: @js($filters['date_from']), filtersOpen: {{ $hasFilters ? 'true' : 'false' }} }" :aria-busy="loading" @pageshow.window="loading = false">
@@ -16,7 +19,7 @@
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-ink-900 dark:text-white">Monitoring Incident</h1>
             <p class="mt-1.5 text-sm text-ink-600 dark:text-ink-300">{{ $scopeLabel }}</p>
-            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Tiket INFRACARE, yang mengandung GAMAS, dan PREMAN dari Dompis, termasuk yang belum memiliki LOP.</p>
+            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Tiket INFRACARE, yang mengandung GAMAS, dan PREMAN dari Dompis, termasuk yang belum memiliki LOP. Data dibatasi mulai {{ $reportedFromLabel }}.</p>
         </div>
         <div class="flex items-center gap-3">
             <p x-show="loading" x-cloak role="status" class="text-sm text-ink-600 dark:text-ink-300">Memuat tiket…</p>
@@ -54,8 +57,8 @@
                     <option value="infracare" @selected($filters['kind'] === 'infracare')>INFRACARE</option>
                     <option value="preman" @selected($filters['kind'] === 'preman')>PREMAN</option>
                 </x-select>
-                <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" x-model="dateFrom" class="rounded-md! border-ink-200! dark:border-ink-700!" />
-                <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" x-bind:min="dateFrom || undefined" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" min="{{ $reportedFrom }}" x-model="dateFrom" class="rounded-md! border-ink-200! dark:border-ink-700!" />
+                <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" min="{{ $reportedFrom }}" x-bind:min="dateFrom || '{{ $reportedFrom }}'" class="rounded-md! border-ink-200! dark:border-ink-700!" />
                 <x-select name="region" label="Region" placeholder="Semua region" class="rounded-md! border-ink-200! dark:border-ink-700!">
                     @foreach ($regions as $region)
                         <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
@@ -79,7 +82,7 @@
                     <a href="{{ route('incident-monitoring.tickets') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
                 </div>
             </div>
-            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Kosongkan tanggal untuk semua periode. Download mengikuti isian filter terbaru, tanpa perlu klik Terapkan.</p>
+            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Tanggal mulai minimal {{ $reportedFromLabel }}; tanggal akhir default hari ini. Download mengikuti isian filter terbaru, tanpa perlu klik Terapkan.</p>
         </form>
         @if ($hasFilters)
             <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $filters['q'] !== '' ? 'pencarian “'.$filters['q'].'”; ' : '' }}{{ $filters['kind'] !== '' ? strtoupper($filters['kind']).'; ' : '' }}{{ $filters['date_from'] !== '' ? 'Dari '.$filters['date_from'].'; ' : '' }}{{ $filters['date_to'] !== '' ? 'Sampai '.$filters['date_to'].'; ' : '' }}{{ $filters['region'] !== '' ? $filters['region'].'; ' : '' }}{{ $filters['branch'] !== '' ? 'Branch pilihan; ' : '' }}{{ $filters['service_area'] !== '' ? 'STO pilihan' : '' }}</p>

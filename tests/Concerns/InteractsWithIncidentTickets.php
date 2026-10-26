@@ -23,7 +23,11 @@ trait InteractsWithIncidentTickets
             $table->dateTime('reported_date_dt')->nullable();
         });
         foreach ($types as $incident => $type) {
-            $connection->table('ticket')->insert(['incident' => $incident, 'jenis_tiket_2' => $type]);
+            $connection->table('ticket')->insert([
+                'incident' => $incident,
+                'jenis_tiket_2' => $type,
+                'reported_date' => now('Asia/Jakarta')->toDateString(),
+            ]);
         }
     }
 }

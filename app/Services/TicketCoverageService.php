@@ -24,14 +24,17 @@ class TicketCoverageService
 
     public function dashboard(User $user, array $input, bool $forExport = false): array
     {
+        $reportedFrom = TicketReportedDate::floor();
+        $dateFrom = trim((string) ($input['date_from'] ?? ''));
+        $dateTo = trim((string) ($input['date_to'] ?? ''));
         $filters = [
             'region' => trim((string) ($input['region'] ?? '')),
             'branch' => $input['branch'] ?? '',
             'service_area' => $input['service_area'] ?? '',
             'kind' => $input['kind'] ?? '',
             'usage' => in_array($input['usage'] ?? '', ['all', 'without_lop', 'with_lop', 'excluded'], true) ? $input['usage'] : 'without_lop',
-            'date_from' => $input['date_from'] ?? '',
-            'date_to' => $input['date_to'] ?? '',
+            'date_from' => $dateFrom !== '' ? max($dateFrom, $reportedFrom) : $reportedFrom,
+            'date_to' => $dateTo !== '' ? $dateTo : now('Asia/Jakarta')->toDateString(),
             'q' => trim((string) ($input['q'] ?? '')),
         ];
         $branches = Branch::query()->with('regionRef:id_region,name')
@@ -163,7 +166,10 @@ class TicketCoverageService
     private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, array $excluded, int $page, bool $forExport = false): array
     {
         $source = DB::connection('mysql_dompis');
-        $types = $source->table('ticket')->distinct()->pluck('jenis_tiket_2')->filter(function ($type) use ($filters): bool {
+        $driver = $source->getDriverName();
+        $typesQuery = $source->table('ticket');
+        TicketReportedDate::applyRange($typesQuery, $driver, $filters['date_from'], $filters['date_to']);
+        $types = $typesQuery->distinct()->pluck('jenis_tiket_2')->filter(function ($type) use ($filters): bool {
             $kind = $this->ticketKind($type);
 
             return $kind !== null && ($filters['kind'] === '' || $filters['kind'] === $kind);
@@ -172,7 +178,9 @@ class TicketCoverageService
             ->whereRaw("TRIM(incident) <> ''");
         if ($restrictWorkzones) {
             $allowed = $areas->map(fn (ServiceArea $area) => $this->normalize($area->workzone))->flip();
-            $workzones = $source->table('ticket')->distinct()->pluck('workzone')
+            $workzonesQuery = $source->table('ticket');
+            TicketReportedDate::applyRange($workzonesQuery, $driver, $filters['date_from'], $filters['date_to']);
+            $workzones = $workzonesQuery->distinct()->pluck('workzone')
                 ->filter(fn ($workzone) => $allowed->has($this->normalize($workzone)))->values();
             $query->whereIn('workzone', $workzones);
         }
@@ -181,7 +189,7 @@ class TicketCoverageService
                 ->orWhere('workzone', 'like', '%'.$filters['q'].'%'));
         }
 
-        $reportedDate = TicketReportedDate::applyRange($query, $source->getDriverName(), $filters['date_from'], $filters['date_to']);
+        $reportedDate = TicketReportedDate::applyRange($query, $driver, $filters['date_from'], $filters['date_to']);
 
         $used = array_keys($occupancy);
         $usedSql = $used === [] ? '0 = 1' : 'UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($used), '?')).')';

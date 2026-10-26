@@ -42,6 +42,7 @@ class IncidentExcludeTest extends TestCase
     {
         DB::connection('mysql_dompis')->table('ticket')->insert([
             'incident' => $incident, 'jenis_tiket_2' => $type, 'workzone' => $workzone,
+            'reported_date' => now('Asia/Jakarta')->toDateString(),
         ]);
     }
 

@@ -51,9 +51,14 @@ class TicketCoverageTest extends TestCase
         $this->locations = compact('area', 'jatim', 'balnus', 'branches', 'areas');
     }
 
-    private function ticket(string $incident, ?string $type = 'GAMAS GPON', ?string $workzone = 'SBY-A', ?string $reportedDate = null): void
+    private function ticket(string $incident, ?string $type = 'GAMAS GPON', ?string $workzone = 'SBY-A', ?string $reportedDate = null, bool $dated = true): void
     {
-        DB::connection('mysql_dompis')->table('ticket')->insert(['incident' => $incident, 'jenis_tiket_2' => $type, 'workzone' => $workzone, 'reported_date' => $reportedDate]);
+        DB::connection('mysql_dompis')->table('ticket')->insert([
+            'incident' => $incident,
+            'jenis_tiket_2' => $type,
+            'workzone' => $workzone,
+            'reported_date' => $dated ? ($reportedDate ?? now('Asia/Jakarta')->toDateString()) : $reportedDate,
+        ]);
     }
 
     private function lop(string $incident, string $workzone = 'SBY-A', array $attributes = []): QeLop
@@ -294,7 +299,7 @@ class TicketCoverageTest extends TestCase
         $this->ticket('INC-END', reportedDate: '2026-10-16 23:59:59');
         $this->ticket('INC-SLASH-DATE', reportedDate: '16/10/2026');
         $this->ticket('INC-AFTER', reportedDate: '2026-10-17 00:00:00');
-        $this->ticket('INC-MISSING');
+        $this->ticket('INC-MISSING', dated: false);
         $this->ticket('INC-EMPTY', reportedDate: '');
         $this->ticket('INC-INVALID', reportedDate: 'not-a-date');
         $this->lop('INC-START');
@@ -311,31 +316,57 @@ class TicketCoverageTest extends TestCase
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 4)->assertSee('15/10/2026')->assertSee('16/10/2026');
     }
 
-    public function test_one_sided_date_ranges_and_reset_preserve_all_periods_by_default(): void
+    public function test_default_window_starts_september_and_one_sided_ranges_still_apply(): void
     {
         $this->ticket('INC-BEFORE', reportedDate: '2026-10-14 23:59:59');
         $this->ticket('INC-DAY', reportedDate: '15/10/2026 00:00:00');
         $this->ticket('INC-AFTER', reportedDate: '2026-10-16 00:00:00');
         $this->ticket('INC-INVALID', reportedDate: 'not-a-date');
-        $this->ticket('INC-MISSING');
+        $this->ticket('INC-MISSING', dated: false);
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['date_from' => '2026-10-15']))->assertOk()
             ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)->assertDontSee('INC-INVALID')->assertDontSee('INC-MISSING');
         $this->get(route('incident-monitoring.tickets', ['date_to' => '2026-10-15']))->assertOk()
             ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)->assertDontSee('INC-INVALID')->assertDontSee('INC-MISSING');
         $this->get(route('incident-monitoring.tickets'))->assertOk()
-            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 5)
-            ->assertViewHas('filters', fn ($filters) => $filters['date_from'] === '' && $filters['date_to'] === '');
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 3)
+            ->assertViewHas('filters', fn ($filters) => $filters['date_from'] === config('incident-monitoring.reported_from')
+                && $filters['date_to'] === now('Asia/Jakarta')->toDateString());
+    }
+
+    public function test_source_reads_and_displays_only_tickets_from_september_by_default(): void
+    {
+        $reportedFrom = (string) config('incident-monitoring.reported_from');
+        $today = now('Asia/Jakarta')->toDateString();
+        $this->ticket('INC-AUG', 'INFRACARE', reportedDate: '31/08/2026 23:59:59');
+        $this->ticket('INC-SEP', 'INFRACARE', reportedDate: '01/09/2026 00:00:00');
+        $this->ticket('INC-NOW', 'INFRACARE', reportedDate: $today);
+        $this->ticket('INC-FUTURE', 'INFRACARE', reportedDate: now('Asia/Jakarta')->addWeek()->toDateString());
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['usage' => 'all']))->assertOk()
+            ->assertViewHas('stats', ['total' => 2, 'without_lop' => 2, 'with_lop' => 0, 'excluded' => 0])
+            ->assertViewHas('filters', fn ($filters) => $filters['date_from'] === $reportedFrom && $filters['date_to'] === $today)
+            ->assertSee('INC-SEP')->assertSee('INC-NOW')
+            ->assertDontSee('INC-AUG')->assertDontSee('INC-FUTURE');
+
+        $this->getJson(route('incident-monitoring.tickets', ['date_from' => '2026-08-31']))
+            ->assertUnprocessable()->assertJsonValidationErrors('date_from');
+        $this->getJson(route('incident-monitoring.tickets', ['date_to' => '2026-08-31']))
+            ->assertUnprocessable()->assertJsonValidationErrors('date_to');
+
+        $incidents = $this->exportedIncidents($this->downloadSheet($this->super, ['usage' => 'all']));
+        $this->assertCount(2, $incidents);
+        $this->assertEqualsCanonicalizing(['INC-SEP', 'INC-NOW'], $incidents);
     }
 
     public function test_slash_dates_use_day_month_year_and_date_range_keeps_existing_admin_scope(): void
     {
-        $this->ticket('INC-TARGET', 'INFRACARE', reportedDate: '5/6/2026 00:01:00');
-        $this->ticket('INC-OTHER-DAY', 'INFRACARE', reportedDate: '6/5/2026 23:59:59');
-        $this->ticket('INC-OUTSIDE', 'INFRACARE', 'DPS-A', '5/6/2026 12:00:00');
+        $this->ticket('INC-TARGET', 'INFRACARE', reportedDate: '5/9/2026 00:01:00');
+        $this->ticket('INC-OTHER-DAY', 'INFRACARE', reportedDate: '9/5/2026 23:59:59');
+        $this->ticket('INC-OUTSIDE', 'INFRACARE', 'DPS-A', '5/9/2026 12:00:00');
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->locations['branches']['SBY']->getKey()]);
-        $this->actingAs($admin)->get(route('incident-monitoring.tickets', ['date_from' => '2026-06-05', 'date_to' => '2026-06-05', 'kind' => 'infracare']))->assertOk()
+        $this->actingAs($admin)->get(route('incident-monitoring.tickets', ['date_from' => '2026-09-05', 'date_to' => '2026-09-05', 'kind' => 'infracare']))->assertOk()
             ->assertViewHas('stats', fn ($stats) => $stats['total'] === 1)
-            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 1 && $rows->first()['reported_date'] === '05/06/2026')
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 1 && $rows->first()['reported_date'] === '05/09/2026')
             ->assertSee('INC-TARGET')->assertDontSee('INC-OTHER-DAY')->assertDontSee('INC-OUTSIDE');
     }
 
@@ -399,11 +430,12 @@ class TicketCoverageTest extends TestCase
 
     public function test_date_range_handles_leap_day_for_kpi_chart_and_rows(): void
     {
+        config(['incident-monitoring.reported_from' => '2024-01-01']);
         $this->ticket('INC-JAN', reportedDate: '2024-01-31 23:59:59');
         $this->ticket('INC-FEB-START', reportedDate: '2024-02-01 00:00:00');
         $this->ticket('INC-FEB-END', 'INFRACARE', reportedDate: '29/2/2024 23:59:59');
         $this->ticket('INC-MAR', reportedDate: '2024-03-01 00:00:00');
-        $this->ticket('INC-NO-DATE');
+        $this->ticket('INC-NO-DATE', dated: false);
         $this->lop('INC-FEB-START');
         $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['date_from' => '2024-02-01', 'date_to' => '2024-02-29', 'usage' => 'all']))->assertOk()
             ->assertViewHas('stats', ['total' => 2, 'without_lop' => 1, 'with_lop' => 1, 'excluded' => 0])
