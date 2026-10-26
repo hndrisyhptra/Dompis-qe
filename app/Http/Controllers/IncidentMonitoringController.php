@@ -7,8 +7,10 @@ use App\Http\Requests\ExcludeTicketRequest;
 use App\Http\Requests\IncidentMonitoringRequest;
 use App\Http\Requests\TicketCoverageDownloadRequest;
 use App\Http\Requests\TicketCoverageRequest;
+use App\Http\Requests\TicketExcludeMonitoringRequest;
 use App\Services\IncidentMonitoringService;
 use App\Services\TicketCoverageService;
+use App\Services\TicketExcludeMonitoringService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
@@ -34,6 +36,11 @@ class IncidentMonitoringController extends Controller
         return view('incident-monitoring.tickets', $this->coverage->dashboard(
             $request->user(), $request->validated(),
         ));
+    }
+
+    public function exclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
+    {
+        return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $request->validated()));
     }
 
     public function download(TicketCoverageDownloadRequest $request): BinaryFileResponse

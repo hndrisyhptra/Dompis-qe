@@ -22,7 +22,7 @@ class TicketCoverageService
 {
     public function __construct(private readonly LopVisibilityService $visibility) {}
 
-    public function dashboard(User $user, array $input, bool $forExport = false): array
+    public function monitoringContext(User $user, array $input): array
     {
         $reportedFrom = TicketReportedDate::floor();
         $dateFrom = trim((string) ($input['date_from'] ?? ''));
@@ -37,7 +37,7 @@ class TicketCoverageService
             'date_to' => $dateTo !== '' ? $dateTo : now('Asia/Jakarta')->toDateString(),
             'q' => trim((string) ($input['q'] ?? '')),
         ];
-        $branches = Branch::query()->with('regionRef:id_region,name')
+        $branches = Branch::query()->with('regionRef:id_region,name,code')
             ->whereIn('id_branch', $this->visibility->accessibleBranchIds($user))
             ->orderBy('name')->get(['id_branch', 'name', 'region_id', 'region']);
         $serviceAreas = ServiceArea::query()
@@ -51,6 +51,14 @@ class TicketCoverageService
             ->when($filters['service_area'] !== '', fn (Collection $areas) => $areas->where('id_service_area', (int) $filters['service_area']));
         $restrictWorkzones = $user->hasRole(UserRole::ADMIN)
             || $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '';
+
+        return compact('filters', 'branches', 'serviceAreas', 'regions', 'selectedAreas', 'restrictWorkzones');
+    }
+
+    public function dashboard(User $user, array $input, bool $forExport = false): array
+    {
+        ['filters' => $filters, 'branches' => $branches, 'serviceAreas' => $serviceAreas,
+            'regions' => $regions, 'selectedAreas' => $selectedAreas, 'restrictWorkzones' => $restrictWorkzones] = $this->monitoringContext($user, $input);
 
         // Occupancy includes archives and other scopes; only visible LOP details are loaded below.
         $occupancy = [];
@@ -123,7 +131,7 @@ class TicketCoverageService
         ];
     }
 
-    private function presentRows(Collection $tickets, array $occupancy, array $excluded, Collection $serviceAreas, Collection $branches, User $user): Collection
+    public function presentRows(Collection $tickets, array $occupancy, array $excluded, Collection $serviceAreas, Collection $branches, User $user): Collection
     {
         $pageIds = $tickets->map(fn ($ticket) => $occupancy[$this->normalize($ticket->incident)]['id'] ?? null)->filter()->all();
         $visibleLops = $pageIds === [] ? collect() : $this->visibility->apply(QeLop::query()->whereIntegerInRaw('id_qe_lops', $pageIds), $user)
@@ -163,7 +171,7 @@ class TicketCoverageService
         } while ($chunk->count() === 500);
     }
 
-    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, array $excluded, int $page, bool $forExport = false): array
+    public function sourceQuery(array $filters, Collection $areas, bool $restrictWorkzones): array
     {
         $source = DB::connection('mysql_dompis');
         $driver = $source->getDriverName();
@@ -190,6 +198,13 @@ class TicketCoverageService
         }
 
         $reportedDate = TicketReportedDate::applyRange($query, $driver, $filters['date_from'], $filters['date_to']);
+
+        return [$query, $reportedDate];
+    }
+
+    private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, array $excluded, int $page, bool $forExport = false): array
+    {
+        [$query, $reportedDate] = $this->sourceQuery($filters, $areas, $restrictWorkzones);
 
         $used = array_keys($occupancy);
         $usedSql = $used === [] ? '0 = 1' : 'UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($used), '?')).')';
@@ -232,7 +247,7 @@ class TicketCoverageService
         return [$stats, $chartRows, $tickets, $total];
     }
 
-    private function ticketKind(?string $type): ?string
+    public function ticketKind(?string $type): ?string
     {
         $normalized = $this->normalize($type);
 
@@ -245,7 +260,7 @@ class TicketCoverageService
         };
     }
 
-    private function normalize(?string $value): string
+    public function normalize(?string $value): string
     {
         return mb_strtoupper(trim((string) $value));
     }

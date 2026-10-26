@@ -86,6 +86,9 @@ Route::get('/incident-monitoring', [IncidentMonitoringController::class, 'index'
 Route::get('/incident-monitoring/tickets', [IncidentMonitoringController::class, 'tickets'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.tickets');
+Route::get('/incident-monitoring/exclusions', [IncidentMonitoringController::class, 'exclusions'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('incident-monitoring.exclusions');
 Route::get('/incident-monitoring/tickets/download', [IncidentMonitoringController::class, 'download'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.tickets.download');
