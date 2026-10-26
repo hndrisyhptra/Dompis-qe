@@ -99,7 +99,7 @@
                     <tr>
                         <th rowspan="3" scope="col" class="sticky left-0 z-10 min-w-40 border border-ink-200 bg-ink-50 px-3 py-3 text-center dark:border-ink-700 dark:bg-ink-800">REGIONAL</th>
                         <th colspan="6" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">JUMLAH TIKET</th>
-                        <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-brand-50 px-3 py-3 text-center text-brand-800 dark:border-ink-700 dark:bg-brand-900 dark:text-brand-200">SUDAH MAPPING</th>
+                        <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-emerald-50 px-3 py-3 text-center text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/50 dark:text-emerald-200">SUDAH MAPPING</th>
                     </tr>
                     <tr>
                         @foreach ($kinds as $label)<th colspan="2" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
@@ -107,8 +107,8 @@
                     </tr>
                     <tr>
                         @foreach ($kinds as $label)
-                            <th scope="col" class="min-w-24 border border-ink-200 px-2 py-3 dark:border-ink-700">Sudah<br>Exclude</th>
-                            <th scope="col" class="min-w-24 border border-ink-200 px-2 py-3 dark:border-ink-700">Belum<br>Exclude</th>
+                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-emerald-500 bg-emerald-50/70 px-2 py-3 font-semibold text-emerald-800 dark:border-ink-700 dark:border-b-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-200">Sudah<br>Exclude</th>
+                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-brand-500 bg-brand-50/70 px-2 py-3 font-semibold text-brand-800 dark:border-ink-700 dark:border-b-brand-500 dark:bg-brand-900/30 dark:text-brand-200">Belum<br>Exclude</th>
                         @endforeach
                         @foreach ($kinds as $label)
                             @foreach ($reasons as $reason => $reasonLabel)
@@ -158,7 +158,7 @@
             <p role="status" class="px-5 pb-5 text-sm text-ink-500 dark:text-ink-400">Tidak ada tiket yang sesuai pilihan ini.</p>
         @else
             <div role="region" aria-label="Daftar detail tiket" tabindex="0" class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500">
-                <table class="w-full min-w-[850px] text-left text-sm">
+                <table class="w-full min-w-212.5 text-left text-sm">
                     <thead class="bg-ink-50 text-xs text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
                         @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'Status Exclude', 'Alasan'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
                     </tr></thead>
@@ -169,7 +169,7 @@
                                 <td class="whitespace-nowrap px-4 py-3">{{ $ticket['reported_date'] ?? '—' }}</td>
                                 <td class="px-4 py-3">{{ $ticket['ticket_type'] }}</td>
                                 <td class="px-4 py-3">{{ $ticket['workzone'] }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span></td>
-                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_excluded'] ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200' }}">{{ $ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude' }}</span></td>
+                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200' }}">{{ $ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude' }}</span></td>
                                 <td class="px-4 py-3">{{ $ticket['is_excluded'] ? $ticket['reason_label'] : '—' }}</td>
                             </tr>
                         @endforeach

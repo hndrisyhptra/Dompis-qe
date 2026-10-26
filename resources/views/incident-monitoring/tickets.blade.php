@@ -100,7 +100,7 @@
         @foreach ([['total', 'Total tiket', 'all'], ['without_lop', 'Belum memiliki LOP', 'without_lop'], ['with_lop', 'Sudah memiliki LOP', 'with_lop'], ['excluded', 'Tiket Exclude', 'excluded']] as [$key, $label, $usage])
             <a href="{{ $filterUrl(['usage' => $usage]) }}" @click="loading = true" class="rounded-md border bg-white p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:bg-ink-900 sm:p-5 {{ $filters['usage'] === $usage ? 'border-brand-300 dark:border-brand-600' : 'border-ink-100 hover:border-ink-300 dark:border-ink-800 dark:hover:border-ink-600' }}">
                 <p class="text-sm font-medium text-ink-600 dark:text-ink-300">{{ $label }}</p>
-                <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums text-ink-900 dark:text-white" data-metric="{{ $key }}">{{ $stats === null ? '—' : number_format($stats[$key], 0, ',', '.') }}</p>
+                <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums {{ $key === 'excluded' ? 'text-emerald-800 dark:text-emerald-300' : 'text-ink-900 dark:text-white' }}" data-metric="{{ $key }}">{{ $stats === null ? '—' : number_format($stats[$key], 0, ',', '.') }}</p>
             </a>
         @endforeach
     </section>
@@ -156,7 +156,7 @@
                         <x-copyable-value :value="$row['incident']" label="Incident" class="text-sm" />
                         <p class="text-xs text-ink-500 dark:text-ink-400">Tanggal laporan: {{ $row['reported_date'] ?? 'Belum terisi' }}</p>
                         @unless ($showExcludeReasonMobile)
-                            <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'warning' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></div>
+                            <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'success' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></div>
                             <p class="text-sm text-ink-600 dark:text-ink-300">{{ $row['branch'] ?? 'Branch belum terpetakan' }} / {{ $row['workzone'] }}</p>
                         @else
                             <div class="flex flex-wrap items-center gap-2"><span class="text-sm">{{ $row['ticket_type'] }}</span></div>
@@ -225,7 +225,7 @@
                                 <td class="px-4 py-3"><x-copyable-value :value="$row['incident']" label="Incident" /><p class="mt-1 text-xs text-ink-500 dark:text-ink-400" title="Tanggal laporan">{{ $row['reported_date'] ?? 'Tanggal laporan belum terisi' }}</p></td>
                                 <td class="px-3 py-4">{{ $row['ticket_type'] }}</td>
                                 <td class="px-3 py-4"><p>{{ $row['branch'] ?? 'Belum terpetakan' }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $row['workzone'] }}</p></td>
-                                @if ($showUsageColumn)<td class="px-3 py-4"><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'warning' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></td>@endif
+                                @if ($showUsageColumn)<td class="px-3 py-4"><x-badge :variant="$row['usage'] === 'without_lop' ? 'neutral' : ($row['usage'] === 'excluded' ? 'success' : 'info')">{{ $usageLabels[$row['usage']] }}</x-badge></td>@endif
                                 @if ($showExcludeReason)
                                     <td class="px-3 py-4"><span class="text-sm">{{ $row['exclude_reason'] !== null ? ($excludeReasons[$row['exclude_reason']] ?? $row['exclude_reason']) : '—' }}</span></td>
                                 @endif
