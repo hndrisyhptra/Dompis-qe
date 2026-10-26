@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\LopStatus;
 use App\Enums\UserRole;
 use App\Models\QeLop;
 use App\Models\User;
@@ -36,6 +37,22 @@ class QeLopPolicy
 
         // Teknisi hanya boleh lihat LOP yang sedang/pernah ditugaskan padanya.
         return $lop->assignments()->where('technician_id', $user->id_user)->exists();
+    }
+
+    public function editBaBongkar(User $user, QeLop $lop): bool
+    {
+        return $user->hasRole(UserRole::TEKNISI)
+            && $lop->status_lop === LopStatus::PROGRESS
+            && $lop->assignments()->where('technician_id', $user->getKey())->where('status', 'active')->exists();
+    }
+
+    public function reviewBaBongkar(User $user, QeLop $lop): bool
+    {
+        return $user->hasRole(...UserRole::adminLevel())
+            && $this->reviewEvidence($user, $lop)
+            && $lop->ba_bongkar_required === true
+            && filled(data_get($lop->ba_bongkar_data, 'submitted_at'))
+            && in_array($lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::REJECTED], true);
     }
 
     public function create(User $user): bool

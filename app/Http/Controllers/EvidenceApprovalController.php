@@ -39,7 +39,7 @@ class EvidenceApprovalController extends Controller
         // Tanpa ?step= eksplisit, buka langsung di step yang evidence-nya
         // masih perlu direview (mis. setelah teknisi mengunggah perbaikan).
         $step = $request->has('step')
-            ? max(1, min(5, $request->integer('step')))
+            ? max(1, min(6, $request->integer('step')))
             : $data['suggestedStep'];
 
         return view('evidence-approval.lop-review', [...$data, 'currentStep' => $step,

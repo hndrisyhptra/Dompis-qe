@@ -271,7 +271,7 @@ class ReservationBoqManagementTest extends TestCase
             }
         }
         [$keep, $remove, $new] = array_map(fn ($code) => Designator::where('code', 'M-'.$code)->firstOrFail(), ['KEEP', 'REMOVE', 'NEW']);
-        $lop = QeLop::create(['incident' => 'INC-RESERVATION-'.$suffix, 'nama_lop' => 'LOP reservasi '.$suffix, 'program_type' => 'recovery', 'status_lop' => 'progress', 'branch' => $branch->name, 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'area' => '3', 'segment' => ['odp'], 'package_id' => $package->getKey(), 'created_by' => $admin->getKey()]);
+        $lop = QeLop::create(['ba_bongkar_required' => false, 'incident' => 'INC-RESERVATION-'.$suffix, 'nama_lop' => 'LOP reservasi '.$suffix, 'program_type' => 'recovery', 'status_lop' => 'progress', 'branch' => $branch->name, 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'area' => '3', 'segment' => ['odp'], 'package_id' => $package->getKey(), 'created_by' => $admin->getKey()]);
         $lop->assignments()->create(['technician_id' => $tech->getKey(), 'assigned_by' => $admin->getKey(), 'status' => 'active', 'assigned_at' => now()]);
         $reservation = $lop->materialReservation()->create(['technician_id' => $tech->getKey(), 'status' => 'draft']);
         $reservation->items()->createMany([['designator_id' => $keep->getKey(), 'qty' => 10, 'qty_actual' => 7], ['designator_id' => $remove->getKey(), 'qty' => 5]]);

@@ -45,6 +45,24 @@ class EvidenceService
      * mengaturnya (lihat uploadMany). $writtenPaths (by-ref) diisi path file
      * yang sudah ditulis, untuk cleanup bila transaksi caller gagal.
      */
+    public function storeBaFile(QeLop $lop, User $actor, EvidenceCategory $category, string $bytes, string $name, string $mime, array $metadata, array &$writtenPaths): QeEvidence
+    {
+        abort_unless($category->isBaBongkar(), 422);
+        $path = 'ba-bongkar/'.$lop->getKey().'/'.Str::uuid().'.'.pathinfo($name, PATHINFO_EXTENSION);
+        if (! Storage::disk('local')->put($path, $bytes)) {
+            throw new RuntimeException('Penyimpanan BA Bongkar gagal.');
+        }
+        $writtenPaths[] = $path;
+
+        return QeEvidence::create([
+            'qe_lop_id' => $lop->getKey(), 'uploaded_by' => $actor->getKey(),
+            'step' => EvidenceStep::DISMANTLE, 'category' => $category,
+            'type' => $category === EvidenceCategory::BA_BONGKAR ? EvidenceType::DOCUMENT : EvidenceType::PHOTO,
+            'file_path' => $path, 'status' => EvidenceStatus::PENDING,
+            'metadata' => [...$metadata, 'original_name' => $name, 'mime' => $mime, 'size' => strlen($bytes)],
+        ]);
+    }
+
     public function storeOne(
         QeLop $lop,
         array $data,
@@ -53,6 +71,11 @@ class EvidenceService
         ?UploadedFile $thumb = null,
         ?array &$writtenPaths = null,
     ): QeEvidence {
+        $category = $data['category'] ?? null;
+        $category = $category instanceof EvidenceCategory ? $category : EvidenceCategory::tryFrom((string) $category);
+        if ($category?->isBaBongkar()) {
+            throw ValidationException::withMessages(['category' => 'BA Bongkar hanya dapat dikelola melalui tahap 6.']);
+        }
         // Upload yang sudah berjalan tidak boleh menulis setelah LOP diarsipkan.
         // Caller selalu membuka transaction; lock ini sejalan dengan LopService::delete.
         $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
@@ -159,6 +182,10 @@ class EvidenceService
 
     public function approve(QeEvidence $evidence, User $actor): QeEvidence
     {
+        if ($evidence->category?->isBaBongkar()) {
+            throw ValidationException::withMessages(['review' => 'Gunakan pemeriksaan paket BA pada tahap 6 Review Evidence Admin.']);
+        }
+
         return DB::transaction(function () use ($evidence, $actor): QeEvidence {
             $this->lockActiveLop($evidence);
             $evidence->update([
@@ -199,6 +226,9 @@ class EvidenceService
                 ->lockForUpdate()
                 ->get();
 
+            if ($evidences->contains(fn ($e) => $e->category?->isBaBongkar())) {
+                throw ValidationException::withMessages(['review' => 'BA Bongkar diperiksa Admin sebagai satu paket pada tahap 6.']);
+            }
             if ($evidences->count() !== $ids->count()) {
                 throw ValidationException::withMessages([
                     'review' => 'Sebagian evidence tidak ditemukan pada LOP ini.',
@@ -239,6 +269,9 @@ class EvidenceService
 
     public function replace(QeEvidence $evidence, UploadedFile $file, User $actor, ?UploadedFile $thumb = null): QeEvidence
     {
+        if ($evidence->category?->isBaBongkar()) {
+            throw ValidationException::withMessages(['review' => 'Perbaiki BA Bongkar melalui form tahap 6.']);
+        }
         $dir = "evidences/{$evidence->qe_lop_id}/{$evidence->step->value}";
         $uuid = (string) Str::uuid();
 
@@ -290,6 +323,10 @@ class EvidenceService
 
     public function reject(QeEvidence $evidence, User $actor, string $reason): QeEvidence
     {
+        if ($evidence->category?->isBaBongkar()) {
+            throw ValidationException::withMessages(['review' => 'Gunakan pemeriksaan paket BA pada tahap 6 Review Evidence Admin.']);
+        }
+
         return DB::transaction(function () use ($evidence, $actor, $reason): QeEvidence {
             $this->lockActiveLop($evidence);
             $evidence->update([

@@ -30,7 +30,7 @@ class EvidenceArchiveService
 
         $images = $lop->evidences
             ->filter(fn ($e) => in_array($this->ext($e->file_path), self::IMAGE_EXT, true))
-            ->filter(fn ($e) => $disk->exists($e->file_path))
+            ->filter(fn ($e) => Storage::disk($e->storageDisk())->exists($e->file_path))
             ->values();
 
         if ($images->isEmpty()) {
@@ -48,6 +48,7 @@ class EvidenceArchiveService
         foreach ($images as $e) {
             $category = $this->safeName($e->category?->value ?? $e->step?->value ?? 'lainnya');
             $label = $this->safeName($e->designator?->code ?? 'global');
+            $disk = Storage::disk($e->storageDisk());
             $ext = $this->ext($e->file_path);
 
             $entry = "{$folder}/{$category}/{$label}-{$e->id_evidence}.{$ext}";

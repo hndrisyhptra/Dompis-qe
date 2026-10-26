@@ -26,6 +26,28 @@ use InvalidArgumentException;
  */
 class UserService
 {
+    public function retireRemovedRole(User $target, User $actor): User
+    {
+        abort_unless($actor->hasRole(UserRole::SUPER_ADMIN) && $actor->isActive(), 403);
+
+        return DB::transaction(function () use ($target, $actor): User {
+            $target = User::withTrashed()->lockForUpdate()->findOrFail($target->getKey());
+            if (! $target->role || UserRole::tryFrom($target->role->code) || $target->is($actor)) {
+                throw new InvalidArgumentException('Hanya role yang sudah dihapus dari aplikasi yang dapat dilepas.');
+            }
+            $changes = [
+                'role_id' => ['from' => $target->role_id, 'to' => null],
+                'status' => ['from' => $target->status, 'to' => 'inactive'],
+                'role_code' => ['from' => $target->role->code, 'to' => null],
+            ];
+            $target->forceFill(['role_id' => null, 'status' => 'inactive', 'remember_token' => null])->save();
+            DB::table('sessions')->where('user_id', $target->getKey())->delete();
+            $this->recordHistory($target, $actor, 'role_retired', $changes, 'Role tidak lagi digunakan; akun dinonaktifkan tanpa menghapus data dan histori.');
+
+            return $target;
+        });
+    }
+
     public function changeOwnPassword(User $actor, string $currentPassword, string $password): User
     {
         return DB::transaction(function () use ($actor, $currentPassword, $password): User {

@@ -155,7 +155,7 @@ class UserController extends Controller
     private function formOptions(): array
     {
         return [
-            'roles' => Role::orderBy('name')->get(),
+            'roles' => Role::whereIn('code', array_column(UserRole::cases(), 'value'))->orderBy('name')->get(),
             'adminRoleId' => Role::query()->where('code', UserRole::ADMIN->value)->value('id'),
             'scopeTypes' => AdminScopeType::cases(),
             'areas' => Area::query()->where('is_active', true)->orderBy('name')->get(),

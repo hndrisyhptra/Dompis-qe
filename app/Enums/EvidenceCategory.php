@@ -4,6 +4,8 @@ namespace App\Enums;
 
 enum EvidenceCategory: string
 {
+    case BA_BONGKAR = 'ba_bongkar';
+    case BA_BONGKAR_PHOTO = 'ba_bongkar_photo';
     case PRE = 'pre';
     case INSERA = 'insera';
     case MATERIAL_ARRIVAL = 'material_arrival';
@@ -16,6 +18,8 @@ enum EvidenceCategory: string
     public function label(): string
     {
         return match ($this) {
+            self::BA_BONGKAR => 'BA Bongkar',
+            self::BA_BONGKAR_PHOTO => 'Foto Bongkaran',
             self::PRE => 'Evidence Pra',
             self::INSERA => 'Capture Ticket Insera',
             self::MATERIAL_ARRIVAL => 'Material Tiba',
@@ -25,6 +29,11 @@ enum EvidenceCategory: string
             self::SLOT_PORT => 'Capture Logic Slot Port',
             self::REQUEST_LETTER => 'Surat Permintaan',
         };
+    }
+
+    public function isBaBongkar(): bool
+    {
+        return in_array($this, [self::BA_BONGKAR, self::BA_BONGKAR_PHOTO], true);
     }
 
     public function isOptionalCapture(): bool

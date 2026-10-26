@@ -67,11 +67,11 @@ class TechnicianController extends Controller
         // Step terkunci: hanya boleh membuka step yang <= step pertama yang
         // belum lengkap (currentStep). Step yang sudah selesai tetap boleh
         // dibuka untuk review; step di depannya dikunci. Setelah submit/selesai
-        // atau reject, kelima tahap terbuka untuk peninjauan tanpa form pekerjaan.
+        // atau reject, keenam tahap terbuka untuk peninjauan tanpa form pekerjaan.
         $readOnly = in_array($qe_lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::COMPLETED, LopStatus::REJECTED], true);
-        $maxStep = $readOnly ? 5 : $state['currentStep'];
+        $maxStep = $readOnly ? 6 : $state['currentStep'];
         $rejectedStep = $state['rejectedSteps']->keys()->min();
-        $requestedStep = max(1, min(5, $request->integer('step', $rejectedStep ?? $state['currentStep'])));
+        $requestedStep = max(1, min(6, $request->integer('step', $rejectedStep ?? $state['currentStep'])));
 
         if ($requestedStep > $maxStep) {
             return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $maxStep]);
@@ -97,7 +97,7 @@ class TechnicianController extends Controller
     {
         $this->authorize('view', $qe_lop);
         $state = $this->workflowService->state($qe_lop);
-        $returnStep = max(1, min(5, $request->integer('step', 5)));
+        $returnStep = max(1, min(6, $request->integer('step', 5)));
 
         if (! $state['materialUsageComplete']) {
             return redirect()->route('technician.projects.show', [$qe_lop, 'step' => $returnStep])

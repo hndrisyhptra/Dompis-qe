@@ -54,6 +54,7 @@ class PermissionMigrationTest extends TestCase
         $this->assertSame(4, $countFor('TEKNISI'));
         $this->assertSame(3, $countFor('MANAGER'));
         $this->assertSame(2, $countFor('APPROVER'));
+        $this->assertSame(0, $countFor('WAREHOUSE'));
         $this->assertSame(15, $countFor('SUPER_ADMIN'));
 
         $this->assertDatabaseHas('role_permissions', [

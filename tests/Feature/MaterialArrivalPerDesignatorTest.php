@@ -38,7 +38,7 @@ class MaterialArrivalPerDesignatorTest extends TestCase
         Storage::fake(config('evidence.disk', 'public'));
         $this->admin = User::factory()->role('SUPER_ADMIN')->create();
         $this->tech = User::factory()->role('TEKNISI')->create();
-        $this->lop = QeLop::create([
+        $this->lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'ARRIVAL-TEST', 'nama_lop' => 'Material Arrival Test',
             'program_type' => 'relok_utilitas', 'status_lop' => 'survey', 'created_by' => $this->admin->getKey(),
         ]);

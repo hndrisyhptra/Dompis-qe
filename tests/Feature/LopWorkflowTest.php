@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\LopStatus;
 use App\Enums\UserRole;
-use App\Models\User;
 use App\Models\Area;
 use App\Models\Branch;
 use App\Models\Region;
 use App\Models\ServiceArea;
+use App\Models\User;
 use App\Services\LopService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -108,6 +108,8 @@ class LopWorkflowTest extends TestCase
             'job_description' => 'Relok Utilitas Jl. Cihampelas',
         ], $admin);
 
+        $lop->update(['ba_bongkar_required' => false]);
+        $lop->evidences()->create(['uploaded_by' => $teknisi->getKey(), 'step' => 'AFTER', 'category' => 'after', 'type' => 'PHOTO', 'status' => 'approved', 'file_path' => 'lifecycle.jpg']);
         $service->assign($lop, $teknisi, $admin);
 
         foreach ([

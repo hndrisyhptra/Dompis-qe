@@ -51,6 +51,11 @@ class QeEvidence extends Model
     /**
      * URL file evidence asli (full-res) di disk yang dikonfigurasi.
      */
+    public function storageDisk(): string
+    {
+        return $this->category?->isBaBongkar() ? 'local' : config('evidence.disk', 'public');
+    }
+
     public function url(): string
     {
         return route('evidence-files.show', [

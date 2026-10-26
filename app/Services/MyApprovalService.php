@@ -52,7 +52,7 @@ class MyApprovalService
             $lop->setAttribute('approval_summary', $summary);
             $lop->setAttribute('approval_ready', $lop->status_lop === LopStatus::WAITING_APPROVAL
                 && $summary['total'] > 0 && $summary['approved'] === $summary['total']);
-            $lop->setAttribute('review_step', $lop->approval_ready || $lop->status_lop === LopStatus::COMPLETED ? 5 : null);
+            $lop->setAttribute('review_step', $lop->approval_ready || $lop->status_lop === LopStatus::COMPLETED ? 6 : null);
         }
 
         return [

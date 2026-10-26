@@ -175,7 +175,7 @@ class UserImportService
     private function catalog(): array
     {
         return [
-            'role' => $this->index(Role::all(), ['code', 'name']),
+            'role' => $this->index(Role::whereIn('code', array_column(UserRole::cases(), 'value'))->get(), ['code', 'name']),
             'area' => $this->index(Area::where('is_active', true)->get(), ['code', 'name']),
             'region' => $this->index(Region::where('is_active', true)->get(), ['code', 'name']),
             'branch' => $this->index(Branch::with('regionRef')->where('is_active', true)->get(), ['code', 'name']),

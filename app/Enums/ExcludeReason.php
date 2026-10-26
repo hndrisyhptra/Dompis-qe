@@ -15,7 +15,7 @@ enum ExcludeReason: string
             self::NON_MATERIAL => 'Non Material',
             self::TEMPORER => 'Temporer',
             self::DUPLIKAT_OPEN => 'Duplikat Tiket Open',
-            self::MAGU_GANTI_PASIF_ODP => 'Magu Ganti Pasif ODP',
+            self::MAGU_GANTI_PASIF_ODP => 'MAGU Ganti Pasif ODP',
         };
     }
 }

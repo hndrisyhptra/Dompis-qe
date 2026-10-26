@@ -26,7 +26,7 @@
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 Kembali
             </a>
-            <div class="text-right"><h2 class="text-sm font-extrabold">Step {{ $step }} dari 5</h2><p class="mt-1 text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete'], $state['step5Complete']])->filter()->count() }}/5 lengkap</p></div>
+            <div class="text-right"><h2 class="text-sm font-extrabold">Step {{ $step }} dari 6</h2><p class="mt-1 text-[10px] font-semibold text-ink-400">{{ collect([$state['step1Complete'], $state['step2Complete'], $state['step3Complete'], $state['step4Complete'], $state['step5Complete'], $state['step6Complete']])->filter()->count() }}/6 lengkap</p></div>
         </div>
         <x-lop-progress-stepper :current="$step" :state="$state" :max-step="$maxStep ?? $state['currentStep']" />
     </section>
@@ -83,7 +83,9 @@
         <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Pilih tahap untuk melihat evidence. Foto milik Anda yang belum approved dapat dihapus untuk koreksi. Foto approved harus direset admin terlebih dahulu.</p>
         @include('technician.partials.step-review')
     @else
-    @if ($step === 1)
+    @if ($step === 6)
+        @include('technician.partials.ba-bongkar')
+    @elseif ($step === 1)
         @php
             $materialRows = $state['items']->values()->map(fn ($item, $index) => ['designator_id' => (string) $item->designator_id, 'qty' => (int) round((float) $item->qty), 'open' => $index === 0]);
             if ($materialRows->isEmpty()) $materialRows = collect([['designator_id' => '', 'qty' => 1, 'open' => true]]);
@@ -270,8 +272,8 @@
             @php $canSubmit = $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] && $state['step5Complete']; @endphp
             <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900" x-data="{ showSubmitConfirm: false }">
                 <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Capture slot port tersedia.' : 'Capture slot port opsional — belum diupload.' }} {{ $state['materialUsageComplete'] ? 'Rekap material lengkap.' : 'Rekap qty material belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
-                <button type="button" @click="showSubmitConfirm = true" @disabled(! $canSubmit)
-                        class="mt-4 min-h-12 w-full rounded-2xl text-sm font-extrabold {{ $canSubmit ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">Ajukan Approval</button>
+                <button type="button" @click="window.location.href = @js(route('technician.projects.show', [$lop, 'step' => 6]))" @disabled(! $canSubmit)
+                        class="mt-4 min-h-12 w-full rounded-2xl text-sm font-extrabold {{ $canSubmit ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">Lanjut BA Bongkar →</button>
 
                 <x-confirm-modal state="showSubmitConfirm"
                     title="Ajukan seluruh evidence untuk approval?"

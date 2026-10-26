@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['signature_data', 'signature_file']);
         // Laravel mengubah TokenMismatchException menjadi HttpException 419.
         $exceptions->render(function (HttpException $exception, Request $request) {
             return $exception->getStatusCode() === 419 ? SessionExpiredResponse::make($request) : null;

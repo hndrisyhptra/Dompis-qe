@@ -62,7 +62,7 @@ class EvidenceController extends Controller
     {
         $this->authorize('view', $evidence);
 
-        $disk = Storage::disk(config('evidence.disk', 'public'));
+        $disk = Storage::disk($evidence->storageDisk());
         $path = $thumbnail && $evidence->thumb_path && $disk->exists($evidence->thumb_path)
             ? $evidence->thumb_path
             : $evidence->file_path;

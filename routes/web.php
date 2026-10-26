@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Http\Controllers\AissImportController;
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\BaBongkarController;
 use App\Http\Controllers\BoqImportController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BulkLopImportController;
@@ -55,6 +56,7 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
     Route::post('/projects/{qe_lop}/evidence/file', [TechnicianWorkflowController::class, 'evidenceFile'])->name('projects.evidence.file');
     Route::put('/projects/{qe_lop}/evidence/{evidence}/replace', [TechnicianWorkflowController::class, 'replaceEvidence'])->name('projects.evidence.replace');
     Route::post('/projects/{qe_lop}/survey-complete', [TechnicianWorkflowController::class, 'completeSurvey'])->name('projects.survey-complete');
+    Route::put('/projects/{qe_lop}/ba-bongkar', [BaBongkarController::class, 'store'])->name('projects.ba-bongkar');
     Route::post('/projects/{qe_lop}/submit', [TechnicianWorkflowController::class, 'submitApproval'])->name('projects.submit');
     Route::get('/notifications', [TechnicianController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read-all', [TechnicianController::class, 'readAllNotifications'])->name('notifications.read-all');
@@ -158,6 +160,7 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
     Route::get('/{qe_lop}', [LopController::class, 'show'])->name('show');
     Route::get('/{qe_lop}/detail', [LopController::class, 'detail'])->name('detail');
     Route::get('/{qe_lop}/evidence-archive', [LopController::class, 'downloadEvidenceArchive'])->name('evidence-archive');
+    Route::get('/{qe_lop}/ba-bongkar', [BaBongkarController::class, 'download'])->name('ba-bongkar.download');
     Route::get('/{qe_lop}/edit', [LopController::class, 'edit'])->name('edit');
     Route::put('/{qe_lop}', [LopController::class, 'update'])->name('update');
     Route::post('/{qe_lop}/transition', [LopController::class, 'transitionStatus'])->name('transition');
@@ -308,6 +311,7 @@ Route::middleware(['auth'])->prefix('designator-prices')->name('designator-price
 Route::middleware(['auth'])->prefix('evidence-approval')->name('evidence-approval.')->group(function () {
     Route::get('/', [EvidenceApprovalController::class, 'index'])->name('index');
     Route::get('/lop/{qe_lop}', [EvidenceApprovalController::class, 'reviewLop'])->name('lop.review');
+    Route::post('/lop/{qe_lop}/ba-bongkar/review', [BaBongkarController::class, 'review'])->name('ba-bongkar.review');
     Route::post('/lop/{qe_lop}/approve-group', [EvidenceApprovalController::class, 'approveGroup'])->name('lop.approve-group');
     Route::post('/lop/{qe_lop}/complete', [EvidenceApprovalController::class, 'completeReview'])->name('lop.complete');
     Route::get('/{evidence}', [EvidenceApprovalController::class, 'show'])->name('show');

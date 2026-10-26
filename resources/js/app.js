@@ -1,4 +1,7 @@
 import "./bootstrap";
+import { signaturePad, baBongkarForm } from './ba-bongkar';
+window.signaturePad = signaturePad;
+window.baBongkarForm = baBongkarForm;
 import { installAuthSessionGuard } from "./auth-session";
 import { copyableValue } from "./copyable-value";
 import { technicianLocation } from "./technician-location";

@@ -30,6 +30,8 @@ class QeLop extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'ba_bongkar_required',
+        'ba_bongkar_data',
         'incident',
         'nama_lop',
         'program_type',
@@ -94,6 +96,8 @@ class QeLop extends Model
     protected function casts(): array
     {
         return [
+            'ba_bongkar_required' => 'boolean',
+            'ba_bongkar_data' => 'array',
             'program_type' => ProgramType::class,
             'status_project' => ProjectStatus::class,
             'segment' => 'array',

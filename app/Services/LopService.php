@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\EvidenceCategory;
+use App\Enums\EvidenceStatus;
 use App\Enums\LopSegment;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
@@ -17,6 +18,7 @@ use App\Models\QeLopHistory;
 use App\Models\ServiceArea;
 use App\Models\User;
 use App\Notifications\TechnicianActivityNotification;
+use App\Support\BaBongkarRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -298,12 +300,32 @@ class LopService
      * di LopStatus::transitions(). Melempar InvalidArgumentException kalau
      * transisi tidak valid (misal draft -> completed langsung).
      */
+    public function recordBaBongkarEvent(QeLop $lop, User $actor, string $event, array $meta): void
+    {
+        $this->recordHistory($lop, $lop->status_lop, $lop->status_lop, $actor, $event, 'BA Bongkar')->update(['meta' => $meta]);
+    }
+
     public function transitionStatus(
         QeLop $lop,
         LopStatus $target,
         User $actor,
         ?string $note = null
     ): QeLop {
+        if (! $lop->status_lop->canTransitionTo($target)) {
+            throw new InvalidArgumentException("Transisi status tidak valid: {$lop->status_lop->value} -> {$target->value}");
+        }
+        if (in_array($target, [LopStatus::WAITING_APPROVAL, LopStatus::COMPLETED], true)) {
+            $lop->unsetRelation('evidences');
+            if ($target === LopStatus::COMPLETED) {
+                BaBongkarRules::assertCompletable($lop);
+                $reviewable = $lop->evidences->reject(fn ($e) => $e->category === EvidenceCategory::REQUEST_LETTER);
+                if ($reviewable->isEmpty() || $reviewable->contains(fn ($e) => $e->status !== EvidenceStatus::APPROVED)) {
+                    throw ValidationException::withMessages(['review' => 'Seluruh evidence wajib approved sebelum Completed.']);
+                }
+            } else {
+                BaBongkarRules::assertSubmittable($lop);
+            }
+        }
         $current = $lop->status_lop;
 
         if ($current === LopStatus::COMPLETED) {

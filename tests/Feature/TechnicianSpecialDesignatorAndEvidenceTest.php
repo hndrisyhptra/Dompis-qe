@@ -74,7 +74,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
 
     private function lop(string $status = 'progress', string $program = 'preventive'): QeLop
     {
-        $lop = QeLop::create([
+        $lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'SPECIAL-'.QeLop::count(), 'nama_lop' => 'Special Designator Test', 'program_type' => $program,
             'status_lop' => $status, 'branch_id' => $this->branch->getKey(), 'service_area_id' => $this->sa->getKey(),
             'branch' => $this->branch->name, 'sto' => $this->sa->workzone, 'created_by' => $this->admin->getKey(), 'package_id' => $this->package->getKey(),

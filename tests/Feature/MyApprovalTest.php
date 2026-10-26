@@ -64,7 +64,7 @@ class MyApprovalTest extends TestCase
         $this->assertSame(1, $readyRow->approval_summary['total']);
         $this->assertSame(100, $readyRow->approval_summary['approval_percentage']);
         $this->assertTrue($readyRow->approval_ready);
-        $this->assertSame(5, $readyRow->review_step);
+        $this->assertSame(6, $readyRow->review_step);
         $reminder = app(MyApprovalService::class)->reminder($admin);
         $this->assertSame($pending->getKey(), $reminder['priority']->getKey());
         $this->assertSame($stats, $reminder['stats']);
@@ -234,7 +234,7 @@ class MyApprovalTest extends TestCase
 
     private function lop(User $assigner, User $tech, ServiceArea $sa, string $code, string $status, ?User $creator = null): QeLop
     {
-        $lop = QeLop::create(['incident' => 'INC-'.$code, 'nama_lop' => 'LOP '.$code, 'program_type' => 'recovery', 'status_lop' => $status, 'sto' => $sa->workzone, 'branch' => $sa->branch->name, 'branch_id' => $sa->branch_id, 'service_area_id' => $sa->getKey(), 'segment' => ['odp'], 'created_by' => ($creator ?? $assigner)->getKey()]);
+        $lop = QeLop::create(['ba_bongkar_required' => false, 'incident' => 'INC-'.$code, 'nama_lop' => 'LOP '.$code, 'program_type' => 'recovery', 'status_lop' => $status, 'sto' => $sa->workzone, 'branch' => $sa->branch->name, 'branch_id' => $sa->branch_id, 'service_area_id' => $sa->getKey(), 'segment' => ['odp'], 'created_by' => ($creator ?? $assigner)->getKey()]);
         $lop->assignments()->create(['technician_id' => $tech->getKey(), 'assigned_by' => $assigner->getKey(), 'status' => 'active', 'assigned_at' => now()]);
 
         return $lop;

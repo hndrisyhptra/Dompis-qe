@@ -19,7 +19,7 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role_id' => ['required', 'integer', 'exists:roles,id'],
+            'role_id' => ['required', 'integer', Rule::exists('roles', 'id')->whereIn('code', array_column(UserRole::cases(), 'value'))],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id_branch'],
             'admin_scope_type' => ['nullable', Rule::enum(AdminScopeType::class)],
             'area_id' => ['nullable', 'integer', 'exists:areas,id_area'],

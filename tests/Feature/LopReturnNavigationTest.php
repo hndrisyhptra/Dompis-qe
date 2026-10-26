@@ -93,7 +93,7 @@ class LopReturnNavigationTest extends TestCase
         $sa = ServiceArea::firstOrCreate(['workzone' => 'SDA'], ['name' => 'SIDOARJO', 'branch_id' => $branch->getKey(), 'region_id' => $region->getKey(), 'is_active' => true]);
         $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->getKey(), 'admin_scope_type' => 'branch']);
         $tech = User::factory()->role(UserRole::TEKNISI->value)->create(['branch_id' => $branch->getKey()]);
-        $lop = QeLop::create(['incident' => 'INC-NAV', 'nama_lop' => 'Navigasi LOP', 'program_type' => 'recovery', 'status_lop' => 'draft', 'branch' => $branch->name, 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'area' => '3', 'segment' => ['odp'], 'job_description' => 'Pekerjaan test', 'created_by' => $admin->getKey()]);
+        $lop = QeLop::create(['ba_bongkar_required' => false, 'incident' => 'INC-NAV', 'nama_lop' => 'Navigasi LOP', 'program_type' => 'recovery', 'status_lop' => 'draft', 'branch' => $branch->name, 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'area' => '3', 'segment' => ['odp'], 'job_description' => 'Pekerjaan test', 'created_by' => $admin->getKey()]);
 
         return [$admin, $tech, $lop];
     }

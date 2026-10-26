@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **20 Oktober 2026**
+Terakhir diaudit: **26 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `9e251d7` (`fix: dashboard monitoring`)
+HEAD dasar saat audit terbaru: `ad31b14` (`feat: capture dashboard`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -22,7 +22,8 @@ Input/import LOP
     -> evidence material tiba dan pra
     -> evidence progress
     -> evidence after + rekap aktual
-    -> waiting approval
+    -> keputusan BA Bongkar (Ya: form/foto/TTD teknisi/PDF; Tidak: selesai tahap 6)
+    -> waiting approval (Admin mereview pekerjaan dan paket BA)
     -> review evidence
     -> completed atau rejected
 ```
@@ -174,17 +175,18 @@ draft -> assigned -> picked_up -> survey -> progress
       -> rejected -> progress / waiting_approval
 ```
 
-Workflow mobile teknisi aktual terdiri dari lima langkah:
+Workflow mobile teknisi aktual terdiri dari enam langkah:
 
 1. Reservasi material.
 2. Evidence material tiba. Khusus QE Relok Utilitas wajib per item MATERIAL ber-volume pada BOQ Plan; program lain tetap global. Minimal satu foto non-rejected per item, boleh multiple. Tanpa BOQ Plan/material, teknisi diminta menghubungi admin; global lama tidak menjadi pengganti.
 3. Evidence pra: foto kondisi awal wajib; Tag Lokasi dan Capture Ticket Insera opsional. Surat Permintaan opsional untuk Preventive/Relok. Tag Lokasi dapat memakai GPS, isian terpisah, atau tempel pasangan Latitude, Longitude lalu Simpan lokasi; tidak perlu membuat survey kosong untuk lanjut.
 4. Evidence progress per designator reservasi.
 5. Evidence after per designator dan `qty_actual` wajib; Capture Logic Slot Port (Screenshot Detail Slot Port OLT) opsional.
+6. BA Bongkar: wajib menjawab Ya/Tidak. Ya memerlukan form material bongkaran, minimal satu foto, TTD teknisi dan PDF. Pengajuan hanya menuju Admin, yang memeriksa paket BA pada tahap 6 Review Evidence bersama pekerjaan lain. Tidak ada role/approval/TTD Warehouse dan tidak ada TTD Admin tambahan saat completion. Format PDF mengikuti acuan Karangdoro (7.64); penerima dan pihak yang mengetahui ditandatangani pada dokumen cetak, nama/NIK/TTD contoh tidak disalin.
 
 LOP baru dapat diajukan bila semua checklist wajib lengkap. Rejected evidence dapat diganti pada record yang sama, bukan membuat evidence baru.
 
-Saat Waiting Approval, Completed, atau Rejected, seluruh lima tahap tetap dapat dibuka dalam mode review. Form reservasi/lokasi/rekap tidak ditampilkan; evidence tetap dikelompokkan menurut tahap dan item. Tahap dengan reject memiliki penanda merah, dan default halaman membuka reject pertama. Penggantian evidence tetap tersedia pada project Rejected melalui policy existing.
+Saat Waiting Approval, Completed, atau Rejected, seluruh enam tahap tetap dapat dibuka dalam mode review. Form reservasi/lokasi/rekap tidak ditampilkan; evidence tetap dikelompokkan menurut tahap dan item. Tahap dengan reject memiliki penanda merah, dan default halaman membuka reject pertama. Penggantian evidence biasa tetap tersedia pada project Rejected melalui policy existing; perbaikan BA dilakukan lewat form tahap 6 setelah Mulai perbaikan.
 
 ### 4.5 BOQ dan reservasi material
 
@@ -910,9 +912,74 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Test yang menyesuaikan: `DataBoqExportTest` (posisi kolom, `=1+1` pindah ke D2, autofilter A1:K, baris lengkap dengan kolom kosong), `TechnicianSpecialDesignatorAndEvidenceTest` dan `BoqProgramCategoryRulesTest` (indeks kolom Total 9 → 10). Regression baru `DataBoqDateFilterTest::test_reported_date_is_shown_next_to_the_incident_on_both_master_tables` memastikan tanggal tampil berdampingan dengan incident di kedua halaman, `—` untuk LOP tanpa tanggal, dan kolom C Excel membawa tanggal dari kolom lokal.
 - Verifikasi: **531 tests / 5443 assertions** lulus. Pint pada file task lulus, `view:cache` dan `npm run build` lulus, `git diff --check` bersih. Tidak ada migrasi atau schema baru dari perubahan ini — kolom `qe_lops.reported_date` sudah tersedia dan terisi dari 7.56.
 
+### 7.58 Tahap 6 BA Bongkar dan Warehouse — 23 Oktober 2026 (belum di-commit)
+
+- Dua migration additive baru: `2026_10_23_000001_add_ba_bongkar_to_qe_lops.php` menambah keputusan nullable `ba_bongkar_required` dan draft/revisi JSON `ba_bongkar_data`; `2026_10_23_000002_add_warehouse_role.php` menambah WAREHOUSE dan permission view/review BA. SUPER_ADMIN tetap mendapat seluruh kode permission; keputusan BA tetap khusus Warehouse melalui policy. **Keduanya sudah Ran pada MySQL lokal `dompis_qe`, batch 34, setelah izin eksplisit user; produksi belum diterapkan/diverifikasi.**
+- Audit read-only MySQL lokal (`migrate:status`, `db:table qe_lops`, `db:table qe_evidences`) memastikan migration terdahulu Ran, step DISMANTLE dan category varchar(30) tersedia. Artefak tabel/kolom BOQ plan legacy masih terlihat pada schema lokal; tidak dihapus atau digunakan task ini. Produksi belum diaudit.
+- Semua program menggunakan enam tahap. Tidak = keputusan tersimpan tanpa evidence dummy/antrean Warehouse. Ya = draft form dengan beberapa rincian per jenis sesuai PDF di plans, maksimal 12 foto × 10 MB/24 MP, TTD teknisi digambar, lalu generate PDF. Nomor BA, tahun, merek, mitra dan usulan tindak lanjut opsional. Data bongkaran terpisah dari BOQ/reservasi/harga/Revenue.
+- Dompdf 3.1.6 ditambahkan ke Composer; runtime memerlukan DOM/MBString/GD. PDF/foto memakai `qe_evidences`, kategori `ba_bongkar`/`ba_bongkar_photo`, step DISMANTLE, designator null, disk local privat. Streaming/ZIP memilih disk per evidence; file lama tetap memakai disk existing. Foto asli dipertahankan; gambar di dalam PDF diperkecil. TTD disimpan privat dan inputnya tidak diflash ke session.
+- TTD kiri atas dari akun teknisi sebelum submit; kanan atas dari Warehouse saat approve; kiri bawah dari Admin/Super Admin saat menyelesaikan LOP; kanan bawah seluruhnya kosong untuk pihak perusahaan lain offline. Warehouse/Admin dapat menggambar atau upload JPG/PNG/WebP maksimal 2 MB. Nama/NIK berasal dari akun, NIK kosong tidak dikarang.
+- BA diperiksa sebagai satu paket PDF/foto. Jalur upload/approve/reject/bulk/reset/replace generic tidak dapat memodifikasi paket BA. Setiap revisi memakai UUID, snapshot form/TTD dan lock parent; request stale ditolak. Evidence lama soft-deleted dengan file tetap tersimpan untuk audit. Draft baru tidak masuk Warehouse sampai diajukan ulang. Ya yang pernah diajukan tidak dapat diganti Tidak untuk menghindari review.
+- Submit transactional; review Admin dan Warehouse paralel. Reject BA memindahkan Waiting Approval ke Rejected melalui LopService. Perbaikan membuat revisi baru tanpa menghapus approval evidence pekerjaan lain. Penambahan TTD tidak mengubah isi yang diperiksa. PDF final/TTD Admin/completion satu transaksi; kegagalan membersihkan file baru dan rollback DB. Guard BA juga berlaku pada transisi status generic.
+- Warehouse memakai field scope dan `LopVisibilityService` existing: Area, Region, Branch, multi-Service Area serta fallback legacy. User Management/Bulk Import User mendukung scope role ini. Warehouse tidak ditambahkan ke adminLevel/broadVisibility. Login menuju dashboard khusus; menu operasional hanya Dashboard dan Inbox BA Bongkar. Middleware workspace, permission dan policy membatasi modul, record dan file di backend.
+- Dashboard berisi jumlah pending/approved/rejected dan antrean tertua. Inbox menyediakan pencarian Incident/LOP, filter lokasi/status, pagination, detail form/foto/PDF, TTD dan alasan reject. Mode review enam tahap, navigasi Review BOQ sampai step 6, dan Approval Saya siap selesai menuju tahap terakhir. Progres menghitung enam tahap dan tidak memakai evidence rejected untuk kelengkapan Progress/After.
+- Command `dompis:activate-ba-bongkar --cutoff=ISO_8601_DENGAN_TIMEZONE` default **dry-run**. `--apply --actor=ID_SUPER_ADMIN_AKTIF` menandai seluruh dataset cutoff di histori, lalu mengubah Waiting Approval/Completed/Rejected menjadi Progress. Status awal/Progress dipertahankan; arsip dikecualikan. Assignment/evidence/approval lama/BOQ/actual tetap utuh, reservasi yang dibuka kembali menjadi draft. Histori `ba_bongkar_activated` mencegah rerun membuka Completed yang sudah diselesaikan ulang. LOP tanpa teknisi dilaporkan.
+- **Aktivasi lokal selesai 23 Oktober 2026 sekitar 13:20 WIB:** cutoff `2026-10-23T11:14:10+07:00`, actor Super Admin aktif ID 2, 12 LOP diberi histori `ba_bongkar_activated`. Waiting Approval 1 dan Completed 2 (LOP ID 2, 6, 7) kembali ke Progress. Status akhir: Draft 7, Picked Up 1, Progress 4. Tidak ada LOP lanjut tanpa assignment aktif atau item aktual tanpa harga. Nilai Completed Rp1.803.197 keluar sementara dari realisasi sampai Completed lagi. Evidence, approval lama, BOQ/snapshot, item reservasi/qty aktual, assignment dan 42 histori lama terverifikasi tetap utuh; reservasi LOP yang dibuka kembali menjadi draft. Dry-run ulang menghasilkan nol kandidat.
+- Backup schema/data privat lokal: `/private/tmp/dompis-ba-activation-20261023-041410/database-before-complete.sql`, SHA256 `f8920558ceed8118cca408d7e0fc19d6566bc0add9845cbc5b6d06a66cc7af92`; manifest pembanding `before.json`/`after.json` pada direktori yang sama. Backup ini memuat data sensitif: jangan commit/publikasikan; pindahkan ke penyimpanan backup privat bila perlu retensi karena `/private/tmp` dapat dibersihkan. Maintenance dipakai saat apply dan aplikasi sudah live kembali. Pemeriksaan akhir memastikan schema/ledger/permission Warehouse serta evaluasi workflow seluruh 12 LOP berhasil. Tidak membuat akun Warehouse operasional, import, restart worker, commit/push atau deployment produksi.
+- Penerapan: backup/commit dahulu, tentukan cutoff dataset, audit dry-run, siapkan akun Warehouse berscope, install Composer/build, lalu jalankan dua migration spesifik setelah izin database. Gunakan maintenance saat apply agar tidak bersamaan dengan pekerjaan pengguna. Rollback schema menolak keputusan/draft tersimpan; rollback role menolak akun Warehouse yang masih terikat. Pemulihan status harus berdasar histori/backup dan memperhatikan pekerjaan baru, bukan membalik semua status massal.
+- Periksa `post_max_size`, `upload_max_filesize`, memori PHP dan Nginx untuk multipart banyak foto di produksi. Verifikasi MySQL/worker/storage privat/Android WebView fisik tetap terpisah dari test SQLite/sync.
+- Verifikasi: test baru `BaBongkarWorkflowTest` mencakup Ya/Tidak, PDF privat, tiga TTD per akun, approval paralel, reject/revisi/stale, scope empat level/legacy, user/import, cleanup, aktivasi/idempotensi/arsip, rollback dan banyak rincian/12 foto. Frontend BA menguji radio, rincian independen, gambar/resize/hapus TTD. Regression lama mengikuti enam tahap dan label MAGU milik user. Full suite memakai `php -d memory_limit=512M vendor/bin/phpunit` karena gabungan PDF/Excel melampaui batas CLI default 128 MB. Browser Chrome headless dengan fixture SQLite memeriksa form mobile, gambar TTD, payload submit, menu Warehouse, modal Admin dan error JavaScript; PDF diperiksa visual. Ini bukan uji APK/perangkat produksi.
+
+### 7.59 Perbaikan warning profil warna PNG pada PDF BA — 26 Oktober 2026 (belum di-commit)
+
+- Generate BA dapat gagal 500 saat PNG foto/TTD mengandung profil warna dengan warning `imagecreatefromstring(): gd-png: libpng warning: iCCP: extra compressed data`. GD masih dapat membaca piksel, tetapi handler Laravel mengubah warning menjadi exception. Fixture PNG sintetis mereproduksi pesan yang sama sebelum perbaikan.
+- `App\Support\BaImage::decode()` dipakai oleh `BaBongkarPdfService` dan pemeriksaan tinta `BaSignature`. Handler sementara hanya menangani warning `iCCP` dari decoder PNG; warning lain tetap diteruskan ke handler sebelumnya, hasil decode `false` tetap ditolak, dan handler selalu dipulihkan melalui `finally`. Foto asli tetap disimpan tanpa perubahan; gambar dalam PDF tetap diubah menjadi JPEG seperti sebelumnya.
+- Regression HTTP mencakup foto PNG bermasalah sampai generate/approve Warehouse/completion Admin dengan upload TTD PNG yang sama, serta TTD teknisi yang digambar. Unit test memastikan warning asli muncul pada GD, decoding tetap berhasil, warning gambar rusak tidak disembunyikan, dan handler dipulihkan pada jalur sukses/gagal. Test berjalan di PHP 8.5.0 dengan SQLite in-memory; tidak mengulang request atau mengubah LOP 7 pada MySQL operasional.
+- Tidak ada migration, perubahan schema/status/approval, dependency, UI, atau deployment dari perbaikan ini. Perubahan BA Bongkar sebelumnya dan label MAGU milik user tetap dipertahankan.
+- Verifikasi: `php -d memory_limit=512M vendor/bin/phpunit --colors=never` lulus **555 tests / 5714 assertions**; subset BA/decoder lulus **20 tests / 193 assertions**. Pint pada enam file PHP terkait dan `git diff --check` lulus. Build frontend tidak diulang karena tidak ada perubahan Blade/JavaScript/CSS.
+
+### 7.60 Jumlah BA Bongkar berupa bilangan bulat — 26 Oktober 2026 (belum di-commit)
+
+- Input `Jumlah (buah)` sebelumnya memakai `min="0.001"` bersama `step="1"`, sehingga browser menaikkan nilai menjadi 1.001, 2.001, dst., walaupun backend sudah memvalidasi `integer`. Minimum quantity kini 1 dengan step tetap 1. Panjang kabel tetap boleh desimal; tidak ada pembulatan atau perubahan data lama.
+- Regression memeriksa atribut form, penolakan jumlah 1.5/1.001, penerimaan jumlah 2, serta keluaran template PDF `Jumlah: 2 Buah` dan panjang 190.5 meter. `BaBongkarWorkflowTest` + `TechnicianMobileWorkflowTest`: **40 tests / 468 assertions** lulus. Pint file test, `view:cache`, `npm run build`, dan `git diff --check` lulus. Tidak ada migration atau write database operasional.
+
+### 7.61 Ringkasan dan mode edit BA terpisah — 26 Oktober 2026 (belum di-commit)
+
+- Tahap 6 teknisi kini menampilkan ringkasan/PDF dan Ajukan Approval setelah BA dibuat. Form hanya dirender setelah klik **Edit BA Bongkar** (`step=6&edit_ba=1`); heading BA yang berulang di ringkasan dihilangkan khusus pada halaman ini. Tombol Batal kembali ke ringkasan tanpa menyimpan perubahan. Saat mengedit, checklist/submit approval disembunyikan agar perubahan form tidak tertukar dengan BA tersimpan.
+- BA baru/draft tanpa PDF langsung membuka form. Pilihan Tidak yang sudah tersimpan memiliki tombol **Ubah pilihan BA Bongkar**. Form edit mempertahankan nilai/foto/TTD tersimpan; kegagalan validasi BA membuka form kembali dengan old input. Error submit approval tidak otomatis membuka form. Sukses generate kembali ke ringkasan melalui redirect existing. Waiting Approval/Completed/Rejected tetap memakai halaman review tanpa editor, termasuk ketika query edit dikirim manual.
+- Regression mencakup ringkasan, edit, batal tanpa perubahan revisi/PDF, validasi dengan old input, perubahan keputusan Tidak, dan larangan editor setelah submit. `BaBongkarWorkflowTest` + `TechnicianMobileWorkflowTest` + `TechnicianProjectReviewTest`: **52 tests / 716 assertions** lulus. Pint file test, `view:cache`, `npm run build`, dan `git diff --check` lulus. Tidak ada perubahan schema, write database operasional, permission, atau aturan approval.
+
+### 7.62 Tata letak PDF BA lebih formal — 26 Oktober 2026 (belum di-commit)
+
+- PDF memakai DejaVu Serif 11 pt (sebelumnya DejaVu Sans 9 pt), judul 14 pt, margin cetak yang disesuaikan, label identitas sejajar, serta tabel jenis/rincian material. Checkbox tetap memakai DejaVu Sans agar simbol terbaca. Baris material tidak dipecah antardua halaman; blok pernyataan/tanda tangan tetap utuh. Data panjang/banyak rincian tetap dapat menghasilkan beberapa halaman.
+- Dua posisi atas sejajar untuk Yang Menyerahkan dan Yang Menerima, dengan ruang TTD serta nama/NIK masing-masing. **Kedua posisi bawah di bawah Mengetahui dikosongkan**, tanpa tulisan Admin, nama, NIK atau gambar TTD. Ini menggantikan pemetaan tampilan kiri bawah pada 7.58; aturan completion/penyimpanan TTD Admin dalam metadata tetap berlaku, hanya tidak dicetak di kedua kolom kosong tersebut.
+- PDF contoh dengan dua rincian, TTD teknisi/penerima dan satu foto diperiksa visual melalui PDFKit: isi utama dan empat posisi TTD berada di halaman pertama; lampiran foto di halaman kedua. Contoh data uji: `/private/tmp/dompis-ba-preview/sample-final.pdf`. PDF existing tidak diubah massal; tampilan baru berlaku saat generate/penandatanganan menghasilkan PDF baru.
+- Regression memastikan kedua kolom bawah kosong walaupun metadata Admin diberikan, sedangkan identitas teknisi/penerima tetap tampil. `BaBongkarWorkflowTest` + `BaImageTest`: **24 tests / 258 assertions** lulus, termasuk banyak rincian/12 foto dan tiga tahap penandatanganan. Pint file terkait, `view:cache`, `npm run build`, dan `git diff --check` lulus. Preview memakai SQLite in-memory; tidak mengubah database operasional, status, approval lama, atau file BA existing.
+
+### 7.63 Material PDF tanpa tabel dan ruang TTD lebih lega — 26 Oktober 2026 (belum di-commit)
+
+- Mengikuti koreksi user, tabel material pada 7.62 diganti susunan bagian A–G tanpa border/background tabel. Heading kelompok melekat pada rincian pertama; setiap rincian dijaga agar tidak terbelah halaman. DejaVu Serif 11 pt dan checkbox tetap dipertahankan.
+- Jarak penutup ke judul TTD menjadi 8 mm, judul Yang Menyerahkan/Yang Menerima ke bidang TTD 5 mm, tinggi bidang atas 21 mm, jeda identitas atas ke Mengetahui 12 mm, jeda Mengetahui ke bidang bawah 7 mm, serta tinggi bidang bawah 22 mm. Padding kolom 9 mm menjaga ruang horizontal. Kedua posisi bawah tetap kosong tanpa label jabatan/nama/TTD.
+- Blok penutup dan seluruh TTD tetap utuh. Dengan ruang yang lebih lega, contoh dua rincian/dua TTD/satu foto kini memiliki tiga halaman: isi BA, penutup/TTD, lalu lampiran foto. Tidak dipaksakan satu halaman dengan mengurangi font atau jarak. Diperiksa visual melalui PDFKit; contoh data uji terbaru `/private/tmp/dompis-ba-preview/sample-spaced-final.pdf`.
+- `BaBongkarWorkflowTest` + `BaImageTest`: **24 tests / 258 assertions** lulus, termasuk banyak rincian/12 foto. `view:cache`, `npm run build`, dan `git diff --check` lulus. Perubahan hanya template PDF dan handover; tidak mengubah database operasional atau PDF lama. Generate ulang diperlukan untuk memakai tampilan terbaru.
+
+### 7.64 Format acuan Karangdoro dan penghapusan Warehouse — 26 Oktober 2026 (belum di-commit)
+
+- Requirement terbaru menggantikan flow Warehouse pada 7.58 dan perubahan layout 7.62–7.63. Role enum, route/dashboard/inbox/controller/middleware/view Warehouse dihapus; konfigurasi scope/user/import/menu kembali khusus Admin. User Management dan import membatasi pilihan ke role canonical. Login role yang tidak lagi didukung ditolak tanpa exception `UserRole::from`. Migration tambah Warehouse 23 Oktober tetap dipertahankan karena sudah ada di ledger; additive `2026_10_26_000001_remove_warehouse_role.php` menghapus role, kedua permission BA khusus Warehouse dan mapping-nya. Migration menolak jika akun masih memakai role, termasuk akun terarsip; down hanya mengembalikan definisi role/permission, bukan akun/approval.
+- Tahap 6 tetap menentukan Ya/Tidak sebelum submit. Jika Ya, form/foto/TTD teknisi/PDF tetap tersedia; Tidak menyelesaikan tahap tanpa evidence dummy. Setelah submit, Admin/Super Admin dengan `approve_evidence` dan scope LOP memeriksa BA sebagai satu paket melalui `evidence-approval.ba-bongkar.review`. Approve/reject tidak membutuhkan TTD Warehouse atau Admin tambahan, tidak merender ulang PDF, dan memakai revision lock. Reject mengubah Waiting Approval ke Rejected melalui LopService. Revisi BA tidak menghapus approval evidence pekerjaan lain. Completion tetap memerlukan semua evidence reviewable approved, termasuk BA bila Ya. Jalur review generic tidak dapat memodifikasi paket BA sebagian. Decision No yang pernah diajukan sebagai Ya tetap tidak bisa dipakai melewati review.
+- PDF mengikuti `plans/3JBR_REL_TNG_RELOK DESA KARANGDORO (BA BONGKAR).pdf`: Letter 612 × 792 pt, dua halaman formulir dengan posisi isian/checkbox yang diukur dari acuan, format hari/tanggal, bagian A–E di halaman 1, lanjutan Merk/kolom Tiang/5 rincian Drop Core/Barcode SCMT/tanda tangan di halaman 2, dan grid foto dua kolom setelahnya. Rincian material di luar slot, atribut seperti merek yang tidak mempunyai slot pada kelompok terkait, perbedaan tahun tiap rincian Drop Core, mitra, dan lokasi lebih dari 175 karakter disertakan pada halaman lanjutan agar data tidak hilang. PDF tidak lagi memakai tabel material atau font serif dari revisi sebelumnya.
+- Carlito Regular/Bold/Italic disertakan pada `resources/fonts/carlito` untuk mendekati Calibri pada acuan; sumber resmi commit `3a810cab78ebd6e2e4eed42af9e8453c4f9b850a`, lisensi OFL ada dalam folder. Font dasar 9.24 pt, judul 11.76 pt, font-height ratio 0.82 dan margin/koordinat mengikuti contoh. Cache font berada di disk local privat `ba-bongkar/fonts`, akses remote PDF tetap nonaktif, chroot hanya storage privat/font yang diperlukan. Layout tidak bergantung pada file PDF acuan saat runtime. Jangan menghilangkan asset font/lisensinya saat deploy.
+- Form menambah isian opsional Barcode SCMT, nama/jabatan/telepon penerima dan judul lampiran foto. Drop Core juga dapat mencatat jumlah unit berupa integer; canonical `ODP Padenstal` lama tetap diterima tetapi di PDF ditulis Pedestal sesuai acuan. Identitas/telepon teknisi berasal dari snapshot akun. Nama/NIK/TTD dari contoh tidak disalin. Dua posisi Mengetahui memakai judul jabatan sesuai acuan dengan nama/NIK/TTD kosong untuk diisi manual. Metadata tanda tangan lama tetap diarsipkan; tidak menjadi syarat approval lagi. PDF existing tidak ditimpa massal; format baru berlaku saat dibuat ulang.
+- **MySQL lokal sudah diterapkan, batch 35:** setelah persetujuan eksekusi, akun Warehouse ID 22 dinonaktifkan dan `role_id` dilepas melalui `UserService::retireRemovedRole`, remember token dibersihkan, sesi akun diakhiri, dan histori `role_retired` dicatat oleh Super Admin ID 2. Akun beserta identitas/profil/histori lama tetap utuh; tidak otomatis dipindahkan ke role yang lebih tinggi. Role Warehouse dan dua permission-nya sudah tidak ada. Maintenance dipakai saat apply dan aplikasi sudah live kembali. Status 12 LOP tetap: Draft 7, Picked Up 1, Progress 3, Waiting Approval 1; tidak ada reset/review otomatis atau perubahan Revenue.
+- Backup SQL privat sebelum operasi: `/private/tmp/dompis-remove-warehouse-20261026-032737/before.sql`, SHA256 `96f65c20a59f8284fea31e27d05ea0804ee7bf18d1f21fda66e7255911175de6`, manifest `before.json`/`after.json` di direktori sama. Perbandingan seluruh tabel memastikan LOP/evidence/approval/BOQ/snapshot/qty/assignment dan data lainnya tidak berubah. Verifikasi akhir read-only: role/permission Warehouse nol, akun 22 inactive tanpa role, schema/ledger sesuai, dan LOP 7 dengan BA pending dapat direview Admin. Backup memuat data sensitif: simpan privat dan jangan commit; `/private/tmp` bukan retensi permanen. Produksi belum diterapkan/diverifikasi.
+- Contoh output data uji terbaru: `/private/tmp/dompis-ba-reference-preview/ba-bongkar-format-acuan.pdf`, tiga halaman (dua formulir + satu lampiran empat foto). Preview dibandingkan visual dan koordinat teks/font dengan acuan melalui PDFKit; alur Ya → submit → approve BA Admin → Completed juga diuji menggunakan SQLite in-memory. Ini bukan pengajuan/approval terhadap LOP operasional.
+- Verifikasi final: **560 tests / 5748 assertions** backend dan **65 frontend tests** lulus. Regression mencakup Ya/Tidak, kelengkapan form, PDF privat/ICC, Admin scope empat level/legacy, review paket/stale/reject/revisi, tidak ada syarat TTD tambahan, penghapusan route/role/import, guard retirement akun/sesi/histori, layout acuan/kolom TTD manual, data di luar slot template, rincian tambahan dan 12 foto. Pint file terkait, `view:cache`, `npm run build`, dan `git diff --check` lulus. Tidak ada commit/push/deployment produksi; perubahan label MAGU milik user tetap dipertahankan.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
+
+- BA Bongkar terbaru mengikuti 7.64: **Warehouse sudah dihapus di kode dan MySQL lokal (batch 35)**. Produksi memerlukan commit/deployment, backup, audit ledger/akun, migration schema BA dan penghapusan role sesuai urutan ledger setelah izin database. Akun Warehouse yang masih ada harus ditangani eksplisit sebelum migration penghapusan; jangan membuat akun Warehouse baru. Jangan mengulang aktivasi/reset LOP 7.58 pada dataset yang sudah ditandai. PDF lama tetap arsip dengan layout saat dibuat; gunakan proses generate ulang yang sah bila memerlukan format terbaru.
 
 - **Migration `2026_10_20_000001_create_incident_excludes_table.php` wajib dijalankan di produksi** sebelum fitur exclude tiket (7.54) dipakai. Query `IncidentExclude` ada di luar blok `try/catch`, jadi tanpa tabel ini halaman Monitoring Ticket error 500. Sudah Ran di lokal; jalankan setelah commit siap dan backup/tag tersedia.
 - **Migration `2026_10_20_000002_add_reported_date_to_qe_lops_table.php` wajib dijalankan di produksi, diikuti `php artisan dompis:sync-reported-date`** (7.56). Tanpa kolomnya, INSERT pembuatan/edit LOP gagal (`unknown column reported_date`) sehingga seluruh workflow LOP berhenti, dan filter tanggal Data BOQ ikut error. Sudah Ran + tersinkron di lokal (12 LOP); status produksi belum diverifikasi.
@@ -947,8 +1014,9 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-531 tests passed
-5443 assertions
+560 tests passed
+5748 assertions
+65 frontend tests passed
 ```
 
 Test memakai SQLite `:memory:` dan queue `sync`, sehingga tidak membuktikan konfigurasi MySQL, Nginx, storage permission, atau worker produksi.

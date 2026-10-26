@@ -6,6 +6,7 @@ use App\Enums\EvidenceCategory;
 use App\Enums\EvidenceStatus;
 use App\Enums\LopStatus;
 use App\Models\QeLop;
+use App\Support\BaBongkarRules;
 use App\Support\MaterialArrivalRules;
 use App\Support\ReservedDesignatorRules;
 use Illuminate\Support\Collection;
@@ -37,8 +38,8 @@ class ProjectProgressService
             fn ($evidence) => $evidence->category === EvidenceCategory::REQUEST_LETTER
         );
         $reservedIds = $items->pluck('designator_id')->unique();
-        $progressIds = $evidences->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
-        $afterIds = $evidences->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
+        $progressIds = $evidences->where('status', '!=', EvidenceStatus::REJECTED)->where('category', EvidenceCategory::PROGRESS)->pluck('designator_id')->unique();
+        $afterIds = $evidences->where('status', '!=', EvidenceStatus::REJECTED)->where('category', EvidenceCategory::AFTER)->pluck('designator_id')->unique();
 
         $steps = [
             1 => $items->isNotEmpty() && $items->every(fn ($item) => $item->exists),
@@ -51,6 +52,7 @@ class ProjectProgressService
             5 => $items->isNotEmpty()
                 && $reservedIds->diff($afterIds)->isEmpty()
                 && $items->every(fn ($item) => $item->exists && ReservedDesignatorRules::actualComplete($item)),
+            6 => BaBongkarRules::complete($lop),
         ];
 
         $totalSteps = count($steps);

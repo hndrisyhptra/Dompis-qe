@@ -128,6 +128,7 @@
         <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
             @forelse ($lops as $lop)
                 @php($summary = $lop->progress_summary)
+                @php($baDocument = \App\Support\BaBongkarRules::document($lop))
                 <tr class="align-top transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                     <td class="px-5 py-4">
                         <p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>
@@ -155,6 +156,11 @@
                     <td class="whitespace-nowrap px-5 py-4 text-xs text-ink-500">{{ $lop->updated_at->diffForHumans() }}</td>
                     <td class="px-5 py-4">
                         <div class="flex flex-wrap items-center justify-end gap-1.5">
+                            @if ($baDocument)
+                                <x-table-action label="Download BA Bongkar" tone="info" :href="route('lop.ba-bongkar.download', $lop)">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25v6m-3-3 3 3 3-3"/></svg>
+                                </x-table-action>
+                            @endif
                             @if ($lop->status_lop === \App\Enums\LopStatus::COMPLETED)
                                 <x-table-action label="Download evidence (.zip)" tone="success" :href="route('lop.evidence-archive', $lop)">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Enums\UserRole;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
@@ -52,6 +53,14 @@ class LoginTest extends TestCase
 
         $response->assertRedirect(route('login'));
         $response->assertSessionHasErrors('username');
+        $this->assertGuest();
+    }
+
+    public function test_removed_role_cannot_login_while_retirement_is_pending(): void
+    {
+        $role = Role::create(['code' => 'WAREHOUSE', 'name' => 'Warehouse']);
+        $user = User::factory()->create(['role_id' => $role->getKey()]);
+        $this->post(route('login'), ['username' => $user->username, 'password' => 'password'])->assertSessionHasErrors('username');
         $this->assertGuest();
     }
 

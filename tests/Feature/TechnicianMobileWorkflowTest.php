@@ -299,9 +299,9 @@ class TechnicianMobileWorkflowTest extends TestCase
 
         $progress = app(ProjectProgressService::class);
 
-        // Setelah reservasi: 1/5 step, step "Material Tiba" belum lengkap.
+        // Setelah reservasi: 1/6 step, step "Material Tiba" belum lengkap.
         $summary = $progress->summary($lop->fresh());
-        $this->assertSame(5, $summary['total_steps']);
+        $this->assertSame(6, $summary['total_steps']);
         $this->assertSame(1, $summary['completed_steps']);
         $this->assertFalse($summary['steps'][2]);
 
@@ -315,7 +315,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $summary = $progress->summary($lop->fresh());
         $this->assertSame(2, $summary['completed_steps']);
         $this->assertTrue($summary['steps'][2]);
-        $this->assertSame(40, $summary['percentage']);
+        $this->assertSame(33, $summary['percentage']);
     }
 
     public function test_optional_location_can_be_saved_and_updated_but_invalid_pairs_and_other_technicians_are_rejected(): void
@@ -615,7 +615,7 @@ class TechnicianMobileWorkflowTest extends TestCase
     }
 
     #[DataProvider('optionalCapturePrograms')]
-    public function test_complete_five_step_workflow_can_be_submitted_for_approval_without_optional_location_or_captures(string $program): void
+    public function test_complete_six_step_workflow_can_be_submitted_for_approval_without_optional_location_or_captures(string $program): void
     {
         Storage::fake('public');
         [$admin, $technician, $lop] = $this->assignedProject($program);
@@ -670,7 +670,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         }
 
         // Belum rekap material -> step 5 belum lengkap.
-        $this->assertSame(80, app(ProjectProgressService::class)->summary($lop->fresh())['percentage']);
+        $this->assertSame(67, app(ProjectProgressService::class)->summary($lop->fresh())['percentage']);
 
         $this->actingAs($technician)->put(route('technician.projects.material-usage', $lop), [
             'usage' => [['designator_id' => $designator->id_designator, 'qty_actual' => 3]],
@@ -679,6 +679,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->assertSame('3.000', $lop->materialReservation->items()->first()->qty_actual);
         $this->assertEqualsWithDelta(2.0, $lop->materialReservation->items()->first()->sisa(), 0.001);
 
+        $this->actingAs($technician)->put(route('technician.projects.ba-bongkar', $lop), ['required' => 0, 'action' => 'draft'])->assertSessionHasNoErrors();
         $summary = app(ProjectProgressService::class)->summary($lop->fresh());
         $this->assertSame(100, $summary['percentage']);
         $this->assertSame('waiting_review', $summary['review_key']);
@@ -692,7 +693,7 @@ class TechnicianMobileWorkflowTest extends TestCase
         $this->actingAs($technician)
             ->get(route('technician.projects.show', [$lop, 'step' => 5]))
             ->assertOk()
-            ->assertSee('Ajukan Approval')->assertSee('Capture Logic Slot Port')
+            ->assertSee('Lanjut BA Bongkar')->assertSee('Capture Logic Slot Port')
             ->assertSee('Screenshot Detail Slot Port OLT')->assertSee('Opsional')->assertSee('Tidak Ada');
 
         $this->actingAs($technician)

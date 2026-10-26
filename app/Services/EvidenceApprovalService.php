@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\User;
+use App\Support\BaBongkarRules;
 use App\Support\MaterialArrivalRules;
 use App\Support\ReservedDesignatorRules;
 use Illuminate\Database\Eloquent\Builder;
@@ -41,6 +42,7 @@ class EvidenceApprovalService
                 ]);
             }
 
+            BaBongkarRules::assertCompletable($lop);
             $lop->loadMissing('evidences');
             $summary = $this->summary($lop);
 
@@ -182,6 +184,8 @@ class EvidenceApprovalService
             EvidenceCategory::PROGRESS->value => 4,
             EvidenceCategory::AFTER->value => 5,
             EvidenceCategory::SLOT_PORT->value => 5,
+            EvidenceCategory::BA_BONGKAR->value => 6,
+            EvidenceCategory::BA_BONGKAR_PHOTO->value => 6,
         ];
 
         return $pendingEvidences

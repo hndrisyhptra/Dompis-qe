@@ -1,7 +1,9 @@
 @php($canReplace = $lop->status_lop === \App\Enums\LopStatus::REJECTED)
 @php($reservedIds = $state['items']->pluck('designator_id'))
 <section class="mt-5 space-y-4">
-    @if ($step === 1)
+    @if ($step === 6)
+        @include('ba-bongkar.summary')
+    @elseif ($step === 1)
         <div><p class="text-[10px] font-bold uppercase text-brand-600">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2></div>
         @forelse ($state['items'] as $item)
             <article class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">

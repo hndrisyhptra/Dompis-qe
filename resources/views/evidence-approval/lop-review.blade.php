@@ -5,14 +5,15 @@
 @section('content')
 @php
     $stepEvidence = [
+        6 => $lop->evidences->filter(fn ($item) => $item->category?->isBaBongkar()),
         1 => collect(),
         2 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::MATERIAL_ARRIVAL),
         3 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::PRE, \App\Enums\EvidenceCategory::INSERA, \App\Enums\EvidenceCategory::BEFORE], true)),
         4 => $lop->evidences->where('category', \App\Enums\EvidenceCategory::PROGRESS),
         5 => $lop->evidences->filter(fn ($item) => in_array($item->category, [\App\Enums\EvidenceCategory::AFTER, \App\Enums\EvidenceCategory::SLOT_PORT], true)),
     ];
-    $stepLabels = [1 => 'Reservasi & Lokasi', 2 => 'Material Tiba', 3 => 'Evidence Pra', 4 => 'Progress', 5 => 'After'];
-    $stepShortLabels = [1 => 'Reservasi', 2 => 'Material', 3 => 'Pra', 4 => 'Progress', 5 => 'After'];
+    $stepLabels = [1 => 'Reservasi & Lokasi', 2 => 'Material Tiba', 3 => 'Evidence Pra', 4 => 'Progress', 5 => 'After', 6 => 'BA Bongkar'];
+    $stepShortLabels = [1 => 'Reservasi', 2 => 'Material', 3 => 'Pra', 4 => 'Progress', 5 => 'After', 6 => 'BA Bongkar'];
     $currentEvidence = $stepEvidence[$currentStep];
     $currentGroups = $currentEvidence->groupBy(fn ($item) => ($item->category?->value ?? $item->step->value).'-'.($item->designator_id ?? 'global'));
     $optionalCategory = match ($currentStep) { 3 => 'insera', 5 => 'slot_port', default => null };
@@ -28,6 +29,9 @@
     @if (session('status'))
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">{{ session('status') }}</div>
     @endif
+    @foreach (['signature_data', 'signature_file', 'revision'] as $baError)
+        @error($baError)<p class="rounded-md bg-red-50 p-3 text-sm text-red-700">{{ $message }}</p>@enderror
+    @endforeach
     @error('review')
         <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">{{ $message }}</div>
     @enderror
@@ -40,7 +44,7 @@
     @endif
 
     <nav class="rounded-2xl border border-ink-100 bg-white px-2 py-3 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:p-4">
-        <div class="grid grid-cols-5 items-start">
+        <div class="grid grid-cols-6 items-start">
             @foreach ($stepLabels as $number => $label)
                 @php
                     $evidenceItems = $stepEvidence[$number];
@@ -55,7 +59,10 @@
         </div>
     </nav>
 
-    @if ($currentStep === 1)
+    @if ($currentStep === 6)
+        @include('ba-bongkar.summary')
+        @include('ba-bongkar.admin-review')
+    @elseif ($currentStep === 1)
         <p class="text-xs leading-5 text-ink-500">Tag lokasi bersifat opsional. Lokasi kosong tidak menghalangi penyelesaian pekerjaan.</p>
         <section class="grid gap-4 lg:grid-cols-2">
             <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900"><div class="flex items-center justify-between"><div><p class="text-xs font-bold uppercase tracking-wide text-brand-600">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi Material</h2></div><x-badge :variant="$lop->materialReservation ? 'success' : 'warning'">{{ $lop->materialReservation ? 'Tersedia' : 'Belum ada' }}</x-badge></div><div class="mt-4 space-y-2">@forelse($lop->materialReservation?->items ?? collect() as $item)
@@ -134,7 +141,7 @@
         $pendingLeft = $approvalSummary['pending'];
         $rejectedLeft = $approvalSummary['rejected'];
         // "Selesai Review" hanya untuk kondisi semua evidence sudah disetujui.
-        $allApproved = $totalEvidence > 0 && $approvalSummary['approved'] === $totalEvidence && (! $materialArrivalPerItem || $materialArrivalApproved);
+        $allApproved = $totalEvidence > 0 && $approvalSummary['approved'] === $totalEvidence && (! $materialArrivalPerItem || $materialArrivalApproved) && \App\Support\BaBongkarRules::complete($lop) && (! $lop->ba_bongkar_required || auth()->user()->hasRole(...\App\Enums\UserRole::adminLevel()));
     @endphp
     <div class="flex flex-col gap-3 border-t border-ink-100 pt-5 dark:border-ink-800 sm:flex-row sm:items-center sm:justify-between">
         @if ($currentStep > 1)
@@ -194,7 +201,7 @@
                 <p class="mt-1 text-xs leading-5 text-emerald-800/80 dark:text-emerald-200/80">Semua {{ $totalEvidence }} evidence sudah disetujui. Status LOP <span class="font-bold">{{ $lop->incident }}</span> akan berubah menjadi <span class="font-bold">Selesai (Completed)</span> dan tidak bisa direview lagi.</p>
             </div>
         </div>
-        <form method="POST" action="{{ route('evidence-approval.lop.complete', $lop) }}" class="mt-5 flex gap-2">
+        <form method="POST" enctype="multipart/form-data" action="{{ route('evidence-approval.lop.complete', $lop) }}" class="mt-5 flex flex-col gap-3">
             @csrf
             <input type="hidden" name="return_url" value="{{ $returnUrl }}">
             <button type="button" onclick="document.getElementById('complete-review').close()" class="min-h-11 flex-1 rounded-xl border border-ink-200 text-sm font-bold dark:border-ink-700">Batal</button>

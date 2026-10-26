@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -59,6 +60,15 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 'username' => trans('auth.failed'),
+            ]);
+        }
+
+        if (Auth::user()->role && ! UserRole::tryFrom(Auth::user()->role->code)) {
+            Auth::logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'username' => 'Role akun tidak tersedia. Hubungi administrator.',
             ]);
         }
 

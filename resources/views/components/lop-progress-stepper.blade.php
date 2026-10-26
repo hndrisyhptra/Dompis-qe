@@ -7,6 +7,7 @@
         3 => ['Pra', $state['step3Complete']],
         4 => ['Progress', $state['step4Complete']],
         5 => ['After', $state['step5Complete']],
+        6 => ['BA Bongkar', $state['step6Complete']],
     ];
     $lastStep = array_key_last($steps);
     // Step > maxStep dikunci sampai step sebelumnya lengkap.
@@ -14,8 +15,8 @@
     $rejectedSteps = $state['rejectedSteps'] ?? collect();
 @endphp
 
-<div class="overflow-x-auto pb-1">
-    <div class="flex min-w-[440px] items-start justify-between">
+<div class="overflow-x-auto pb-1" x-data x-init="$nextTick(() => { const active = $el.querySelector('[aria-current=step]'); if (active) $el.scrollLeft += active.getBoundingClientRect().left - $el.getBoundingClientRect().left - ($el.clientWidth - active.clientWidth) / 2; })">
+    <div class="flex min-w-[510px] items-start justify-between">
         @foreach ($steps as $number => [$label, $complete])
             @php
                 $locked = $number > $maxStep;

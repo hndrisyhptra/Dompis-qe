@@ -29,7 +29,7 @@ class TechnicianProjectReviewTest extends TestCase
         $this->evidence($lop, $technician, 'progress', 'approved', $service->getKey());
         foreach ([1 => 'Reservasi material', 2 => 'Material tiba', 3 => 'Capture Ticket Insera', 4 => 'Progress · M-COMPLETE', 5 => 'After · M-COMPLETE'] as $step => $title) {
             $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => $step]))
-                ->assertOk()->assertViewHas('maxStep', 5)->assertViewHas('readOnly', true)
+                ->assertOk()->assertViewHas('maxStep', 6)->assertViewHas('readOnly', true)
                 ->assertSee($title)->assertSee('?step=5', false)
                 ->assertDontSee('Review evidence pekerjaan', false)
                 ->assertDontSee('Ajukan Approval')->assertDontSee('Simpan rekap material')
@@ -50,7 +50,7 @@ class TechnicianProjectReviewTest extends TestCase
         $this->evidence($lop, $technician, 'material_arrival', 'rejected', null, 'Material tidak jelas');
         $this->evidence($lop, $technician, 'after', 'rejected', $material->getKey(), 'After terlalu gelap');
         $this->actingAs($technician)->get(route('technician.projects.show', $lop))
-            ->assertOk()->assertViewHas('step', 2)->assertViewHas('maxStep', 5)
+            ->assertOk()->assertViewHas('step', 2)->assertViewHas('maxStep', 6)
             ->assertViewHas('state', fn ($state) => $state['rejectedSteps']->all() === [2 => 1, 5 => 1])
             ->assertSee('1 reject')->assertSee('Material tidak jelas')->assertSee('Upload ulang evidence')
             ->assertDontSee('Review evidence pekerjaan', false);
@@ -148,7 +148,7 @@ class TechnicianProjectReviewTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         $this->actingAs($admin)->get($url)->assertForbidden();
 
-        foreach ([[null, 5], [-1, 1], [3, 3], [99, 5]] as [$requestedStep, $expectedStep]) {
+        foreach ([[null, 5], [-1, 1], [3, 3], [99, 6]] as [$requestedStep, $expectedStep]) {
             $params = $requestedStep === null ? [$lop] : [$lop, 'step' => $requestedStep];
             $this->actingAs($technician)->get(route('technician.projects.boq-review', $params))
                 ->assertOk()->assertViewHas('returnStep', $expectedStep)
@@ -164,7 +164,7 @@ class TechnicianProjectReviewTest extends TestCase
         $lop->update(['status_lop' => 'completed']);
 
         $this->actingAs($technician)->get(route('technician.projects.show', [$lop, 'step' => 5]))
-            ->assertOk()->assertViewHas('maxStep', 5)->assertViewHas('readOnly', true)
+            ->assertOk()->assertViewHas('maxStep', 6)->assertViewHas('readOnly', true)
             ->assertSee('id="technician-workflow-stepper" class="rounded-2xl', false)
             ->assertDontSee('id="technician-workflow-stepper" class="sticky', false)
             ->assertSee('id="technician-project-summary" class="mt-4 rounded-3xl bg-ink-900', false)

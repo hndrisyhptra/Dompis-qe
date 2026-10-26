@@ -41,6 +41,7 @@
                 <thead class="bg-ink-50 text-left text-[11px] uppercase tracking-wider text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Lokasi</th><th class="px-5 py-3">Program</th><th class="px-5 py-3">Status Dompis</th><th class="px-5 py-3">Status AISS</th><th class="px-5 py-3">BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
                 <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                     @forelse($lops as $lop)
+                        @php($baDocument = \App\Support\BaBongkarRules::document($lop))
                         <tr x-data="{ detail: false, remove: false }" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                             <td class="px-5 py-4"><p class="flex flex-wrap items-baseline gap-2"><span class="font-bold text-ink-900 dark:text-white">{{ $lop->incident }}</span><span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $lop->reported_date ?: '—' }}</span></p><p class="mt-1 max-w-sm truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p></td>
                             <td class="px-5 py-4"><p class="font-semibold">{{ $lop->sto ?: '—' }}</p><p class="text-xs text-ink-400">{{ $lop->branch ?: '—' }}</p></td>
@@ -59,6 +60,9 @@
                                 @endif
                             </td>
                             <td class="px-5 py-4"><div class="flex justify-end gap-1.5">
+                                @if($baDocument)
+                                    <x-table-action label="Download BA Bongkar" tone="info" :href="route('lop.ba-bongkar.download', $lop)"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25v6m-3-3 3 3 3-3"/></svg></x-table-action>
+                                @endif
                                 @if ($lop->status_lop === \App\Enums\LopStatus::COMPLETED)
                                     <x-table-action label="Download BOQ AISS (.xlsx)" tone="primary" :href="route('data-lops.aiss-boq', $lop)">
                                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25V7.5m-5.25-5.25V7.5h5.25m-5.25-5.25 5.25 5.25M12 11.25v6m-3-3 3 3 3-3" /></svg>

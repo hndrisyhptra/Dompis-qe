@@ -142,7 +142,7 @@ class IncidentExcludeTest extends TestCase
                 && $reasons->get('non_material') === 'Non Material'
                 && $reasons->get('temporer') === 'Temporer'
                 && $reasons->get('duplikat_open') === 'Duplikat Tiket Open'
-                && $reasons->get('magu_ganti_pasif_odp') === 'Magu Ganti Pasif ODP');
+                && $reasons->get('magu_ganti_pasif_odp') === 'MAGU Ganti Pasif ODP');
     }
 
     public function test_magu_ganti_pasif_odp_reason_can_be_used_and_is_displayed(): void
@@ -160,7 +160,7 @@ class IncidentExcludeTest extends TestCase
         $this->get(route('incident-monitoring.tickets', ['usage' => 'excluded']))
             ->assertOk()
             ->assertSee('INC-MAGU')
-            ->assertSee('Magu Ganti Pasif ODP')
-            ->assertViewHas('excludeReasons', fn ($reasons) => $reasons->get('magu_ganti_pasif_odp') === 'Magu Ganti Pasif ODP');
+            ->assertSee('MAGU Ganti Pasif ODP')
+            ->assertViewHas('excludeReasons', fn ($reasons) => $reasons->get('magu_ganti_pasif_odp') === 'MAGU Ganti Pasif ODP');
     }
 }

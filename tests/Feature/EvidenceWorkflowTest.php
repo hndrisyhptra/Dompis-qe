@@ -22,7 +22,7 @@ class EvidenceWorkflowTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
-        $lop = QeLop::create([
+        $lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'LOP-WF-01',
             'nama_lop' => 'Workflow Test',
             'program_type' => 'recovery',
@@ -51,7 +51,7 @@ class EvidenceWorkflowTest extends TestCase
         $approver = User::factory()->role(UserRole::APPROVER->value)->create();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
-        $lop = QeLop::create([
+        $lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'LOP-WF-02',
             'nama_lop' => 'Workflow Test 2',
             'program_type' => 'recovery',
@@ -82,7 +82,7 @@ class EvidenceWorkflowTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         $teknisi = User::factory()->role(UserRole::TEKNISI->value)->create();
 
-        $lop = QeLop::create([
+        $lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'LOP-WF-03',
             'nama_lop' => 'Workflow Test 3',
             'program_type' => 'recovery',
@@ -106,7 +106,7 @@ class EvidenceWorkflowTest extends TestCase
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         $approver = User::factory()->role(UserRole::APPROVER->value)->create();
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
-        $lop = QeLop::create([
+        $lop = QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'LOP-WF-RESET',
             'nama_lop' => 'Reset Review Workflow',
             'program_type' => 'recovery',
@@ -142,7 +142,7 @@ class EvidenceWorkflowTest extends TestCase
 
     private function waitingApprovalLop(User $admin): QeLop
     {
-        return QeLop::create([
+        return QeLop::create(['ba_bongkar_required' => false,
             'incident' => 'LOP-WF-'.uniqid(),
             'nama_lop' => 'Review Completion',
             'program_type' => 'recovery',

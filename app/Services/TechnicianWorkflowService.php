@@ -14,6 +14,7 @@ use App\Models\QeLop;
 use App\Models\QeMaterialReservation;
 use App\Models\QeSurvey;
 use App\Models\User;
+use App\Support\BaBongkarRules;
 use App\Support\MaterialArrivalRules;
 use App\Support\MaterialReservationRules;
 use App\Support\ReservedDesignatorRules;
@@ -294,6 +295,7 @@ class TechnicianWorkflowService
             EvidenceCategory::MATERIAL_ARRIVAL, EvidenceCategory::BEFORE => EvidenceStep::BEFORE->value,
             EvidenceCategory::PROGRESS => EvidenceStep::PROGRESS->value,
             EvidenceCategory::AFTER, EvidenceCategory::SLOT_PORT => EvidenceStep::AFTER->value,
+            EvidenceCategory::BA_BONGKAR, EvidenceCategory::BA_BONGKAR_PHOTO => throw ValidationException::withMessages(['category' => 'Gunakan form tahap 6 BA Bongkar.']),
         };
 
         return $data;
@@ -314,24 +316,26 @@ class TechnicianWorkflowService
 
     public function submitApproval(QeLop $lop, User $technician): void
     {
-        $state = $this->state($lop);
-
-        if (! $state['step2Complete'] || ! $state['step3Complete'] || ! $state['step4Complete']
-            || ($state['step1Complete'] && ! $state['materialUsageComplete']) || ! $state['step5Complete']) {
-            throw ValidationException::withMessages([
-                'workflow' => ! $state['materialUsageComplete']
-                    ? 'Rekap qty material terpakai belum lengkap.'
-                    : 'Semua checklist evidence harus lengkap sebelum diajukan.',
-            ]);
-        }
-
-        if ($lop->status_lop !== LopStatus::PROGRESS) {
-            throw ValidationException::withMessages(['workflow' => 'Status project belum siap diajukan.']);
-        }
-
-        $reservation = $lop->materialReservation;
-        $reservation?->update(['status' => 'submitted', 'submitted_at' => now()]);
-        $this->lopService->transitionStatus($lop, LopStatus::WAITING_APPROVAL, $technician, 'Evidence diajukan untuk approval');
+        DB::transaction(function () use ($lop, $technician) {
+            $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
+            $this->assertActiveAssignment($lop, $technician);
+            BaBongkarRules::assertSubmittable($lop);
+            $state = $this->state($lop);
+            if (! $state['step2Complete'] || ! $state['step3Complete'] || ! $state['step4Complete'] || ! $state['step5Complete']) {
+                throw ValidationException::withMessages(['workflow' => ! $state['materialUsageComplete']
+                    ? 'Rekap qty material terpakai belum lengkap.' : 'Semua checklist evidence harus lengkap sebelum diajukan.']);
+            }
+            if ($lop->status_lop !== LopStatus::PROGRESS) {
+                throw ValidationException::withMessages(['workflow' => 'Status project belum siap diajukan.']);
+            }
+            if ($lop->ba_bongkar_required) {
+                $data = $lop->ba_bongkar_data;
+                $data['submitted_at'] = now()->toIso8601String();
+                $lop->update(['ba_bongkar_data' => $data]);
+            }
+            $lop->materialReservation?->update(['status' => 'submitted', 'submitted_at' => now()]);
+            $this->lopService->transitionStatus($lop, LopStatus::WAITING_APPROVAL, $technician, 'Evidence dan keputusan BA Bongkar diajukan untuk approval');
+        });
     }
 
     public function state(QeLop $lop): array
@@ -347,6 +351,7 @@ class TechnicianWorkflowService
                 'pre', 'insera', 'before' => 3,
                 'progress' => 4,
                 'after', 'slot_port' => 5,
+                'ba_bongkar', 'ba_bongkar_photo' => 6,
                 default => null,
             })->filter()->countBy()->sortKeys();
         $reservedIds = $items->pluck('designator_id')->unique();
@@ -366,7 +371,7 @@ class TechnicianWorkflowService
             && $reservedIds->diff($afterIds)->isEmpty()
             && $materialUsageComplete;
 
-        $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : (! $step4 ? 4 : 5)));
+        $currentStep = ! $step1 ? 1 : (! $step2 ? 2 : (! $step3 ? 3 : (! $step4 ? 4 : (! $step5 ? 5 : 6))));
 
         return [
             'reservation' => $lop->materialReservation,
@@ -381,6 +386,7 @@ class TechnicianWorkflowService
             'step3Complete' => $step3,
             'step4Complete' => $step4,
             'step5Complete' => $step5,
+            'step6Complete' => BaBongkarRules::complete($lop),
             'currentStep' => $currentStep,
             'materialUsageComplete' => $materialUsageComplete,
             'slotPortComplete' => $validEvidence->where('category', EvidenceCategory::SLOT_PORT)->isNotEmpty(),
