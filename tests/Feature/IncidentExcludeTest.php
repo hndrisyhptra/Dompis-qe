@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\Branch;
+use App\Models\IncidentExclude;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
@@ -104,11 +105,117 @@ class IncidentExcludeTest extends TestCase
             'incident' => 'INC-U', 'reason' => 'non_material',
         ])->assertRedirect();
         $this->assertDatabaseCount('incident_excludes', 1);
-        $this->actingAs($this->super)->delete(route('incident-monitoring.tickets.unexclude', 'INC-U'))->assertRedirect();
+        $this->actingAs($this->super)->delete(route('incident-monitoring.tickets.unexclude', 'INC-U'))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Exclude tiket dibatalkan. Tiket kembali ke daftar belum memiliki LOP.');
         $this->assertDatabaseCount('incident_excludes', 0);
         $this->get(route('incident-monitoring.tickets', ['usage' => 'without_lop']))
             ->assertOk()->assertSee('INC-U')
             ->assertViewHas('stats', fn ($stats) => $stats['without_lop'] === 1 && $stats['excluded'] === 0);
+    }
+
+    public function test_unexclude_is_available_to_admin_and_super_admin_but_not_technician(): void
+    {
+        $this->ticket('INC-PERM-ADMIN');
+        $this->ticket('INC-PERM-SUPER');
+        foreach (['INC-PERM-ADMIN', 'INC-PERM-SUPER'] as $incident) {
+            $this->actingAs($this->super)->post(route('incident-monitoring.tickets.exclude'), [
+                'incident' => $incident, 'reason' => 'non_material',
+            ])->assertRedirect();
+        }
+
+        $this->actingAs($this->technician)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-PERM-ADMIN'))
+            ->assertForbidden();
+        $this->assertDatabaseHas('incident_excludes', ['incident' => 'INC-PERM-ADMIN']);
+
+        $this->actingAs($this->admin)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-PERM-ADMIN'))
+            ->assertRedirect();
+        $this->assertDatabaseMissing('incident_excludes', ['incident' => 'INC-PERM-ADMIN']);
+
+        $this->actingAs($this->super)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-PERM-SUPER'))
+            ->assertRedirect();
+        $this->assertDatabaseMissing('incident_excludes', ['incident' => 'INC-PERM-SUPER']);
+    }
+
+    public function test_admin_cannot_exclude_or_unexclude_ticket_outside_scope(): void
+    {
+        $this->ticket('INC-OUT', 'GAMAS GPON', 'OUT-ZONE');
+
+        $this->actingAs($this->admin)->post(route('incident-monitoring.tickets.exclude'), [
+            'incident' => 'INC-OUT', 'reason' => 'non_material',
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('incident_excludes', ['incident' => 'INC-OUT']);
+
+        IncidentExclude::create([
+            'incident' => 'INC-OUT',
+            'keterangan_exclude' => 'non_material',
+            'created_by' => $this->super->getKey(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-OUT'))
+            ->assertForbidden();
+        $this->assertDatabaseHas('incident_excludes', ['incident' => 'INC-OUT']);
+
+        $this->actingAs($this->super)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-OUT'))
+            ->assertRedirect();
+        $this->assertDatabaseMissing('incident_excludes', ['incident' => 'INC-OUT']);
+    }
+
+    public function test_unexclude_normalizes_incident(): void
+    {
+        $this->ticket('INC-UNORM');
+        $this->actingAs($this->super)->post(route('incident-monitoring.tickets.exclude'), [
+            'incident' => '  inc-unorm  ', 'reason' => 'temporer',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('incident_excludes', ['incident' => 'INC-UNORM']);
+
+        $this->actingAs($this->super)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'inc-unorm'))
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('incident_excludes', 0);
+        $this->get(route('incident-monitoring.tickets', ['usage' => 'without_lop']))
+            ->assertOk()
+            ->assertSee('INC-UNORM')
+            ->assertViewHas('stats', fn ($stats) => $stats['without_lop'] === 1 && $stats['excluded'] === 0);
+    }
+
+    public function test_unexclude_missing_incident_is_safe(): void
+    {
+        $this->actingAs($this->super)
+            ->delete(route('incident-monitoring.tickets.unexclude', 'INC-NOT-EXCLUDED'))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Tiket sudah tidak berada dalam daftar exclude.');
+
+        $this->assertDatabaseCount('incident_excludes', 0);
+    }
+
+    public function test_excluded_tab_and_monitoring_detail_offer_cancel_action(): void
+    {
+        $this->ticket('INC-CANCEL');
+        $this->actingAs($this->super)->post(route('incident-monitoring.tickets.exclude'), [
+            'incident' => 'INC-CANCEL', 'reason' => 'duplikat_open',
+        ])->assertRedirect();
+
+        $unexcludeUrl = route('incident-monitoring.tickets.unexclude', 'INC-CANCEL');
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', ['usage' => 'excluded']))
+            ->assertOk()
+            ->assertSee('Batalkan exclude')
+            ->assertSee('Batalkan exclude tiket?')
+            ->assertSee('aria-label="Batalkan exclude tiket INC-CANCEL"', false)
+            ->assertSee($unexcludeUrl, false);
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.exclusions', ['exclude_state' => 'excluded']))
+            ->assertOk()
+            ->assertSee('INC-CANCEL')
+            ->assertSee('Batalkan exclude tiket?')
+            ->assertSee($unexcludeUrl, false);
     }
 
     public function test_exclude_incident_is_normalized_uppercase(): void

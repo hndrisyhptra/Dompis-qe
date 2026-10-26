@@ -160,7 +160,7 @@
             <div role="region" aria-label="Daftar detail tiket" tabindex="0" class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500">
                 <table class="w-full min-w-212.5 text-left text-sm">
                     <thead class="bg-ink-50 text-xs text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
-                        @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'Status Exclude', 'Alasan'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
+                        @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'Status Exclude', 'Alasan', 'Aksi'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
                     </tr></thead>
                     <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                         @foreach ($tickets as $ticket)
@@ -171,6 +171,13 @@
                                 <td class="px-4 py-3">{{ $ticket['workzone'] }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span></td>
                                 <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200' }}">{{ $ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude' }}</span></td>
                                 <td class="px-4 py-3">{{ $ticket['is_excluded'] ? $ticket['reason_label'] : '—' }}</td>
+                                <td class="whitespace-nowrap px-4 py-3">
+                                    @if ($ticket['is_excluded'])
+                                        <x-unexclude-ticket-button :incident="$ticket['incident']" :compact="true" />
+                                    @else
+                                        <span class="text-ink-500 dark:text-ink-400">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -8,6 +8,7 @@ use App\Http\Requests\IncidentMonitoringRequest;
 use App\Http\Requests\TicketCoverageDownloadRequest;
 use App\Http\Requests\TicketCoverageRequest;
 use App\Http\Requests\TicketExcludeMonitoringRequest;
+use App\Http\Requests\UnexcludeTicketRequest;
 use App\Services\IncidentMonitoringService;
 use App\Services\TicketCoverageService;
 use App\Services\TicketExcludeMonitoringService;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class IncidentMonitoringController extends Controller
@@ -64,19 +66,39 @@ class IncidentMonitoringController extends Controller
 
     public function exclude(ExcludeTicketRequest $request): RedirectResponse
     {
-        $this->coverage->exclude(
+        $this->guardTicketSource(fn () => $this->coverage->exclude(
             $request->validated('incident'),
             $request->validated('reason'),
             $request->user()
-        );
+        ));
 
         return back()->with('status', 'Tiket berhasil di-exclude.');
     }
 
-    public function unexclude(string $incident): RedirectResponse
+    public function unexclude(UnexcludeTicketRequest $request): RedirectResponse
     {
-        $this->coverage->unexclude($incident);
+        $removed = $this->guardTicketSource(fn () => $this->coverage->unexclude(
+            $request->validated('incident'),
+            $request->user()
+        ));
 
-        return back()->with('status', 'Tiket dikembalikan ke daftar.');
+        return back()->with(
+            'status',
+            $removed
+                ? 'Exclude tiket dibatalkan. Tiket kembali ke daftar belum memiliki LOP.'
+                : 'Tiket sudah tidak berada dalam daftar exclude.'
+        );
+    }
+
+    private function guardTicketSource(callable $callback): mixed
+    {
+        try {
+            return $callback();
+        } catch (HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            report($exception);
+            abort(503, 'Sumber tiket Dompis belum dapat dimuat. Coba kembali setelah koneksi tersedia.');
+        }
     }
 }

@@ -267,14 +267,48 @@ class TicketCoverageService
 
     public function exclude(string $incident, string $reason, User $user): void
     {
+        $this->assertIncidentInScope($user, $incident);
+
         IncidentExclude::updateOrCreate(
             ['incident' => $this->normalize($incident)],
             ['keterangan_exclude' => $reason, 'created_by' => $user->id_user]
         );
     }
 
-    public function unexclude(string $incident): void
+    public function unexclude(string $incident, User $user): bool
     {
-        IncidentExclude::where('incident', $this->normalize($incident))->delete();
+        $this->assertIncidentInScope($user, $incident);
+
+        return IncidentExclude::where('incident', $this->normalize($incident))->delete() > 0;
+    }
+
+    private function assertIncidentInScope(User $user, string $incident): void
+    {
+        if (! $user->hasRole(UserRole::ADMIN)) {
+            return;
+        }
+
+        $allowedWorkzones = ServiceArea::query()
+            ->whereIn('id_service_area', $this->visibility->accessibleServiceAreaIds($user))
+            ->pluck('workzone')
+            ->map(fn ($workzone) => $this->normalize($workzone))
+            ->filter()
+            ->flip();
+
+        if ($allowedWorkzones->isEmpty()) {
+            abort(403, 'Akun Anda belum memiliki akses STO untuk tiket ini.');
+        }
+
+        $workzones = DB::connection('mysql_dompis')->table('ticket')
+            ->whereRaw('UPPER(TRIM(incident)) = ?', [$this->normalize($incident)])
+            ->pluck('workzone');
+
+        if ($workzones->isEmpty()) {
+            abort(404, 'Tiket tidak ditemukan pada sumber Dompis.');
+        }
+
+        if (! $workzones->contains(fn ($workzone) => $allowedWorkzones->has($this->normalize($workzone)))) {
+            abort(403, 'Tiket berada di luar scope akses Anda.');
+        }
     }
 }

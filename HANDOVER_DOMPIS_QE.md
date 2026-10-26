@@ -3,7 +3,7 @@
 Terakhir diaudit: **26 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `ef9e131` (`fix: reported date di batasi mulai september`)
+HEAD dasar saat audit terbaru: `979b533` (`fix : color palette table monitoring exclude`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -1000,6 +1000,14 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Tabel **Monitoring Incident → Monitoring Exclude** memiliki tombol **Capture** dan pilihan **PNG / JPG**, menggunakan `dashboardRegionCapture` serta komponen `dashboard-capture-controls` yang sudah digunakan dashboard. Tidak ada handler/dependency baru. Capture memuat seluruh kolom dan baris matrix, judul, periode, scope/filter wilayah/pencarian aktif, serta waktu pembacaan. Nama file menyertakan identitas monitoring, scope, dan rentang tanggal.
 - Target capture hanya section matrix pada `resources/views/incident-monitoring/exclusions.blade.php`. Form filter, daftar detail/pagination, kontrol capture, dan petunjuk klik tidak ikut gambar. Handler existing melebarkan clone tabel pada layar sempit, mempertahankan DOM/scroll/tautan asli, mengikuti tema, dan menangani retry/error/loading. Kontrol tidak ditampilkan ketika sumber tiket gagal dimuat. Header **SUDAH MAPPING** tetap rata tengah dan kalimat penjelasan panjang yang diminta dihapus tidak dikembalikan.
 - Verifikasi: `TicketExcludeMonitoringTest` + `AdminDashboardTest` **22 tests / 825 assertions** dan **8 frontend capture tests** lulus, termasuk integrasi Admin/Super Admin dengan filter serta batas area capture. Pint test terkait, view cache, build Vite, dan diff check lulus. Browser dengan data uji SQLite terpisah menghasilkan PNG desktop **3782×974**, JPG mobile dan PNG dark mode **3782×958**; seluruh 19 kolom utuh meskipun tabel asli digeser, 72 tautan tetap ada, scroll asli tetap, dan tidak ada exception JavaScript. Tidak ada perubahan query, authorization, schema/migration, write database operasional, commit/push, atau deployment.
+
+### 7.68 Batalkan exclude tiket — 26 Oktober 2026 (belum di-commit)
+
+- Tiket yang sudah terlanjur di-exclude dapat dikembalikan melalui tombol ikon **Batalkan exclude** pada tab **Tiket Exclude** di halaman Monitoring Incident (mobile dan desktop) serta kolom **Aksi** pada detail **Monitoring Exclude**. Dialog konfirmasi menjelaskan bahwa tiket kembali ke daftar **Belum memiliki LOP**, alasan exclude dihapus, dan tiket dapat digunakan lagi; pilihan **Tidak** menutup dialog tanpa perubahan.
+- Komponen `resources/views/components/unexclude-ticket-button.blade.php` memakai `<dialog>` native dengan ID unik per render, sehingga aman ketika baris yang sama tampil di daftar mobile dan tabel desktop. Tombol kini berupa ikon saja; teks **Batalkan** muncul sebagai tooltip saat hover/focus dan `aria-label` menyebut incident lengkap. Form mengirim `DELETE` ke route existing `incident-monitoring.tickets.unexclude` dengan CSRF dan konfirmasi dua langkah.
+- Route `DELETE /incident-monitoring/tickets/{incident}/unexclude` kini memakai `UnexcludeTicketRequest`: otorisasi Gate `view-incident-monitoring` dan validasi nomor incident maksimal 100 karakter. `TicketCoverageService::unexclude()` mengembalikan `bool`; controller menampilkan pesan sukses atau pesan idempoten bila baris sudah tidak ada. Normalisasi `UPPER(TRIM())` tetap dipakai, sehingga incident huruf kecil/spasi tetap cocok.
+- Hanya baris `incident_excludes` yang dihapus. Tidak ada migration/schema baru, perubahan status LOP, penulisan ke sumber Dompis, atau perubahan perhitungan KPI/status. Untuk Admin, service memverifikasi workzone tiket pada sumber Dompis terhadap `LopVisibilityService` sebelum exclude/unexclude; Super Admin melewati pemeriksaan scope. Bila sumber gagal dibaca, controller membalas 503, bukan error 500. Otorisasi halaman tetap Admin/Super Admin dan daftar dibatasi scope wilayah.
+- Verifikasi: full suite **581 tests / 6592 assertions** lulus. Regression terkait: `IncidentExcludeTest` **14 tests / 81 assertions** (termasuk otorisasi Admin/Super Admin/teknisi, scope di luar akses, normalisasi, idempotensi, dan tombol di kedua halaman) serta `TicketCoverageTest` + `TicketExcludeMonitoringTest` **43 tests / 1278 assertions**. Pint file task, `view:cache`, `npm run build`, dan `git diff --check` lulus.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 

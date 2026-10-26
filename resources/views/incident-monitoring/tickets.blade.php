@@ -191,6 +191,11 @@
                                 </div>
                             @endif
                         @endunless
+                        @if ($showExcludeReasonMobile)
+                            <div class="pt-1">
+                                <x-unexclude-ticket-button :incident="$row['incident']" />
+                            </div>
+                        @endif
                         @if ($showLopColumns && ! $showExcludeReasonMobile)
                             @if ($row['lop'])
                                 <p class="wrap-break-word text-sm font-medium">{{ $row['lop']->nama_lop }}</p>
@@ -207,6 +212,7 @@
                 @php
                     $showExcludeAction = $filters['usage'] === 'without_lop';
                     $showExcludeReason = $filters['usage'] === 'excluded';
+                    $showUnexcludeAction = $showExcludeReason;
                     $showUsageColumn = ! $showExcludeReason;
                     $showLopColumnsForTable = $showLopColumns && ! $showExcludeReason;
                 @endphp
@@ -217,7 +223,7 @@
                         @if ($showUsageColumn)<th scope="col" class="px-3 py-3">Penggunaan</th>@endif
                         @if ($showExcludeReason)<th scope="col" class="px-3 py-3">Alasan Exclude</th>@endif
                         @if ($showLopColumnsForTable)<th scope="col" class="px-3 py-3">LOP / Status</th><th scope="col" class="px-3 py-3">ID IHLD</th><th scope="col" class="px-3 py-3">Aksi</th>@endif
-                        @if ($showExcludeAction)<th scope="col" class="px-3 py-3">Aksi</th>@endif
+                        @if ($showExcludeAction || $showUnexcludeAction)<th scope="col" class="px-3 py-3">Aksi</th>@endif
                     </tr></thead>
                     <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                         @foreach ($tickets as $row)
@@ -263,6 +269,11 @@
                                                 </form>
                                             </div>
                                         </div>
+                                    </td>
+                                @endif
+                                @if ($showUnexcludeAction)
+                                    <td class="px-3 py-4">
+                                        <x-unexclude-ticket-button :incident="$row['incident']" :compact="true" />
                                     </td>
                                 @endif
                             </tr>
