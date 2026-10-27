@@ -40,6 +40,8 @@ class StoreLopRequest extends FormRequest
             'job_description' => ['required', 'string', 'max:2000'],
             'ticket_summary' => ['nullable', 'string', 'max:5000'],
             'ihld_id' => ['nullable', 'string', 'max:100'],
+            'insera_files' => ['nullable', 'array', 'max:12'],
+            'insera_files.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             ...DatekRules::rules(),
         ];
 
@@ -54,6 +56,9 @@ class StoreLopRequest extends FormRequest
             'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
             'branch.exists' => 'Branch tidak ditemukan.',
             'area.exists' => 'Area tidak ditemukan.',
+            'insera_files.max' => 'Maksimal 12 file Capture Ticket Insera dalam satu kali input.',
+            'insera_files.*.mimes' => 'Capture Ticket Insera harus berupa gambar JPG, PNG, atau WEBP.',
+            'insera_files.*.max' => 'Ukuran setiap file Capture Ticket Insera maksimal 10 MB.',
         ];
     }
 

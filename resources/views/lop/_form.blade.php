@@ -1,4 +1,4 @@
-<form method="POST" action="{{ $formAction }}"
+<form method="POST" action="{{ $formAction }}" enctype="multipart/form-data"
       x-data="lopForm({ validateIncident: {{ ($formMethod ?? 'POST') === 'POST' ? 'true' : 'false' }}, incidentTicketTypes: @js($incidentTicketTypes), initial: @js($initial), template: @js($nameTemplate), maxSegments: {{ \App\Enums\LopSegment::MAX_SELECTIONS }}, programCodes: @js($programCodes), segmentLabels: @js(collect($segments)->mapWithKeys(fn ($s) => [$s->value => $s->label()])), areas: @js($areas->map(fn($a) => ['code' => $a->code, 'name' => $a->name])), branches: @js($branches->map(fn($b) => ['name' => $b->name, 'region' => $b->region, 'region_id' => $b->region_id, 'area_id' => $b->regionRef?->area_id, 'area_code' => $b->regionRef?->area?->code])), serviceAreas: @js($serviceAreas->map(fn($sa) => ['workzone' => $sa->workzone, 'name' => $sa->name, 'branch' => $sa->branch?->name, 'branch_id' => $sa->branch_id])) })"
       @submit="submitLop($event)"
       class="space-y-5">
@@ -347,6 +347,26 @@
             @error('datek')<p class="text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
         </div>
     </details>
+
+    @if (($formMethod ?? 'POST') === 'POST')
+        <section class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
+            <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800 sm:px-6">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-[11px] font-bold text-white">02B</span>
+                    <div><h2 class="font-bold text-ink-900 dark:text-white">Capture Ticket Insera <span class="font-normal text-ink-400">(opsional)</span></h2><p class="mt-0.5 text-sm text-ink-500 dark:text-ink-400">Siapkan screenshot Insera agar teknisi tidak perlu mengunggahnya lagi.</p></div>
+                </div>
+            </div>
+            <div class="p-5 sm:p-6">
+                <label for="insera_files" class="mb-1.5 block text-sm font-medium text-ink-700 dark:text-ink-300">Screenshot Insera</label>
+                <input id="insera_files" name="insera_files[]" type="file" multiple accept="image/jpeg,image/png,image/webp"
+                       class="block min-h-11 w-full rounded-xl border border-ink-200 bg-white p-2.5 text-sm text-ink-700 shadow-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-blue-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:file:bg-blue-950/40 dark:file:text-blue-300">
+                <p class="mt-1.5 text-xs leading-5 text-ink-500 dark:text-ink-400">File akan tampil di Step 3 · Evidence Pra teknisi dan tetap diperiksa admin. Bisa juga diunggah setelah LOP tersimpan melalui Master Data → Data LOP.</p>
+                <p class="mt-1 text-[10px] font-semibold text-ink-400">Maksimal 12 file · 10 MB per file · JPG, PNG, atau WEBP</p>
+                @error('insera_files')<p class="mt-2 text-sm font-semibold text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+                @error('insera_files.*')<p class="mt-2 text-sm font-semibold text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
+            </div>
+        </section>
+    @endif
 
     <section class="overflow-hidden rounded-2xl border border-brand-200 bg-white shadow-sm dark:border-brand-900/60 dark:bg-ink-900">
         <div class="border-b border-ink-100 bg-white px-5 py-4 dark:border-ink-800 dark:bg-ink-900 sm:px-6">

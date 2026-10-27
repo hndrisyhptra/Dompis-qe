@@ -8,10 +8,12 @@ use App\Enums\UserRole;
 use App\Exports\DataLopExport;
 use App\Http\Requests\DataLopFilterRequest;
 use App\Http\Requests\DeleteLopRequest;
+use App\Http\Requests\StoreInseraEvidenceRequest;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Services\AissBoqExportService;
 use App\Services\DataLopService;
+use App\Services\EvidenceService;
 use App\Services\LopService;
 use App\Services\LopVisibilityService;
 use App\Support\LopReturnDestination;
@@ -28,6 +30,7 @@ class DataLopController extends Controller
         private readonly LopService $lopService,
         private readonly LopVisibilityService $visibility,
         private readonly DataLopService $data,
+        private readonly EvidenceService $evidenceService,
     ) {}
 
     public function index(DataLopFilterRequest $request): View
@@ -85,6 +88,18 @@ class DataLopController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'private, no-store',
         ]);
+    }
+
+    public function storeInsera(StoreInseraEvidenceRequest $request, QeLop $qe_lop): RedirectResponse
+    {
+        $this->authorize('uploadEvidence', $qe_lop);
+        abort_if($qe_lop->status_lop === LopStatus::COMPLETED, 403, 'Capture Insera tidak dapat diubah setelah LOP completed.');
+
+        $files = $request->file('files', []);
+        $uploaded = $this->evidenceService->uploadInsera($qe_lop, $files, $request->user());
+
+        return redirect()->to(LopReturnDestination::resolve($request, route('data-lops.index')))
+            ->with('status', count($uploaded).' Capture Ticket Insera berhasil diupload. File akan tampil di Step 3 teknisi dan menunggu review.');
     }
 
     public function destroy(DeleteLopRequest $request, QeLop $qe_lop): RedirectResponse

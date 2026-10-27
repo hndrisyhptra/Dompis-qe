@@ -180,6 +180,23 @@ class EvidenceService
         }
     }
 
+    /**
+     * Capture Ticket Insera yang disiapkan admin dari Master Data LOP.
+     * Tetap berstatus pending agar masuk antrean review seperti evidence lain.
+     *
+     * @param  array<int, UploadedFile>  $files
+     * @return array<int, QeEvidence>
+     */
+    public function uploadInsera(QeLop $lop, array $files, User $actor): array
+    {
+        return $this->uploadMany($lop, [
+            'step' => EvidenceStep::SURVEY->value,
+            'type' => EvidenceType::PHOTO->value,
+            'category' => EvidenceCategory::INSERA->value,
+            'note' => 'Capture Ticket Insera disiapkan admin',
+        ], $files, $actor);
+    }
+
     public function approve(QeEvidence $evidence, User $actor): QeEvidence
     {
         if ($evidence->category?->isBaBongkar()) {

@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\DatekParserService;
 use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceArchiveService;
+use App\Services\EvidenceService;
 use App\Services\IncidentTicketValidationService;
 use App\Services\LopNamingService;
 use App\Services\LopService;
@@ -33,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class LopController extends Controller
 {
@@ -45,6 +47,7 @@ class LopController extends Controller
         private readonly ManualIncidentService $manualIncident,
         private readonly DatekParserService $datekParser,
         private readonly EvidenceArchiveService $evidenceArchive,
+        private readonly EvidenceService $evidenceService,
         private readonly LopVisibilityService $visibility,
     ) {}
 
@@ -324,11 +327,31 @@ class LopController extends Controller
 
     public function store(StoreLopRequest $request): RedirectResponse
     {
-        $lop = $this->lopService->create($request->validated(), $request->user());
+        $data = $request->validated();
+        $inseraFiles = $data['insera_files'] ?? [];
+        unset($data['insera_files']);
+
+        $lop = $this->lopService->create($data, $request->user());
+
+        if ($inseraFiles === []) {
+            return redirect()
+                ->route('lop.create')
+                ->with('status', 'LOP berhasil dibuat.');
+        }
+
+        try {
+            $uploaded = $this->evidenceService->uploadInsera($lop, $inseraFiles, $request->user());
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route('data-lops.index', ['q' => $lop->incident])
+                ->with('status', 'LOP berhasil dibuat, tetapi Capture Ticket Insera gagal diupload. Silakan unggah ulang dari Data LOP.');
+        }
 
         return redirect()
-            ->route('lop.create')
-            ->with('status', 'LOP berhasil dibuat.');
+            ->route('data-lops.index', ['q' => $lop->incident])
+            ->with('status', count($uploaded).' Capture Ticket Insera berhasil disimpan. File akan tampil di Step 3 teknisi dan menunggu review.');
     }
 
     public function show(QeLop $qe_lop): View|RedirectResponse

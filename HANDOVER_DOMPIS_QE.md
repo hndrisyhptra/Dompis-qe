@@ -3,7 +3,7 @@
 Terakhir diaudit: **27 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `8978487` (`fix: table monitoring exclude`)
+HEAD dasar saat audit terbaru: `3402d79` (`feat: sorting by service area in table ticket exclude`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -57,7 +57,7 @@ Pembaruan 26 Oktober 2026: BA Bongkar/penghapusan Warehouse berada pada `b1a4849
 
 Pembaruan optimasi query 26 Oktober 2026: worktree bersih pada `5f30637` sebelum task. Optimasi 7.69 masuk commit `92a7c96`: eager load BOQ pada daftar LOP, batch scope untuk render GET, dan batch lokasi/harga Data BOQ. Tidak ada perubahan schema, migration, atau database operasional.
 
-Pembaruan 27 Oktober 2026: label scope global pada Monitoring Exclude dan tabel monitoring masuk commit `8978487`. Perubahan 7.71 belum di-commit: matriks per STO yang dikelompokkan berdasarkan nama Service Area untuk Admin Branch dan Service Area, drill-down STO, serta regression test. Tidak ada perubahan schema, migration, atau database operasional.
+Pembaruan 27 Oktober 2026: label scope global pada Monitoring Exclude dan tabel monitoring masuk commit `8978487`. Matriks per STO yang dikelompokkan berdasarkan nama Service Area untuk Admin Branch dan Service Area, drill-down STO, serta regression test masuk commit `3402d79`. Perubahan 7.72 belum di-commit: upload Capture Ticket Insera oleh admin dari form Input LOP Baru dan Master Data → Data LOP. Tidak ada perubahan schema, migration, atau database operasional.
 
 ### 2.3 Status migration lokal
 
@@ -1028,7 +1028,7 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Tidak ada perubahan query, data, authorization, atau teks pada halaman lain. Teks **Seluruh wilayah operasional** pada menu akun global tidak diubah karena berada di luar konten Monitoring Exclude.
 - Verifikasi: full suite **592 tests / 6715 assertions** lulus; `IncidentExcludeTest` **15 tests / 87 assertions**. `view:cache`, `npm run build`, dan `git diff --check` lulus.
 
-### 7.71 Matriks Monitoring Exclude per Service Area/STO untuk Admin Branch dan Service Area — 27 Oktober 2026 (belum di-commit)
+### 7.71 Matriks Monitoring Exclude per Service Area/STO untuk Admin Branch dan Service Area — 27 Oktober 2026 (commit `3402d79`)
 
 - Admin dengan scope **Branch** (termasuk fallback legacy `branch_id`) dan **Service Area** kini melihat baris matriks berdasarkan **STO/workzone**, bukan region. Baris STO dikelompokkan menurut `service_areas.name` seperti matrix Program Dashboard: grup dapat dilipat, menampilkan jumlah STO dan agregat setiap kolom, serta default terbuka bila total STO <= 10. Header kolom menjadi **SERVICE AREA / STO**; Admin Area, Admin Region, dan Super Admin tetap memakai baris regional.
 - Setiap sel STO melakukan drill-down ke tiket pada STO tersebut melalui key internal `matrix_region=sto:<WORKZONE>`. URL filter region lama pada akun Branch/Service Area tidak memperlebar data dan menghasilkan nol tiket.
@@ -1036,6 +1036,15 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Baris sel matriks diekstrak ke `resources/views/incident-monitoring/_exclude-matrix-row.blade.php` agar dipakai bersama mode regional dan mode grup. Capture tetap menyertakan ringkasan grup; tombol buka/lipat dikecualikan dari capture.
 - Kolom **Belum Exclude** memakai latar merah brand: header `bg-brand-500` dengan teks putih, sel data `bg-brand-100/70` dengan teks merah gelap, serta varian gelap yang tetap kontras.
 - Regression `TicketExcludeMonitoringTest`: **14 tests / 809 assertions**; full suite **593 tests / 6750 assertions**. `view:cache`, `npm run build`, Pint file task, dan `git diff --check` lulus.
+
+### 7.72 Capture Ticket Insera oleh admin dari Input LOP dan Data LOP — 27 Oktober 2026 (belum di-commit)
+
+- Admin dan Super Admin dapat menyiapkan **Capture Ticket Insera** saat membuat LOP tunggal melalui section **02B** pada form Input LOP Baru, atau setelah LOP dibuat/diimport melalui aksi kamera pada **Master Data → Data LOP**. Aksi pada Data LOP tersedia selama status LOP belum `completed`.
+- Upload dari Data LOP memakai route `data-lops.insera.store` dan `StoreInseraEvidenceRequest`: wajib role admin-level, lolos `uploadEvidence` beserta scope lokasi, status non-completed, maksimal 12 gambar JPG/PNG/WEBP, dan 10 MB per file. Modal menampilkan capture yang sudah tersimpan, preview, status review, dan tombol hapus untuk evidence pending/rejected; filter halaman dipertahankan melalui `return_url`.
+- Form create menerima `insera_files[]` opsional. Bila ada file, LOP dan evidence disimpan lalu admin diarahkan ke Data LOP dengan filter incident. Bila upload evidence gagal, LOP tetap tersimpan (capture bersifat opsional) dan admin diminta mengunggah ulang dari Data LOP. Tanpa file, alur lama tetap kembali ke form Input LOP Baru.
+- File disimpan melalui `EvidenceService::uploadInsera()` sebagai `category=insera`, `step=SURVEY`, `type=PHOTO`, dan status **pending**. File langsung terlihat pada Step 3 · Evidence Pra teknisi sehingga teknisi tidak perlu mengunggah ulang, tetapi tetap masuk antrean review admin seperti evidence lain. Upload juga membatalkan pilihan **Tidak Ada** bila sebelumnya tersimpan.
+- Tidak ada schema, migration, data operasional, atau source Dompis yang diubah. Komponen UI baru: `resources/views/components/admin-insera-modal.blade.php`; request baru: `app/Http/Requests/StoreInseraEvidenceRequest.php`.
+- Regression `AdminInseraEvidenceTest`: **5 tests / 24 assertions** (upload admin + tampil di Step 3, create dengan file, validasi non-gambar, guard scope/teknisi/completed, dan aksi UI hanya untuk LOP non-completed). Full suite **598 tests / 6774 assertions**; `view:cache`, `npm run build`, dan `git diff --check` lulus.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
@@ -1076,8 +1085,8 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 Baseline terakhir yang diverifikasi sebelum dokumen ini dibuat:
 
 ```text
-560 tests passed
-5748 assertions
+598 tests passed
+6774 assertions
 65 frontend tests passed
 ```
 
@@ -1102,7 +1111,7 @@ Pemetaan test utama:
 - Pembatalan/arsip LOP semua status dan Active LOP pembuat: `LopCancellationTest` (termasuk retensi BOQ/evidence/file, stale actions, dan exclusion Revenue).
 - Scope admin/project status: `AdminScopeAndProjectStatusTest`.
 - Teknisi mobile: `TechnicianMobileWorkflowTest`, `TechnicianProjectReviewTest`.
-- Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`.
+- Evidence/storage: `EvidenceWorkflowTest`, `EvidenceAsyncUploadTest`, `EvidencePermissionTest`, `AdminInseraEvidenceTest`.
 - Import/BOQ: `BulkImportAndBoqTest`, `LopExcelImportTest`, `DesignatorCsvImportTest`.
 - BOQ aktual dari reservasi: `ReservationBoqManagementTest`, `LopBoqProjectionTest`; frontend boq-editor.test.mjs (4 passed), seluruh frontend (19 passed).
 - Navigasi asal dan reset BOQ: `LopReturnNavigationTest`, `ReservationBoqManagementTest`, serta regression redirect pada `LoginTest`, `LopPermissionTest`, `LopExcelImportTest`.
