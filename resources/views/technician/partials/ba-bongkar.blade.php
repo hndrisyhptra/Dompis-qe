@@ -41,7 +41,7 @@
                 <label class="text-sm font-medium">Usulan tindak lanjut (opsional)<select name="form[tindak_lanjut]" class="mt-1.5 min-h-11 w-full rounded-md border border-ink-300 bg-white p-2 dark:border-ink-600 dark:bg-ink-800"><option value="">Belum ditentukan</option>@foreach (['penghapusan' => 'Penghapusan', 'refurbished' => 'Refurbished (memenuhi spek elektris)'] as $key => $label)<option value="{{ $key }}" @selected(($form['tindak_lanjut'] ?? '') === $key)>{{ $label }}</option>@endforeach</select></label>
             </div>
             <div class="flex items-center justify-between"><h3 class="text-sm font-bold">Material bongkaran</h3><button type="button" @click="add()" :disabled="rows.length >= 100" class="min-h-11 rounded-md border border-ink-300 px-3 text-xs font-bold dark:border-ink-600">Tambah rincian</button></div>
-            <p x-show="rows.length === 0" class="text-xs text-ink-500">Tambahkan material yang dibongkar. Data ini terpisah dari BOQ material terpasang.</p>
+            <p x-show="rows.length === 0" class="text-xs text-ink-500">Tambahkan rincian material atau isi Material lainnya di bawah. Data ini terpisah dari BOQ material terpasang.</p>
             <template x-for="(row, i) in rows" :key="i">
                 <div class="space-y-3 rounded-md border border-ink-200 p-3 dark:border-ink-700">
                     <div class="flex items-center justify-between"><p class="text-sm font-bold" x-text="'Rincian ' + (i + 1)"></p><button type="button" @click="rows.splice(i, 1)" class="min-h-10 px-2 text-xs font-bold text-red-600" :aria-label="'Hapus rincian ' + (i + 1)">Hapus</button></div>
@@ -56,6 +56,12 @@
                     </div>
                 </div>
             </template>
+            <div class="space-y-2">
+                <label for="ba-other-materials" class="block text-sm font-bold">Material lainnya (opsional)</label>
+                <textarea id="ba-other-materials" name="form[other_materials]" rows="3" maxlength="2000" aria-describedby="ba-other-materials-help" placeholder="patchcore 20 meter (1 buah)" class="w-full rounded-md border border-ink-300 bg-white p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-ink-600 dark:bg-ink-800">{{ $form['other_materials'] ?? '' }}</textarea>
+                <p id="ba-other-materials-help" class="text-xs text-ink-500 dark:text-ink-400">Contoh: patchcore 20 meter (1 buah). Isi nama material beserta panjang atau jumlahnya, maksimal 2.000 karakter.</p>
+                @error('form.other_materials')<p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+            </div>
             <fieldset class="space-y-3"><legend class="text-sm font-bold">Foto material bongkaran (minimal 1, maksimal 12)</legend>
                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">@foreach ($photos as $photo)<label class="space-y-2 rounded-md border border-ink-200 p-2 dark:border-ink-700"><img src="{{ $photo->url() }}" class="aspect-square w-full rounded object-cover" alt="Foto material bongkaran" loading="lazy"><span class="flex items-center gap-2 text-xs"><input type="checkbox" name="keep_photo_ids[]" value="{{ $photo->getKey() }}" checked>Pertahankan foto</span></label>@endforeach</div>
                 <label class="block text-xs font-semibold">Tambah foto (JPG/PNG/WebP, maks. 10 MB per foto)<input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="mt-2 block w-full rounded-md border border-ink-300 p-2 dark:border-ink-600"></label>

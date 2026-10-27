@@ -28,6 +28,10 @@
     $value = static fn (array $item, string $field, string $blank = '__________') => filled($item[$field] ?? null) ? (string) $item[$field] : $blank;
     $location = (string) ($form['lokasi'] ?? '');
     $longLocation = mb_strlen($location) > 175;
+    $otherMaterials = (string) ($form['other_materials'] ?? '');
+    $otherMaterialsCompact = trim((string) preg_replace('/\s+/u', ' ', $otherMaterials));
+    $longOtherMaterials = mb_strwidth($otherMaterialsCompact, 'UTF-8') > 100;
+    $otherMaterialsPreview = \Illuminate\Support\Str::limit($otherMaterialsCompact, 100);
 @endphp
 <!doctype html>
 <html lang="id">
@@ -49,6 +53,11 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
 .option { white-space: nowrap; line-height: 12pt; }
 .box { display: inline-block; width: 11pt; height: 11pt; border: .75pt solid #000; vertical-align: middle; text-align: center; margin-right: 3.5pt; }
 .tick { position: relative; top: 1.4pt; left: .2pt; font-family: DejaVu Sans, sans-serif; font-size: 14pt; line-height: 9pt; }
+.pole-column { position: absolute; top: 113.7pt; width: 116pt; height: 104pt; }
+.pole-column .box { position: relative; vertical-align: top; }
+.pole-column .tick { position: absolute; top: 0; left: 0; width: 11pt; font-size: 10pt; line-height: 11pt; }
+.other-materials-preview { width: 377pt; height: 36pt; word-wrap: break-word; overflow-wrap: break-word; }
+.ba-closing { position: absolute; left: 0; top: 60pt; width: 612pt; }
 .rule { border-bottom: .65pt solid #000; }
 .signature { text-align: center; width: 145pt; line-height: 11.5pt; }
 .signature img { max-width: 128pt; max-height: 66pt; }
@@ -57,6 +66,7 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
 .continuation h2 { font-size: 11.76pt; margin-bottom: 16pt; }
 .continuation .item { margin: 0 0 14pt; page-break-inside: avoid; }
 .continuation p { margin: 3pt 0; }
+.other-materials-full { white-space: pre-line; word-wrap: break-word; overflow-wrap: break-word; }
 .photo-page { margin: 65pt 51pt 40pt; width: 483pt; page-break-before: always; }
 .photos { width: 100%; table-layout: fixed; border-collapse: collapse; }
 .photos th, .photos td { width: 50%; padding: 1pt; border: .75pt solid #000; text-align: center; vertical-align: middle; }
@@ -104,13 +114,17 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
     <div class="field" style="left:156.7pt;top:69pt">Merk : {{ $value($primary['closure'], 'brand') }}</div>
     <div class="field group-label" style="left:52.6pt;top:97.5pt">F. Tiang</div>
     <div class="field bold" style="left:156.7pt;top:97.5pt">Jumlah Tiang : {{ $value($primary['tiang'], 'quantity') }} Batang</div>
-    @foreach ([[156.7,'Tinggi Tiang :'],[242.1,'Jenis Tiang :'],[408,'Kondisi :']] as [$x, $label])<div class="field" style="left:{{ $x }}pt;top:113.7pt">{{ $label }}</div>@endforeach
     @foreach ([
-        ['type','T9',155.3,129.6], ['type','T7',155.3,154], ['type','Tiang Galvanis',155.3,196.4],
-        ['segments','2 Segmen',240.6,154], ['segments','3 Segmen',240.6,171.9],
-        ['condition','Patah',406.6,129.6], ['condition','Bengkok',406.6,154], ['condition','Berkarat',406.6,171.9], ['condition','Kropos',406.6,196.4]
-    ] as [$field, $label, $x, $y])
-        @include('ba-bongkar.pdf-option', ['x' => $x, 'y' => $y, 'label' => $label, 'checked' => ($primary['tiang'][$field] ?? '') === $label, 'bold' => false])
+        'type' => [156.7, 'Tinggi Tiang :', ['T9', 'T7', 'Tiang Galvanis']],
+        'segments' => [284.7, 'Jenis Tiang :', ['2 Segmen', '3 Segmen']],
+        'condition' => [412.7, 'Kondisi :', ['Patah', 'Bengkok', 'Berkarat', 'Kropos']],
+    ] as $field => [$left, $heading, $choices])
+        <div class="pole-column" data-pole-column="{{ $field }}" style="left:{{ $left }}pt">
+            <div class="field" style="left:0;top:0">{{ $heading }}</div>
+            @foreach ($choices as $label)
+                @include('ba-bongkar.pdf-option', ['x' => 0, 'y' => 16 + $loop->index * 22, 'label' => $label, 'checked' => ($primary['tiang'][$field] ?? '') === $label, 'bold' => false])
+            @endforeach
+        </div>
     @endforeach
     <div class="field" style="left:156.7pt;top:222.9pt">Tahun : {{ $value($primary['tiang'], 'year') }}</div>
     <div class="field group-label" style="left:52.6pt;top:247.4pt">G. Drop Core</div>
@@ -120,6 +134,10 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
         <div class="field" style="left:306pt;top:{{ 247.4 + $index * 24.5 }}pt">Jumlah : {{ $value($drop, 'quantity') }} Unit</div>
     @endforeach
     <div class="field" style="left:156.7pt;top:369.8pt">Tahun : {{ $value($primary['drop_core'], 'year') }}</div>
+    <div class="field group-label" style="left:52.6pt;top:394.3pt;width:96pt">H. Material lainnya</div>
+    <div class="field other-materials-preview" style="left:156.7pt;top:394.3pt">{{ $otherMaterialsPreview !== '' ? $otherMaterialsPreview : '__________' }}</div>
+    @if ($longOtherMaterials)<div class="field" style="left:156.7pt;top:434.3pt;width:377pt;font-size:8pt">Rincian lengkap material lainnya tercantum pada halaman lanjutan.</div>@endif
+    <div class="ba-closing">
     <div class="field group-label" style="left:52.6pt;top:394.3pt">E. BARCODE SCMT *</div>
     <div class="field" style="left:141.5pt;top:394.3pt">:</div>
     <div class="field" style="left:156.7pt;top:394.3pt;width:321pt">{{ $form['barcode_scmt'] ?? '' }}</div>
@@ -132,7 +150,7 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
     <div class="signature signature-name" style="left:57pt;top:542.9pt">{{ $signatures['technician']['name'] ?? '' }}</div>
     <div class="signature bold" style="left:57pt;top:555.5pt">@if (filled($signatures['technician']['phone'] ?? null))(No. Tlpn : {{ $signatures['technician']['phone'] }} )@endif</div>
     <div class="signature signature-name" style="left:381pt;top:542.9pt">{{ $form['receiver_name'] ?? '' }}</div>
-    <div class="signature bold" style="left:381pt;top:555.5pt">{{ $form['receiver_position'] ?? '' }}@if (filled($form['receiver_phone'] ?? null))<br>{{ $form['receiver_phone'] }}@endif</div>
+    <div class="signature bold" style="left:381pt;top:555.5pt">{{ collect([$form['receiver_position'] ?? null, $form['receiver_phone'] ?? null])->filter(static fn ($value) => filled($value))->implode(' · ') }}</div>
     <div class="signature bold" style="left:222pt;top:574pt">Mengetahui,</div>
     <div class="signature bold" style="left:57pt;top:587pt">MGR. NETWORK OPERATION OSP</div>
     <div class="signature bold" style="left:381pt;top:587.5pt">MGR ASSET INVENTORY &amp;<br>DATA MANAGENT REGIONAL .....</div>
@@ -140,13 +158,15 @@ body { margin: 0; font-family: Carlito, sans-serif; font-size: 9.24pt; line-heig
     <div class="signature" data-signature-role="manager_asset" style="left:381pt;top:615pt;height:72pt"></div>
     <div class="signature bold" style="left:57pt;top:688.5pt;width:145pt"><div style="display:inline-block;text-align:left">____________________<div style="display:block;margin-top:3.5pt">NIK.</div></div></div>
     <div class="signature bold" style="left:381pt;top:688.5pt;width:145pt"><div style="display:inline-block;text-align:left">____________________<div style="display:block;margin-top:3.5pt">NIK.</div></div></div>
+    </div>
 </div>
-@if ($extraRows->isNotEmpty() || $longLocation || filled($form['mitra'] ?? null))
+@if ($extraRows->isNotEmpty() || $longLocation || $longOtherMaterials || filled($form['mitra'] ?? null))
 <div class="continuation">
     <h2>RINCIAN MATERIAL BONGKARAN TAMBAHAN</h2>
     <p>{{ $lop->incident }} · {{ $lop->nama_lop }}</p>
     @if ($longLocation)<p><strong>Lokasi bongkaran:</strong> {{ $location }}</p>@endif
     @if (filled($form['mitra'] ?? null))<p><strong>Mitra teknisi:</strong> {{ $form['mitra'] }}</p>@endif
+    @if ($longOtherMaterials)<p><strong>H. Material lainnya:</strong></p><p class="other-materials-full">{{ $otherMaterials }}</p>@endif
     @foreach ($extraRows as $item)
         <div class="item">
             <strong>{{ $groups[$item['group']]['label'] ?? '' }} · {{ str_replace('Padenstal', 'Pedestal', $item['type'] ?? '') }}</strong>

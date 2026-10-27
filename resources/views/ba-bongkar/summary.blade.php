@@ -17,6 +17,9 @@
         @foreach ($baForm['materials'] ?? [] as $material)
             <div class="rounded-md bg-ink-50 p-3 text-xs dark:bg-ink-800"><p class="font-bold">{{ \App\Support\BaBongkarRules::MATERIALS[$material['group']]['label'] ?? '' }} · {{ $material['type'] ?? '' }}</p><p class="mt-1">@foreach (['length' => 'Panjang (m)', 'quantity' => 'Jumlah', 'year' => 'Tahun', 'brand' => 'Merek', 'segments' => 'Jenis', 'condition' => 'Kondisi'] as $key => $label)@if (filled($material[$key] ?? null)) {{ $label }}: {{ $material[$key] }} · @endif @endforeach</p></div>
         @endforeach
+        @if (filled($baForm['other_materials'] ?? null))
+            <div class="rounded-md bg-ink-50 p-3 text-xs dark:bg-ink-800"><p class="font-bold">Material lainnya</p><p class="mt-1 whitespace-pre-line break-words">{{ $baForm['other_materials'] }}</p></div>
+        @endif
     @endif
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">@foreach ($lop->evidences->where('category', \App\Enums\EvidenceCategory::BA_BONGKAR_PHOTO) as $photo)<a href="{{ $photo->url() }}" target="_blank" rel="noopener"><img src="{{ $photo->url() }}" loading="lazy" alt="Foto material bongkaran" class="aspect-square w-full rounded-md object-cover"></a>@endforeach</div>
 </article>

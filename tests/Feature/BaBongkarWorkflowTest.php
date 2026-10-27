@@ -426,7 +426,7 @@ class BaBongkarWorkflowTest extends TestCase
 
     public function test_pdf_matches_reference_fields_and_keeps_manual_signatures_blank(): void
     {
-        $form = [...$this->payload()['form'], 'barcode_scmt' => 'SCMT-001', 'receiver_name' => 'Penerima Lapangan', 'receiver_position' => 'Security'];
+        $form = [...$this->payload()['form'], 'barcode_scmt' => 'SCMT-001', 'receiver_name' => 'SODIQ', 'receiver_position' => 'SECURITY', 'receiver_phone' => '081212341234'];
         $html = view('ba-bongkar.pdf', [
             'lop' => $this->lop, 'form' => $form, 'groups' => BaBongkarRules::MATERIALS, 'images' => [],
             'signatures' => [
@@ -444,9 +444,10 @@ class BaBongkarWorkflowTest extends TestCase
             $this->assertSame('', trim($column->textContent));
             $this->assertSame(0, $xpath->query('.//img', $column)->length);
         }
-        foreach (['Teknisi Penyerah', 'Penerima Lapangan', 'Security', 'No. Tlpn', 'Barcode', 'SCMT-001', 'BRANCH', 'MGR. NETWORK OPERATION OSP', 'DATA MANAGENT REGIONAL'] as $text) {
+        foreach (['Teknisi Penyerah', 'SODIQ', 'SECURITY', 'No. Tlpn', 'Barcode', 'SCMT-001', 'BRANCH', 'MGR. NETWORK OPERATION OSP', 'DATA MANAGENT REGIONAL'] as $text) {
             $this->assertStringContainsStringIgnoringCase($text, $html);
         }
+        $this->assertStringContainsString('SECURITY · 081212341234', $html);
         $this->assertStringNotContainsString('NIK. _______________', $html);
         $this->assertStringNotContainsString('Nama Admin Privat', $html);
         $this->assertStringNotContainsString('789789', $html);
@@ -505,5 +506,94 @@ class BaBongkarWorkflowTest extends TestCase
         $this->assertGreaterThanOrEqual(5, preg_match_all('/\/Type\s*\/Page\b/', $bytes));
         $this->assertCount(25, $doc->metadata['form']['materials']);
         $this->assertSame(12, $this->lop->evidences()->where('category', 'ba_bongkar_photo')->count());
+    }
+
+    public function test_other_materials_are_saved_in_draft_and_kept_in_edit_summary_and_admin_review(): void
+    {
+        $text = "patchcore 20 meter (1 buah)\nAdaptor SC (2 buah)";
+        $payload = $this->payload();
+        $payload['form']['other_materials'] = $text;
+        $payload['action'] = 'draft';
+        $this->actingAs($this->tech)->put(route('technician.projects.ba-bongkar', $this->lop), $payload)->assertSessionHasNoErrors();
+        $this->assertSame($text, data_get($this->lop->fresh()->ba_bongkar_data, 'form.other_materials'));
+        $this->get(route('technician.projects.show', [$this->lop, 'step' => 6]))->assertOk()
+            ->assertSee('form[other_materials]', false)->assertSee($text)->assertSee('Contoh: patchcore 20 meter (1 buah).');
+        $payload['action'] = 'generate';
+        $payload['revision'] = data_get($this->lop->fresh()->ba_bongkar_data, 'revision');
+        $this->put(route('technician.projects.ba-bongkar', $this->lop), $payload)->assertSessionHasNoErrors();
+        $this->assertSame($text, data_get(BaBongkarRules::document($this->lop->fresh())->metadata, 'form.other_materials'));
+        $this->get(route('technician.projects.show', [$this->lop, 'step' => 6]))->assertOk()->assertSee($text);
+        $this->get(route('technician.projects.show', [$this->lop, 'step' => 6, 'edit_ba' => 1]))->assertOk()->assertSee($text);
+        $this->submit();
+        $this->actingAs($this->admin)->get(route('evidence-approval.lop.review', [$this->lop, 'step' => 6]))->assertOk()->assertSee($text);
+    }
+
+    public function test_other_materials_only_can_generate_without_a_structured_material_row(): void
+    {
+        $payload = $this->payload();
+        $payload['form']['materials'] = [];
+        $payload['form']['other_materials'] = 'patchcore 20 meter (1 buah)';
+        $this->actingAs($this->tech)->put(route('technician.projects.ba-bongkar', $this->lop), $payload)->assertSessionHasNoErrors();
+        $this->assertTrue(BaBongkarRules::complete($this->lop->fresh()));
+        $this->submit();
+        $this->approveBa();
+        $this->post(route('evidence-approval.lop.complete', $this->lop))->assertSessionHasNoErrors();
+        $this->assertSame('completed', $this->lop->fresh()->status_lop->value);
+    }
+
+    public function test_other_materials_validate_text_length_and_cannot_leave_generated_ba_without_any_material(): void
+    {
+        $this->actingAs($this->tech);
+        foreach ([str_repeat('x', 2001), ['not text']] as $text) {
+            $payload = $this->payload();
+            $payload['form']['other_materials'] = $text;
+            $this->put(route('technician.projects.ba-bongkar', $this->lop), $payload)->assertSessionHasErrors('form.other_materials');
+        }
+        $payload = $this->payload();
+        $payload['form']['materials'] = [];
+        $payload['form']['other_materials'] = '   ';
+        $this->put(route('technician.projects.ba-bongkar', $this->lop), $payload)->assertSessionHasErrors('form.materials');
+    }
+
+    public function test_pdf_other_materials_follow_drop_core_and_pole_options_use_aligned_columns(): void
+    {
+        $form = $this->payload()['form'];
+        $form['other_materials'] = 'patchcore 20 meter (1 buah) <script>alert(1)</script>';
+        $html = view('ba-bongkar.pdf', ['lop' => $this->lop, 'form' => $form, 'groups' => BaBongkarRules::MATERIALS, 'images' => [], 'signatures' => []])->render();
+        $this->assertStringContainsString('H. Material lainnya', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertLessThan(strpos($html, 'H. Material lainnya'), strpos($html, 'G. Drop Core'));
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(3, $xpath->query('//*[@data-pole-column]')->count());
+        foreach (['type' => 3, 'segments' => 2, 'condition' => 4] as $key => $count) {
+            $this->assertSame($count, $xpath->query('//*[@data-pole-column="'.$key.'"]//div[contains(concat(" ", normalize-space(@class), " "), " option ")]')->count());
+        }
+    }
+
+    public function test_long_other_material_text_is_preserved_on_continuation_page(): void
+    {
+        $form = $this->payload()['form'];
+        $form['other_materials'] = str_repeat("patchcore 20 meter (1 buah)\n", 60).'PENANDA AKHIR MATERIAL';
+        $html = view('ba-bongkar.pdf', ['lop' => $this->lop, 'form' => $form, 'groups' => BaBongkarRules::MATERIALS, 'images' => [], 'signatures' => []])->render();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $continuation = (new \DOMXPath($dom))->query('//div[@class="continuation"]')->item(0);
+        $this->assertNotNull($continuation);
+        $this->assertStringContainsString('PENANDA AKHIR MATERIAL', $continuation->textContent);
+        $this->assertSame(60, substr_count($continuation->textContent, 'patchcore 20 meter (1 buah)'));
+        $pdf = app(BaBongkarPdfService::class)->render($this->lop, $form, [], []);
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertGreaterThanOrEqual(3, preg_match_all('/\/Type\s*\/Page\b/', $pdf));
+
+        $form['other_materials'] = str_repeat('材', 60);
+        $html = view('ba-bongkar.pdf', ['lop' => $this->lop, 'form' => $form, 'groups' => BaBongkarRules::MATERIALS, 'images' => [], 'signatures' => []])->render();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $continuation = (new \DOMXPath($dom))->query('//div[@class="continuation"]')->item(0);
+        $this->assertNotNull($continuation);
+        $this->assertStringContainsString($form['other_materials'], $continuation->textContent);
     }
 }

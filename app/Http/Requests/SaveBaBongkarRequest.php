@@ -16,12 +16,13 @@ class SaveBaBongkarRequest extends FormRequest
     public function rules(): array
     {
         $required = $this->boolean('required') && $this->input('action') === 'generate' ? 'required' : 'nullable';
+        $hasOtherMaterials = $this->filled('form.other_materials');
 
         return [
             'required' => ['required', 'boolean'],
             'revision' => ['nullable', 'uuid'],
             'action' => ['required', Rule::in(['draft', 'generate'])],
-            'form' => ['nullable', 'array:number,date,witel,sto_asal,lokasi,sto_tujuan,tindak_lanjut,mitra,barcode_scmt,receiver_name,receiver_position,receiver_phone,photo_caption,materials'],
+            'form' => ['nullable', 'array:number,date,witel,sto_asal,lokasi,sto_tujuan,tindak_lanjut,mitra,barcode_scmt,receiver_name,receiver_position,receiver_phone,photo_caption,materials,other_materials'],
             'form.number' => ['nullable', 'string', 'max:100'],
             'form.date' => [$required, 'date_format:Y-m-d'],
             'form.witel' => [$required, 'string', 'max:255'],
@@ -35,7 +36,8 @@ class SaveBaBongkarRequest extends FormRequest
             'form.receiver_position' => ['nullable', 'string', 'max:100'],
             'form.receiver_phone' => ['nullable', 'string', 'max:30'],
             'form.photo_caption' => ['nullable', 'string', 'max:100'],
-            'form.materials' => [$required, 'array', 'min:1', 'max:100'],
+            'form.other_materials' => ['nullable', 'string', 'max:2000'],
+            'form.materials' => [$hasOtherMaterials ? 'nullable' : $required, 'array', ...($hasOtherMaterials ? [] : ['min:1']), 'max:100'],
             'form.materials.*' => ['array:group,type,length,quantity,year,brand,segments,condition'],
             'form.materials.*.group' => ['required', Rule::in(array_keys(BaBongkarRules::MATERIALS))],
             'form.materials.*.type' => ['nullable', 'string', 'max:50'],
