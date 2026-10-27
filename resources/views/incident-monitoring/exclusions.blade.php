@@ -9,9 +9,10 @@
     $detailUrl = fn (array $changes = []) => route('incident-monitoring.exclusions', array_filter(array_replace($baseQuery, $detailReset, $changes), fn ($value) => $value !== '')).'#ticket-details';
     $reportedFrom = \App\Support\TicketReportedDate::floor();
     $columnCount = 7 + count($kinds) * count($reasons);
-    $matrixGroupLabel = $groupBySto ? 'SERVICE AREA / STO' : 'REGIONAL';
-    $matrixSummaryLabel = $groupBySto ? 'service area/STO' : 'regional';
-    $isGrouped = $groupBySto && $matrixGroups !== [];
+    $matrixGroupLabel = $groupBySto ? 'SERVICE AREA / STO' : ($groupByBranch ? 'REGIONAL / BRANCH' : 'REGIONAL');
+    $matrixSummaryLabel = $groupBySto ? 'service area/STO' : ($groupByBranch ? 'regional/branch' : 'regional');
+    $matrixUnit = $groupByBranch ? 'Branch' : 'STO';
+    $isGrouped = ($groupBySto || $groupByBranch) && $matrixGroups !== [];
     $groupOpenDefault = count($matrixRows) <= 10;
     $groupOpenState = collect($matrixGroups)->mapWithKeys(fn (array $group, int $index) => [$index => $groupOpenDefault])->all();
     $visibleScopeLabel = $scopeLabel !== 'Seluruh wilayah' ? $scopeLabel : null;
@@ -108,7 +109,7 @@
         <div @if ($isGrouped) x-data="{ openGroups: @js($groupOpenState) }" @endif>
             @if ($isGrouped)
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 bg-ink-50 px-4 py-2 text-xs dark:border-ink-700 dark:bg-ink-800">
-                    <span class="text-ink-600 dark:text-ink-300">{{ count($matrixGroups) }} kelompok service area · {{ count($matrixRows) }} STO</span>
+                    <span class="text-ink-600 dark:text-ink-300">{{ count($matrixGroups) }} kelompok {{ $groupByBranch ? 'regional' : 'service area' }} · {{ count($matrixRows) }} {{ $matrixUnit }}</span>
                     <button type="button" @click="openGroups = Object.fromEntries(Object.keys(openGroups).map(k => [k, !Object.values(openGroups).every(Boolean)]))" data-capture-ignore
                             class="rounded-md border border-ink-200 px-2 py-1 font-bold text-ink-600 transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:border-ink-700 dark:text-ink-300 dark:hover:border-emerald-800 dark:hover:text-emerald-300">
                         <span x-text="Object.values(openGroups).every(Boolean) ? 'Lipat semua' : 'Buka semua'">Buka semua</span>
@@ -120,9 +121,9 @@
                 <caption class="sr-only">Jumlah tiket sudah dan belum exclude menurut {{ $matrixSummaryLabel }}, jenis tiket, dan alasan pengecualian.</caption>
                 <thead class="bg-ink-50 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
                     <tr>
-                        <th rowspan="3" scope="col" class="sticky left-0 z-10 min-w-40 border border-ink-200 bg-ink-50 px-3 py-3 text-center dark:border-ink-700 dark:bg-ink-800">{{ $matrixGroupLabel }}</th>
+                        <th rowspan="3" scope="col" class="sticky left-0 z-10 border border-ink-200 bg-ink-50 px-3 py-3 text-center dark:border-ink-700 dark:bg-ink-800 {{ $groupByBranch ? 'min-w-64 whitespace-nowrap' : 'min-w-40' }}">{{ $matrixGroupLabel }}</th>
                         <th colspan="6" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">JUMLAH TIKET</th>
-                        <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-emerald-50 px-3 py-3 text-center text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/50 dark:text-emerald-200">SUDAH MAPPING</th>
+                        <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-emerald-50 px-3 py-3 text-center text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/50 dark:text-emerald-200">SUDAH EXCLUDE</th>
                     </tr>
                     <tr>
                         @foreach ($kinds as $label)<th colspan="2" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
@@ -135,7 +136,7 @@
                         @endforeach
                         @foreach ($kinds as $label)
                             @foreach ($reasons as $reason => $reasonLabel)
-                                <th scope="col" title="{{ $reasonLabel }}" class="min-w-24 border border-ink-200 px-2 py-3 dark:border-ink-700">{{ ['duplikat_open' => 'Tiket Open', 'magu_ganti_pasif_odp' => 'MAGU'][$reason] ?? $reasonLabel }}</th>
+                                <th scope="col" title="{{ $reasonLabel }}" class="min-w-24 border border-ink-200 px-2 py-3 dark:border-ink-700">{{ ['duplikat_open' => 'Duplikat Tiket', 'magu_ganti_pasif_odp' => 'MAGU'][$reason] ?? $reasonLabel }}</th>
                             @endforeach
                         @endforeach
                     </tr>
@@ -148,20 +149,24 @@
                                     <button type="button" @click="openGroups[{{ $groupIndex }}] = !openGroups[{{ $groupIndex }}]" :aria-expanded="!!openGroups[{{ $groupIndex }}]" aria-controls="exclude-group-{{ $groupIndex }}"
                                             class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="openGroups[{{ $groupIndex }}] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                        <span class="min-w-0 wrap-break-word">{{ $group['name'] }}</span>
-                                        <span class="ml-auto shrink-0 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['sto_count'] }} STO</span>
+                                        <span class="{{ $groupByBranch ? 'shrink-0 whitespace-nowrap' : 'min-w-0 wrap-break-word' }}">{{ $group['name'] }}</span>
+                                        <span class="ml-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
                                     </button>
                                 </th>
-                                @foreach ($kinds as $kind => $label)
-                                    @foreach (['excluded', 'not_excluded'] as $state)
-                                        <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white {{ $state === 'not_excluded' ? 'bg-brand-100/70 dark:bg-brand-900/30' : '' }}">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$state], 0, ',', '.') }}@endif</td>
+                                @if ($groupByBranch)
+                                    @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $group, 'showRowLabel' => false])
+                                @else
+                                    @foreach ($kinds as $kind => $label)
+                                        @foreach (['excluded', 'not_excluded'] as $state)
+                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white {{ $state === 'not_excluded' ? 'bg-brand-100/70 dark:bg-brand-900/30' : '' }}">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$state], 0, ',', '.') }}@endif</td>
+                                        @endforeach
                                     @endforeach
-                                @endforeach
-                                @foreach ($kinds as $kind => $label)
-                                    @foreach ($reasons as $reason => $reasonLabel)
-                                        <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$reason], 0, ',', '.') }}@endif</td>
+                                    @foreach ($kinds as $kind => $label)
+                                        @foreach ($reasons as $reason => $reasonLabel)
+                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$reason], 0, ',', '.') }}@endif</td>
+                                        @endforeach
                                     @endforeach
-                                @endforeach
+                                @endif
                             </tr>
                             @foreach ($group['rows'] as $matrixRow)
                                 <tr x-show="openGroups[{{ $groupIndex }}]" x-cloak class="bg-white dark:bg-ink-900">
@@ -183,7 +188,7 @@
                             </tr>
                         @endforeach
                         @if (count($matrixRows) === 0)
-                            <tr><td colspan="{{ $columnCount }}" class="p-4 text-ink-500 dark:text-ink-400">Tidak ada {{ $groupBySto ? 'STO' : 'wilayah' }} dalam filter dan scope akun.</td></tr>
+                            <tr><td colspan="{{ $columnCount }}" class="p-4 text-ink-500 dark:text-ink-400">Tidak ada {{ $groupBySto ? 'STO' : ($groupByBranch ? 'branch' : 'wilayah') }} dalam filter dan scope akun.</td></tr>
                         @endif
                     </tbody>
                 @endif
@@ -226,7 +231,7 @@
                                     @if ($ticket['is_excluded'])
                                         <x-unexclude-ticket-button :incident="$ticket['incident']" :compact="true" />
                                     @else
-                                        <span class="text-ink-500 dark:text-ink-400">—</span>
+                                        <x-exclude-ticket-form :incident="$ticket['incident']" />
                                     @endif
                                 </td>
                             </tr>

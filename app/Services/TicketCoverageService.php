@@ -52,7 +52,7 @@ class TicketCoverageService
         $restrictWorkzones = $user->hasRole(UserRole::ADMIN)
             || $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '';
 
-        return compact('filters', 'branches', 'serviceAreas', 'regions', 'selectedAreas', 'restrictWorkzones');
+        return compact('filters', 'branches', 'serviceAreas', 'regions', 'selectedBranches', 'selectedAreas', 'restrictWorkzones');
     }
 
     public function dashboard(User $user, array $input, bool $forExport = false): array

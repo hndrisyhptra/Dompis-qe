@@ -165,30 +165,7 @@
                         @endunless
                         @unless ($showExcludeReasonMobile)
                             @if ($filters['usage'] === 'without_lop')
-                                <div x-data="{ open: false }" class="relative">
-                                    <button type="button" @click="open = !open" :aria-expanded="open"
-                                            class="inline-flex min-h-10 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-700 hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800">
-                                        Exclude tiket
-                                    </button>
-                                    <div x-show="open" @click.outside="open = false" x-cloak
-                                         class="absolute left-0 z-20 mt-1 w-56 rounded-md border border-ink-200 bg-white p-3 shadow-lg dark:border-ink-700 dark:bg-ink-900">
-                                        <form method="POST" action="{{ route('incident-monitoring.tickets.exclude') }}" class="space-y-2">
-                                            @csrf
-                                            <input type="hidden" name="incident" value="{{ $row['incident'] }}">
-                                            <label for="m-reason-{{ $loop->index }}" class="block text-xs font-medium text-ink-600 dark:text-ink-300">Alasan exclude</label>
-                                            <select id="m-reason-{{ $loop->index }}" name="reason" required
-                                                    class="w-full rounded-md border border-ink-200 px-2 py-2 text-sm text-ink-900 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
-                                                @foreach ($excludeReasons as $value => $label)
-                                                    <option value="{{ $value }}">{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                            <button type="submit"
-                                                    class="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">
-                                                Konfirmasi
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
+                                <x-exclude-ticket-form :incident="$row['incident']" />
                             @endif
                         @endunless
                         @if ($showExcludeReasonMobile)
@@ -245,30 +222,7 @@
                                 @endif
                                 @if ($showExcludeAction)
                                     <td class="px-3 py-4">
-                                        <div x-data="{ open: false }" class="relative">
-                                            <button type="button" @click="open = !open" :aria-expanded="open"
-                                                    class="inline-flex min-h-8 items-center rounded-md border border-ink-200 px-2.5 text-xs font-medium text-ink-700 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800">
-                                                Exclude
-                                            </button>
-                                            <div x-show="open" @click.outside="open = false" x-cloak
-                                                 class="absolute right-0 z-20 mt-1 w-52 rounded-md border border-ink-200 bg-white p-2 shadow-lg dark:border-ink-700 dark:bg-ink-900">
-                                                <form method="POST" action="{{ route('incident-monitoring.tickets.exclude') }}" class="space-y-2">
-                                                    @csrf
-                                                    <input type="hidden" name="incident" value="{{ $row['incident'] }}">
-                                                    <label for="reason-{{ $loop->index }}" class="block text-xs font-medium text-ink-600 dark:text-ink-300">Alasan exclude</label>
-                                                    <select id="reason-{{ $loop->index }}" name="reason" required
-                                                            class="w-full rounded-md border border-ink-200 px-2 py-1.5 text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-800 dark:text-white">
-                                                        @foreach ($excludeReasons as $value => $label)
-                                                            <option value="{{ $value }}">{{ $label }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <button type="submit"
-                                                            class="w-full rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-brand-500">
-                                                        Konfirmasi
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
+                                        <x-exclude-ticket-form :incident="$row['incident']" />
                                     </td>
                                 @endif
                                 @if ($showUnexcludeAction)
