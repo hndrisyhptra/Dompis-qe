@@ -42,7 +42,7 @@ class TicketCoverageService
             ->orderBy('name')->get(['id_branch', 'name', 'region_id', 'region']);
         $serviceAreas = ServiceArea::query()
             ->whereIn('id_service_area', $this->visibility->accessibleServiceAreaIds($user))
-            ->orderBy('workzone')->get(['id_service_area', 'workzone', 'branch_id']);
+            ->orderBy('workzone')->get(['id_service_area', 'workzone', 'name', 'branch_id']);
         $regions = $branches->map(fn (Branch $branch) => $branch->regionRef?->name ?? $branch->region)
             ->filter()->unique()->sort()->values();
         $selectedBranches = $branches->filter(fn (Branch $branch) => ($filters['region'] === '' || ($branch->regionRef?->name ?? $branch->region) === $filters['region'])

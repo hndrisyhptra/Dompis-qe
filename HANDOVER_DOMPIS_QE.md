@@ -1,9 +1,9 @@
 # Paket Handover Dompis QE
 
-Terakhir diaudit: **26 Oktober 2026**
+Terakhir diaudit: **27 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `92a7c96` (`fix: query optimize`)
+HEAD dasar saat audit terbaru: `8978487` (`fix: table monitoring exclude`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -55,7 +55,9 @@ Pembaruan 20 Oktober 2026: empat commit hari ini masih **belum tercatat di `CLAU
 
 Pembaruan 26 Oktober 2026: BA Bongkar/penghapusan Warehouse berada pada `b1a4849`, dan batas reported date mulai September pada `ef9e131`. Worktree bersih sebelum task tabel Monitoring Exclude. Perubahan 7.66 belum di-commit: tab matrix regional, filter tanggal/bulan, drill-down detail, dan regression test. Tidak ada migration baru atau perubahan database operasional pada task ini.
 
-Pembaruan optimasi query 26 Oktober 2026: worktree bersih pada `5f30637` sebelum task. Perubahan 7.69 belum di-commit: eager load BOQ pada daftar LOP, batch scope untuk render GET, dan batch lokasi/harga Data BOQ. Tidak ada perubahan schema, migration, atau database operasional.
+Pembaruan optimasi query 26 Oktober 2026: worktree bersih pada `5f30637` sebelum task. Optimasi 7.69 masuk commit `92a7c96`: eager load BOQ pada daftar LOP, batch scope untuk render GET, dan batch lokasi/harga Data BOQ. Tidak ada perubahan schema, migration, atau database operasional.
+
+Pembaruan 27 Oktober 2026: label scope global pada Monitoring Exclude dan tabel monitoring masuk commit `8978487`. Perubahan 7.71 belum di-commit: matriks per STO yang dikelompokkan berdasarkan nama Service Area untuk Admin Branch dan Service Area, drill-down STO, serta regression test. Tidak ada perubahan schema, migration, atau database operasional.
 
 ### 2.3 Status migration lokal
 
@@ -1011,7 +1013,7 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Hanya baris `incident_excludes` yang dihapus. Tidak ada migration/schema baru, perubahan status LOP, penulisan ke sumber Dompis, atau perubahan perhitungan KPI/status. Untuk Admin, service memverifikasi workzone tiket pada sumber Dompis terhadap `LopVisibilityService` sebelum exclude/unexclude; Super Admin melewati pemeriksaan scope. Bila sumber gagal dibaca, controller membalas 503, bukan error 500. Otorisasi halaman tetap Admin/Super Admin dan daftar dibatasi scope wilayah.
 - Verifikasi: full suite **581 tests / 6592 assertions** lulus. Regression terkait: `IncidentExcludeTest` **14 tests / 81 assertions** (termasuk otorisasi Admin/Super Admin/teknisi, scope di luar akses, normalisasi, idempotensi, dan tombol di kedua halaman) serta `TicketCoverageTest` + `TicketExcludeMonitoringTest` **43 tests / 1278 assertions**. Pint file task, `view:cache`, `npm run build`, dan `git diff --check` lulus.
 
-### 7.69 Optimasi query daftar LOP dan Data BOQ — 26 Oktober 2026 (belum di-commit)
+### 7.69 Optimasi query daftar LOP dan Data BOQ — 26 Oktober 2026 (commit `92a7c96`)
 
 - Active LOP dan History melakukan eager load `boq.items.designator` agar `ProjectProgressService`/`ReservedDesignatorRules` tidak mengambil rincian BOQ per baris. Query/filter, pagination, ringkasan progress/approval, serta Blade tetap memakai aturan existing.
 - `LopVisibilityService::prepareForView()` menghitung akses seluruh model pada satu halaman dengan query scope canonical. Hasil disimpan di atribut request sebagai WeakMap per objek model, dengan konteks user/scope/pivot-STO/lokasi model. `canAccess()` memakainya hanya pada GET yang telah dipersiapkan; user/model/konteks berbeda kembali ke query canonical. POST/PUT/PATCH/DELETE selalu membaca akses terbaru. Cache tidak disimpan pada model, session, singleton, maupun lintas request. Dipakai pada Active LOP, History, dan Master Data LOP; policy/Gate serta aturan empat level scope dan fallback branch/STO legacy tetap berlaku.
@@ -1019,12 +1021,21 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Pengukuran ulang fixture audit SQLite yang sama: Active LOP 20 baris **268 → 32 query**, Master Data LOP 20 baris **136 → 18**, Data BOQ 15 reservasi **134 → 22**. Jumlah query pada halaman ini tidak lagi bertambah per baris untuk akses/relasi/harga yang dibatch. Angka ini jumlah query data uji, bukan klaim persentase percepatan MySQL produksi. Audit kandidat lanjutan (pagination laporan material, referensi global/parse tanggal Monitoring Tiket, agregasi tab Summary Dashboard, dan agregasi Revenue) belum diubah pada tahap ini; indeks perlu audit schema dan EXPLAIN di environment tujuan sebelum diputuskan.
 - Regression `QueryOptimizationTest`: **10 tests / 117 assertions**, termasuk budget query halaman, kesamaan ringkasan, scope Area/Region/Branch/multi-STO dan legacy, pembatasan cache ke GET/user/model/request, perubahan scope/lokasi, batch vs single, snapshot/paket/referensi/jasa virtual/nol/null/harga hilang, penyegaran harga, dan cleanup exception. Full suite **591 tests / 6709 assertions** lulus; Pint semua file task, `view:cache`, dan `git diff --check` lulus. Tidak mengubah Blade/JavaScript, tidak menjalankan migration, write database operasional/sumber Dompis, restart worker, commit/push, atau deployment. MySQL/produksi belum diverifikasi.
 
-### 7.70 Label scope global disembunyikan pada Monitoring Exclude — 26 Oktober 2026 (belum di-commit)
+### 7.70 Label scope global disembunyikan pada Monitoring Exclude — 26 Oktober 2026 (commit `8978487`)
 
 - Header **Monitoring Exclude Tiket** tidak lagi menampilkan teks **Seluruh wilayah** untuk Super Admin. Label scope Admin (Area, Region, Branch, atau Service Area) tetap ditampilkan karena masih relevan.
 - Nilai yang sama tidak dimasukkan ke context capture maupun nama file capture. Untuk Super Admin, nama file menjadi `monitoring-exclude-tiket-<tanggal_awal>-<tanggal_akhir>`; untuk Admin, label scope tetap disertakan.
 - Tidak ada perubahan query, data, authorization, atau teks pada halaman lain. Teks **Seluruh wilayah operasional** pada menu akun global tidak diubah karena berada di luar konten Monitoring Exclude.
 - Verifikasi: full suite **592 tests / 6715 assertions** lulus; `IncidentExcludeTest` **15 tests / 87 assertions**. `view:cache`, `npm run build`, dan `git diff --check` lulus.
+
+### 7.71 Matriks Monitoring Exclude per Service Area/STO untuk Admin Branch dan Service Area — 27 Oktober 2026 (belum di-commit)
+
+- Admin dengan scope **Branch** (termasuk fallback legacy `branch_id`) dan **Service Area** kini melihat baris matriks berdasarkan **STO/workzone**, bukan region. Baris STO dikelompokkan menurut `service_areas.name` seperti matrix Program Dashboard: grup dapat dilipat, menampilkan jumlah STO dan agregat setiap kolom, serta default terbuka bila total STO <= 10. Header kolom menjadi **SERVICE AREA / STO**; Admin Area, Admin Region, dan Super Admin tetap memakai baris regional.
+- Setiap sel STO melakukan drill-down ke tiket pada STO tersebut melalui key internal `matrix_region=sto:<WORKZONE>`. URL filter region lama pada akun Branch/Service Area tidak memperlebar data dan menghasilkan nol tiket.
+- Pengelompokan dipilih dari effective scope (`admin_scope_type`, fallback `branch_id`) di `TicketExcludeMonitoringService`. `TicketCoverageService::monitoringContext` kini ikut memilih kolom `service_areas.name` agar label grup tersedia; batas data tetap berasal dari `TicketCoverageService` dan `LopVisibilityService`. Tidak ada perubahan schema, data, authorization, atau query sumber.
+- Baris sel matriks diekstrak ke `resources/views/incident-monitoring/_exclude-matrix-row.blade.php` agar dipakai bersama mode regional dan mode grup. Capture tetap menyertakan ringkasan grup; tombol buka/lipat dikecualikan dari capture.
+- Kolom **Belum Exclude** memakai latar merah brand: header `bg-brand-500` dengan teks putih, sel data `bg-brand-100/70` dengan teks merah gelap, serta varian gelap yang tetap kontras.
+- Regression `TicketExcludeMonitoringTest`: **14 tests / 809 assertions**; full suite **593 tests / 6750 assertions**. `view:cache`, `npm run build`, Pint file task, dan `git diff --check` lulus.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 

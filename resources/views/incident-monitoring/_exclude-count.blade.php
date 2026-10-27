@@ -2,9 +2,12 @@
     $isExcluded = ($cellQuery['exclude_state'] ?? '') === 'excluded';
     $numberClasses = $isExcluded
         ? 'text-emerald-800 decoration-emerald-300 hover:bg-emerald-50 focus-visible:outline-emerald-500 aria-[current=true]:bg-emerald-100 dark:text-emerald-300 dark:decoration-emerald-700 dark:hover:bg-emerald-950 dark:aria-[current=true]:bg-emerald-900'
-        : 'text-brand-700 decoration-brand-200 hover:bg-brand-50 focus-visible:outline-brand-500 aria-[current=true]:bg-brand-100 dark:text-brand-300 dark:decoration-brand-700 dark:hover:bg-brand-900 dark:aria-[current=true]:bg-brand-900';
+        : 'text-brand-800 decoration-brand-300 hover:bg-brand-200 focus-visible:outline-brand-500 aria-[current=true]:bg-brand-200 dark:text-brand-200 dark:decoration-brand-700 dark:hover:bg-brand-900/60 dark:aria-[current=true]:bg-brand-900';
+    $cellClasses = $isExcluded
+        ? 'border border-ink-200 p-0 dark:border-ink-700'
+        : 'border border-ink-200 bg-brand-100/70 p-0 dark:border-ink-700 dark:bg-brand-900/30';
 @endphp
-<td class="border border-ink-200 p-0 dark:border-ink-700">
+<td class="{{ $cellClasses }}">
     @if ($sourceUnavailable)
         <span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>
     @else

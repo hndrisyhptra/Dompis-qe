@@ -207,6 +207,76 @@ class TicketExcludeMonitoringTest extends TestCase
         }
     }
 
+    public function test_branch_and_service_area_admin_matrix_groups_rows_by_sto_instead_of_region(): void
+    {
+        ServiceArea::create([
+            'workzone' => 'SBY2', 'name' => 'SBY',
+            'branch_id' => $this->branches['SBY']->getKey(), 'region_id' => $this->branches['SBY']->region_id,
+        ]);
+        foreach (['SBY', 'SBY2', 'SMG', 'DPS'] as $sto) {
+            $this->ticket('INC-STO-'.$sto, sto: $sto);
+        }
+
+        $branchAdmin = User::factory()->role('ADMIN')->create([
+            'admin_scope_type' => 'branch', 'branch_id' => $this->branches['SBY']->getKey(),
+        ]);
+        $this->actingAs($branchAdmin)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('groupBySto', true)
+            ->assertViewHas('matrixRows', fn ($rows) => array_keys($rows) === ['sto:SBY', 'sto:SBY2']
+                && $rows['sto:SBY']['label'] === 'SBY' && $rows['sto:SBY']['count'] === 1
+                && $rows['sto:SBY2']['label'] === 'SBY2' && $rows['sto:SBY2']['count'] === 1)
+            ->assertViewHas('matrixGroups', fn ($groups) => count($groups) === 1
+                && $groups[0]['name'] === 'SBY' && $groups[0]['sto_count'] === 2
+                && $groups[0]['count'] === 2 && $groups[0]['cells']['gamas:not_excluded'] === 2)
+            ->assertSee('SERVICE AREA / STO')
+            ->assertSee('kelompok service area')
+            ->assertSee('bg-brand-500', false)
+            ->assertSee('bg-brand-100/70', false)
+            ->assertSee('id="exclude-group-0"', false)
+            ->assertSee('aria-controls="exclude-group-0"', false)
+            ->assertSee('2 STO')
+            ->assertDontSee('JAWA TIMUR');
+
+        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'sto:SBY']))->assertOk()
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 1 && $rows->first()['incident'] === 'INC-STO-SBY')
+            ->assertViewHas('detailLabel', fn ($label) => str_starts_with($label, 'SBY ·'));
+        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'jatim']))->assertOk()
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 0);
+
+        $legacyBranchAdmin = User::factory()->role('ADMIN')->create(['branch_id' => $this->branches['SBY']->getKey()]);
+        $this->actingAs($legacyBranchAdmin)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('groupBySto', true)
+            ->assertViewHas('matrixRows', fn ($rows) => array_keys($rows) === ['sto:SBY', 'sto:SBY2']);
+
+        $serviceAreaAdmin = User::factory()->role('ADMIN')->create(['admin_scope_type' => 'service_area']);
+        $serviceAreaAdmin->serviceAreas()->sync([$this->areas['SBY']->getKey(), $this->areas['DPS']->getKey()]);
+        $this->actingAs($serviceAreaAdmin)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('groupBySto', true)
+            ->assertViewHas('matrixRows', fn ($rows) => array_keys($rows) === ['sto:DPS', 'sto:SBY']
+                && $rows['sto:DPS']['label'] === 'DPS' && $rows['sto:SBY']['label'] === 'SBY')
+            ->assertViewHas('matrixGroups', fn ($groups) => array_column($groups, 'name') === ['DPS', 'SBY']
+                && array_column($groups, 'sto_count') === [1, 1])
+            ->assertSee('SERVICE AREA / STO')
+            ->assertDontSee('BALI NUSRA');
+
+        $areaAdmin = User::factory()->role('ADMIN')->create([
+            'admin_scope_type' => 'area', 'area_id' => $this->area->getKey(),
+        ]);
+        $this->actingAs($areaAdmin)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('groupBySto', false)
+            ->assertViewHas('matrixGroups', [])
+            ->assertViewHas('matrixRows', fn ($rows) => array_keys($rows) === ['jatengdiy', 'jatim', 'balnus']);
+
+        $regionAdmin = User::factory()->role('ADMIN')->create([
+            'admin_scope_type' => 'region', 'region_id' => $this->branches['SBY']->region_id,
+        ]);
+        $this->actingAs($regionAdmin)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('groupBySto', false)
+            ->assertViewHas('matrixGroups', [])
+            ->assertViewHas('matrixRows', fn ($rows) => array_keys($rows) === ['jatim'] && $rows['jatim']['label'] === 'JAWA TIMUR')
+            ->assertSee('>REGIONAL<', false);
+    }
+
     public function test_location_search_and_drill_filters_intersect_without_broadening_admin_scope(): void
     {
         $this->ticket('INC-TARGET', 'PREMAN', ' sby ');
@@ -215,7 +285,7 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->ticket('INC-HIDDEN', 'PREMAN', 'DPS');
         $admin = User::factory()->role('ADMIN')->create(['branch_id' => $this->branches['SBY']->getKey()]);
         $filters = ['region' => 'REGION JATIM', 'branch' => $this->branches['SBY']->getKey(), 'service_area' => $this->areas['SBY']->getKey(),
-            'q' => 'TARGET', 'matrix_region' => 'jatim', 'detail_kind' => 'preman', 'reason' => 'temporer'];
+            'q' => 'TARGET', 'matrix_region' => 'sto:SBY', 'detail_kind' => 'preman', 'reason' => 'temporer'];
         $this->actingAs($admin)->get(route('incident-monitoring.exclusions', $filters))->assertOk()
             ->assertViewHas('totals', fn ($row) => $row['count'] === 1)
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 1 && $rows->first()['incident'] === 'INC-TARGET' && $rows->first()['is_excluded']);
@@ -224,7 +294,7 @@ class TicketExcludeMonitoringTest extends TestCase
                 ->assertViewHas('totals', fn ($row) => $row['count'] === 0)->assertViewHas('tickets', fn ($rows) => $rows->total() === 0)
                 ->assertDontSee('INC-HIDDEN');
         }
-        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'balnus']))->assertOk()
+        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'sto:DPS']))->assertOk()
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 0)->assertDontSee('INC-HIDDEN');
     }
 

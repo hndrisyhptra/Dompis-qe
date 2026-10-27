@@ -2,21 +2,28 @@
 
 namespace App\Services;
 
+use App\Enums\AdminScopeType;
 use App\Enums\ExcludeReason;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\IncidentExclude;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Support\TicketReportedDate;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class TicketExcludeMonitoringService
 {
     public const KINDS = ['gamas' => 'SQM / GAMAS', 'preman' => 'PREMAN', 'infracare' => 'INFRACARE'];
+
+    private const UNNAMED_GROUP = 'STO TANPA NAMA';
+
+    private const UNMAPPED_GROUP = 'STO BELUM TERDATA';
 
     public function __construct(
         private readonly TicketCoverageService $coverage,
@@ -54,20 +61,38 @@ class TicketExcludeMonitoringService
             $reasons['other'] = 'Alasan lainnya';
         }
 
+        $groupBySto = $this->groupsBySto($user);
         $regionByWorkzone = [];
         $regionLabels = [];
+        $rowGroups = [];
         $branchesById = $branches->keyBy('id_branch');
-        foreach ($selectedAreas as $area) {
+        $matrixAreas = $groupBySto
+            ? $selectedAreas->sortBy(fn (ServiceArea $area) => mb_strtolower($this->serviceAreaGroup($area)).'|'.$this->coverage->normalize($area->workzone))->values()
+            : $selectedAreas;
+        foreach ($matrixAreas as $area) {
+            $normalizedWorkzone = $this->coverage->normalize($area->workzone);
+            if ($groupBySto) {
+                $key = 'sto:'.$normalizedWorkzone;
+                $regionByWorkzone[$normalizedWorkzone] = $key;
+                $regionLabels[$key] = trim((string) $area->workzone) ?: 'STO tanpa nama';
+                $rowGroups[$key] = $this->serviceAreaGroup($area);
+
+                continue;
+            }
             [$key, $label] = $this->region($branchesById->get($area->branch_id));
-            $regionByWorkzone[$this->coverage->normalize($area->workzone)] = $key;
+            $regionByWorkzone[$normalizedWorkzone] = $key;
             $regionLabels[$key] = $label;
         }
         $matrixRows = [];
-        foreach (array_unique(['jatengdiy', 'jatim', 'balnus', ...array_keys($regionLabels)]) as $key) {
+        $matrixKeys = $groupBySto
+            ? array_keys($regionLabels)
+            : array_unique(['jatengdiy', 'jatim', 'balnus', ...array_keys($regionLabels)]);
+        foreach ($matrixKeys as $key) {
             if (isset($regionLabels[$key])) {
-                $matrixRows[$key] = $this->emptyRow($key, $regionLabels[$key], $reasons);
+                $matrixRows[$key] = $this->emptyRow($key, $regionLabels[$key], $reasons, $rowGroups[$key] ?? null);
             }
         }
+        $knownWorkzones = array_keys($regionByWorkzone);
         $total = $this->emptyRow('', 'TOTAL', $reasons);
         $rawTickets = collect();
         $detailTotal = 0;
@@ -85,7 +110,12 @@ class TicketExcludeMonitoringService
                     ->groupBy('normalized_workzone', 'jenis_tiket_2', 'exclude_bucket')->get();
                 foreach ($groups as $group) {
                     $key = $regionByWorkzone[$group->normalized_workzone ?? ''] ?? 'unmapped';
-                    $matrixRows[$key] ??= $this->emptyRow($key, 'Wilayah belum terpetakan', $reasons);
+                    $matrixRows[$key] ??= $this->emptyRow(
+                        $key,
+                        $groupBySto ? 'STO belum terdata' : 'Wilayah belum terpetakan',
+                        $reasons,
+                        $groupBySto ? self::UNMAPPED_GROUP : null,
+                    );
                     $kind = $this->coverage->ticketKind($group->jenis_tiket_2);
                     $bucket = $group->exclude_bucket;
                     $state = $bucket === 'not_excluded' ? 'not_excluded' : 'excluded';
@@ -108,7 +138,7 @@ class TicketExcludeMonitoringService
                 if ($filters['matrix_region'] !== '') {
                     $zones = array_keys(array_filter($regionByWorkzone, fn ($key) => $key === $filters['matrix_region']));
                     if ($filters['matrix_region'] === 'unmapped') {
-                        $query->where(fn (Builder $q) => $q->whereNull('workzone')->orWhereNotIn(DB::raw('UPPER(TRIM(workzone))'), array_keys($regionByWorkzone)));
+                        $query->where(fn (Builder $q) => $q->whereNull('workzone')->orWhereNotIn(DB::raw('UPPER(TRIM(workzone))'), $knownWorkzones));
                     } else {
                         $query->whereIn(DB::raw('UPPER(TRIM(workzone))'), $zones);
                     }
@@ -144,8 +174,31 @@ class TicketExcludeMonitoringService
             'query' => array_filter($filters, fn ($value) => $value !== ''),
             'fragment' => 'ticket-details',
         ]);
+        $matrixGroups = [];
+        if ($groupBySto && $matrixRows !== []) {
+            $matrixGroups = collect($matrixRows)
+                ->groupBy(fn (array $row) => $row['group'] ?? self::UNMAPPED_GROUP)
+                ->map(function (Collection $rows, string $name): array {
+                    $cells = [];
+                    foreach (array_keys($rows->first()['cells']) as $cellKey) {
+                        $cells[$cellKey] = (int) $rows->sum(fn (array $row) => $row['cells'][$cellKey]);
+                    }
+
+                    return [
+                        'name' => $name,
+                        'sto_count' => $rows->count(),
+                        'count' => (int) $rows->sum('count'),
+                        'cells' => $cells,
+                        'rows' => $rows->values()->all(),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
         $detailLabel = implode(' · ', array_filter([
-            $filters['matrix_region'] !== '' ? ($matrixRows[$filters['matrix_region']]['label'] ?? 'Wilayah pilihan') : 'Semua regional',
+            $filters['matrix_region'] !== ''
+                ? ($matrixRows[$filters['matrix_region']]['label'] ?? ($groupBySto ? 'STO pilihan' : 'Wilayah pilihan'))
+                : ($groupBySto ? 'Semua STO' : 'Semua regional'),
             self::KINDS[$filters['detail_kind']] ?? null,
             ['all' => 'Semua tiket', 'excluded' => 'Sudah exclude', 'not_excluded' => 'Belum exclude'][$filters['exclude_state']],
             $reasons[$filters['reason']] ?? null,
@@ -153,12 +206,26 @@ class TicketExcludeMonitoringService
 
         return [
             'filters' => $filters, 'branches' => $branches, 'serviceAreas' => $areas, 'regions' => $context['regions'],
-            'matrixRows' => $matrixRows, 'totals' => $total, 'tickets' => $tickets, 'reasons' => $reasons,
+            'matrixRows' => $matrixRows, 'matrixGroups' => $matrixGroups, 'totals' => $total,
+            'tickets' => $tickets, 'reasons' => $reasons,
             'kinds' => self::KINDS, 'sourceUnavailable' => $sourceUnavailable, 'checkedAt' => $checkedAt,
-            'detailLabel' => $detailLabel,
+            'detailLabel' => $detailLabel, 'groupBySto' => $groupBySto,
             'scopeLabel' => $user->hasRole(UserRole::SUPER_ADMIN) ? 'Seluruh wilayah' : $this->visibility->label($user),
             'scopeWarning' => $user->hasRole(UserRole::ADMIN) && $areas->isEmpty(),
         ];
+    }
+
+    /** Branch and service-area admins work per STO, so the matrix uses STO rows for them. */
+    private function groupsBySto(User $user): bool
+    {
+        if (! $user->hasRole(UserRole::ADMIN)) {
+            return false;
+        }
+
+        $scope = $user->admin_scope_type
+            ?? ($user->branch_id ? AdminScopeType::BRANCH : null);
+
+        return in_array($scope, [AdminScopeType::BRANCH, AdminScopeType::SERVICE_AREA], true);
     }
 
     private function classification(array $buckets): array
@@ -173,7 +240,7 @@ class TicketExcludeMonitoringService
         return $buckets === [] ? ["'not_excluded'", []] : [$sql." ELSE 'not_excluded' END", $bindings];
     }
 
-    private function emptyRow(string $key, string $label, array $reasons): array
+    private function emptyRow(string $key, string $label, array $reasons, ?string $group = null): array
     {
         $cells = [];
         foreach (self::KINDS as $kind => $name) {
@@ -182,7 +249,14 @@ class TicketExcludeMonitoringService
             }
         }
 
-        return ['key' => $key, 'label' => $label, 'count' => 0, 'cells' => $cells];
+        return ['key' => $key, 'label' => $label, 'group' => $group, 'count' => 0, 'cells' => $cells];
+    }
+
+    private function serviceAreaGroup(ServiceArea $area): string
+    {
+        $name = trim((string) $area->name);
+
+        return $name !== '' ? $name : self::UNNAMED_GROUP;
     }
 
     private function region(?Branch $branch): array
