@@ -9,9 +9,15 @@
     $detailUrl = fn (array $changes = []) => route('incident-monitoring.exclusions', array_filter(array_replace($baseQuery, $detailReset, $changes), fn ($value) => $value !== '')).'#ticket-details';
     $reportedFrom = \App\Support\TicketReportedDate::floor();
     $columnCount = 7 + count($kinds) * count($reasons);
-    $captureName = 'monitoring-exclude-tiket-'.$scopeLabel.'-'.$filters['date_from'].'-'.$filters['date_to'];
+    $visibleScopeLabel = $scopeLabel !== 'Seluruh wilayah' ? $scopeLabel : null;
+    $captureName = implode('-', array_filter([
+        'monitoring-exclude-tiket',
+        $visibleScopeLabel,
+        $filters['date_from'],
+        $filters['date_to'],
+    ], fn ($value) => $value !== null && $value !== ''));
     $captureContext = implode(' · ', array_filter([
-        $scopeLabel,
+        $visibleScopeLabel,
         $filters['region'],
         $filters['branch'] !== '' ? ($branches->firstWhere('id_branch', (int) $filters['branch'])?->name ?? 'Branch di luar scope') : null,
         $filters['service_area'] !== '' ? ($serviceAreas->firstWhere('id_service_area', (int) $filters['service_area'])?->workzone ?? 'STO di luar scope') : null,
@@ -22,7 +28,9 @@
 <div class="mx-auto max-w-7xl space-y-5" x-data="{ period: @js($filters['period']), dateFrom: @js($filters['date_from']), loading: false }" :aria-busy="loading" @pageshow.window="loading = false">
     <header>
         <h1 class="text-2xl font-semibold tracking-tight text-ink-900 dark:text-white">Monitoring Incident</h1>
-        <p class="mt-1.5 text-sm text-ink-600 dark:text-ink-300">{{ $scopeLabel }}</p>
+        @if ($visibleScopeLabel)
+            <p class="mt-1.5 text-sm text-ink-600 dark:text-ink-300">{{ $visibleScopeLabel }}</p>
+        @endif
     </header>
     @include('incident-monitoring._tabs')
 

@@ -8,6 +8,7 @@ use App\Models\IncidentExclude;
 use App\Models\Region;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\LopVisibilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithIncidentTickets;
@@ -216,6 +217,20 @@ class IncidentExcludeTest extends TestCase
             ->assertSee('INC-CANCEL')
             ->assertSee('Batalkan exclude tiket?')
             ->assertSee($unexcludeUrl, false);
+    }
+
+    public function test_monitoring_exclude_hides_global_scope_label_for_super_admin(): void
+    {
+        $this->actingAs($this->super)->get(route('incident-monitoring.exclusions'))
+            ->assertOk()
+            ->assertDontSee('monitoring-exclude-tiket-Seluruh wilayah', false)
+            ->assertDontSee('>Seluruh wilayah</p>', false)
+            ->assertDontSee('Seluruh wilayah · ', false);
+
+        $adminLabel = app(LopVisibilityService::class)->label($this->admin);
+        $this->actingAs($this->admin)->get(route('incident-monitoring.exclusions'))
+            ->assertOk()
+            ->assertSee($adminLabel);
     }
 
     public function test_exclude_incident_is_normalized_uppercase(): void

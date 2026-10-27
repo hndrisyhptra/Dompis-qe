@@ -409,7 +409,7 @@
                         </svg>
                     </button>
 
-                    <a href="{{ route('account.password.edit') }}" title="Ganti password · {{ $accountScopeLabel }}" aria-label="Ganti password akun Anda" class="min-w-0 max-w-[90px] rounded-md text-right outline-none focus:ring-2 focus:ring-brand-500 sm:max-w-xs">
+                    <a href="{{ route('account.password.edit') }}" title="Ganti password · {{ $accountScopeLabel }}" aria-label="Ganti password akun Anda" class="min-w-0 max-w-22.5 rounded-md text-right outline-none focus:ring-2 focus:ring-brand-500 sm:max-w-xs">
                         <p class="truncate text-sm font-medium text-ink-900 dark:text-ink-50 leading-none">{{ auth()->user()?->name }}</p>
                         <p class="mt-1 truncate text-[10px] text-ink-500 dark:text-ink-400 sm:text-xs">{{ $accountScopeLabel }}</p>
                     </a>

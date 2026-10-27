@@ -3,7 +3,7 @@
 Terakhir diaudit: **26 Oktober 2026**
 Repository: `hndrisyhptra/dompis-qe`
 Branch aktif: `collab/import-LOP-import-BOQ`
-HEAD dasar saat audit terbaru: `5f30637` (`feat: cancel  incident exclude`)
+HEAD dasar saat audit terbaru: `92a7c96` (`fix: query optimize`)
 
 Dokumen ini adalah titik awal untuk melanjutkan Dompis QE dari akun Codex lain. Kondisi Git, database, dan server tetap harus diperiksa ulang pada awal setiap sesi karena dapat berubah setelah tanggal audit.
 
@@ -1003,7 +1003,7 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Target capture hanya section matrix pada `resources/views/incident-monitoring/exclusions.blade.php`. Form filter, daftar detail/pagination, kontrol capture, dan petunjuk klik tidak ikut gambar. Handler existing melebarkan clone tabel pada layar sempit, mempertahankan DOM/scroll/tautan asli, mengikuti tema, dan menangani retry/error/loading. Kontrol tidak ditampilkan ketika sumber tiket gagal dimuat. Header **SUDAH MAPPING** tetap rata tengah dan kalimat penjelasan panjang yang diminta dihapus tidak dikembalikan.
 - Verifikasi: `TicketExcludeMonitoringTest` + `AdminDashboardTest` **22 tests / 825 assertions** dan **8 frontend capture tests** lulus, termasuk integrasi Admin/Super Admin dengan filter serta batas area capture. Pint test terkait, view cache, build Vite, dan diff check lulus. Browser dengan data uji SQLite terpisah menghasilkan PNG desktop **3782×974**, JPG mobile dan PNG dark mode **3782×958**; seluruh 19 kolom utuh meskipun tabel asli digeser, 72 tautan tetap ada, scroll asli tetap, dan tidak ada exception JavaScript. Tidak ada perubahan query, authorization, schema/migration, write database operasional, commit/push, atau deployment.
 
-### 7.68 Batalkan exclude tiket — 26 Oktober 2026 (belum di-commit)
+### 7.68 Batalkan exclude tiket — 26 Oktober 2026 (commit `5f30637`)
 
 - Tiket yang sudah terlanjur di-exclude dapat dikembalikan melalui tombol ikon **Batalkan exclude** pada tab **Tiket Exclude** di halaman Monitoring Incident (mobile dan desktop) serta kolom **Aksi** pada detail **Monitoring Exclude**. Dialog konfirmasi menjelaskan bahwa tiket kembali ke daftar **Belum memiliki LOP**, alasan exclude dihapus, dan tiket dapat digunakan lagi; pilihan **Tidak** menutup dialog tanpa perubahan.
 - Komponen `resources/views/components/unexclude-ticket-button.blade.php` memakai `<dialog>` native dengan ID unik per render, sehingga aman ketika baris yang sama tampil di daftar mobile dan tabel desktop. Tombol kini berupa ikon saja; teks **Batalkan** muncul sebagai tooltip saat hover/focus dan `aria-label` menyebut incident lengkap. Form mengirim `DELETE` ke route existing `incident-monitoring.tickets.unexclude` dengan CSRF dan konfirmasi dua langkah.
@@ -1018,6 +1018,13 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - `LopBoqValueService::summarizeMany()` memuat relasi BOQ, lokasi, region, dan reservasi secara berkelompok untuk halaman Data BOQ. `LopBoqProjectionService::withPreparedPrices()` menggabungkan pengambilan harga per paket/designator dan lookup pasangan jasa, lalu menjalankan perhitungan canonical yang sama. Konteks harga hanya hidup selama callback dan dipulihkan melalui finally, termasuk saat exception; pemanggilan berikutnya membaca harga terbaru. Prioritas snapshot/paket wilayah/referensi, jasa virtual, harga nol/hilang, qty_actual nol/null, dan struktur DTO dipertahankan. Tidak ada cache harga lintas request.
 - Pengukuran ulang fixture audit SQLite yang sama: Active LOP 20 baris **268 → 32 query**, Master Data LOP 20 baris **136 → 18**, Data BOQ 15 reservasi **134 → 22**. Jumlah query pada halaman ini tidak lagi bertambah per baris untuk akses/relasi/harga yang dibatch. Angka ini jumlah query data uji, bukan klaim persentase percepatan MySQL produksi. Audit kandidat lanjutan (pagination laporan material, referensi global/parse tanggal Monitoring Tiket, agregasi tab Summary Dashboard, dan agregasi Revenue) belum diubah pada tahap ini; indeks perlu audit schema dan EXPLAIN di environment tujuan sebelum diputuskan.
 - Regression `QueryOptimizationTest`: **10 tests / 117 assertions**, termasuk budget query halaman, kesamaan ringkasan, scope Area/Region/Branch/multi-STO dan legacy, pembatasan cache ke GET/user/model/request, perubahan scope/lokasi, batch vs single, snapshot/paket/referensi/jasa virtual/nol/null/harga hilang, penyegaran harga, dan cleanup exception. Full suite **591 tests / 6709 assertions** lulus; Pint semua file task, `view:cache`, dan `git diff --check` lulus. Tidak mengubah Blade/JavaScript, tidak menjalankan migration, write database operasional/sumber Dompis, restart worker, commit/push, atau deployment. MySQL/produksi belum diverifikasi.
+
+### 7.70 Label scope global disembunyikan pada Monitoring Exclude — 26 Oktober 2026 (belum di-commit)
+
+- Header **Monitoring Exclude Tiket** tidak lagi menampilkan teks **Seluruh wilayah** untuk Super Admin. Label scope Admin (Area, Region, Branch, atau Service Area) tetap ditampilkan karena masih relevan.
+- Nilai yang sama tidak dimasukkan ke context capture maupun nama file capture. Untuk Super Admin, nama file menjadi `monitoring-exclude-tiket-<tanggal_awal>-<tanggal_akhir>`; untuk Admin, label scope tetap disertakan.
+- Tidak ada perubahan query, data, authorization, atau teks pada halaman lain. Teks **Seluruh wilayah operasional** pada menu akun global tidak diubah karena berada di luar konten Monitoring Exclude.
+- Verifikasi: full suite **592 tests / 6715 assertions** lulus; `IncidentExcludeTest` **15 tests / 87 assertions**. `view:cache`, `npm run build`, dan `git diff --check` lulus.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
