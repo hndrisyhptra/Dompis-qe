@@ -298,6 +298,82 @@ class TicketCoverageService
         );
     }
 
+    /** @return array{eligible:list<string>, already_excluded:list<string>, has_lop:list<string>, not_found:list<string>, out_of_scope:list<string>} */
+    public function previewMany(array $incidents, User $user): array
+    {
+        $normalized = collect($incidents)->map(fn ($incident) => $this->normalize($incident))
+            ->filter()->unique()->values();
+        abort_if($normalized->isEmpty(), 422, 'Masukkan minimal satu nomor incident.');
+
+        $result = ['eligible' => [], 'already_excluded' => [], 'has_lop' => [], 'not_found' => [], 'out_of_scope' => []];
+        $tickets = DB::connection('mysql_dompis')->table('ticket')
+            ->whereIn(DB::raw('UPPER(TRIM(incident))'), $normalized->all())
+            ->get(['incident', 'workzone', 'jenis_tiket_2', 'reported_date'])
+            ->groupBy(fn ($ticket) => $this->normalize($ticket->incident));
+        $knownLops = QeLop::withTrashed()->pluck('incident')->map(fn ($incident) => $this->normalize($incident))->flip();
+        $existing = IncidentExclude::query()->whereIn('incident', $normalized)->pluck('incident')->flip();
+        $allowedWorkzones = $user->hasRole(UserRole::ADMIN)
+            ? ServiceArea::query()->whereIn('id_service_area', $this->visibility->accessibleServiceAreaIds($user))
+                ->pluck('workzone')->map(fn ($workzone) => $this->normalize($workzone))->filter()->flip()
+            : null;
+
+        foreach ($normalized as $incident) {
+            $matches = $tickets->get($incident);
+            if ($matches === null || $matches->isEmpty()) {
+                $result['not_found'][] = $incident;
+                continue;
+            }
+            $matches = $matches->filter(fn ($ticket) => $this->ticketKind($ticket->jenis_tiket_2) !== null
+                && $ticket->reported_date !== null
+                && (string) $ticket->reported_date >= TicketReportedDate::floor());
+            if ($matches->isEmpty()) {
+                $result['not_found'][] = $incident;
+                continue;
+            }
+            if ($allowedWorkzones !== null && $matches->every(fn ($ticket) => ! $allowedWorkzones->has($this->normalize($ticket->workzone)))) {
+                $result['out_of_scope'][] = $incident;
+                continue;
+            }
+            if ($knownLops->has($incident)) {
+                $result['has_lop'][] = $incident;
+                continue;
+            }
+            if ($existing->has($incident)) {
+                $result['already_excluded'][] = $incident;
+                continue;
+            }
+            $result['eligible'][] = $incident;
+        }
+
+        return $result;
+    }
+
+    /** @return array{excluded:int, already_excluded:int, has_lop:int, not_found:int, out_of_scope:int} */
+    public function excludeMany(array $incidents, string $reason, User $user): array
+    {
+        $preview = $this->previewMany($incidents, $user);
+        $stats = [
+            'excluded' => 0,
+            'already_excluded' => count($preview['already_excluded']),
+            'has_lop' => count($preview['has_lop']),
+            'not_found' => count($preview['not_found']),
+            'out_of_scope' => count($preview['out_of_scope']),
+        ];
+
+        DB::transaction(function () use ($preview, $reason, $user, &$stats): void {
+            foreach ($preview['eligible'] as $incident) {
+                IncidentExclude::create([
+                    'incident' => $incident,
+                    'keterangan_exclude' => $reason,
+                    'created_by' => $user->id_user,
+                ]);
+                $stats['excluded']++;
+            }
+        });
+
+        return $stats;
+    }
+
     public function unexclude(string $incident, User $user): bool
     {
         $this->assertIncidentInScope($user, $incident);

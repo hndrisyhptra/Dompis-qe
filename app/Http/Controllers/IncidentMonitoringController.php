@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\TicketCoverageExport;
+use App\Enums\ExcludeReason;
 use App\Http\Requests\ExcludeTicketRequest;
 use App\Http\Requests\IncidentMonitoringRequest;
 use App\Http\Requests\TicketCoverageDownloadRequest;
@@ -43,6 +44,44 @@ class IncidentMonitoringController extends Controller
     public function exclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
     {
         return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $request->validated()));
+    }
+
+    public function bulkExclusions(): View
+    {
+        return view('incident-monitoring.bulk-exclusions', [
+            'excludeReasons' => collect(ExcludeReason::cases())
+                ->mapWithKeys(fn (ExcludeReason $reason) => [$reason->value => $reason->label()]),
+            'preview' => null,
+            'incidentsText' => '',
+            'selectedReason' => '',
+        ]);
+    }
+
+    public function previewBulkExclusions(ExcludeTicketRequest $request): View
+    {
+        $preview = $this->guardTicketSource(fn () => $this->coverage->previewMany(
+            $request->validated('incidents'), $request->user()
+        ));
+
+        return view('incident-monitoring.bulk-exclusions', [
+            'excludeReasons' => collect(ExcludeReason::cases())
+                ->mapWithKeys(fn (ExcludeReason $reason) => [$reason->value => $reason->label()]),
+            'preview' => $preview,
+            'incidentsText' => $request->validated('incidents_text'),
+            'selectedReason' => $request->validated('reason'),
+        ]);
+    }
+
+    public function applyBulkExclusions(ExcludeTicketRequest $request): RedirectResponse
+    {
+        $stats = $this->guardTicketSource(fn () => $this->coverage->excludeMany(
+            $request->validated('incidents'), $request->validated('reason'), $request->user()
+        ));
+
+        return redirect()->route('incident-monitoring.bulk-exclusions')->with(
+            'status', 'Exclude massal selesai: '.$stats['excluded'].' berhasil, '.$stats['already_excluded'].' sudah exclude, '
+                .$stats['has_lop'].' memiliki LOP, '.$stats['not_found'].' tidak ditemukan, '.$stats['out_of_scope'].' di luar scope.'
+        );
     }
 
     public function download(TicketCoverageDownloadRequest $request): BinaryFileResponse
