@@ -18,6 +18,25 @@
     $currentGroups = $currentEvidence->groupBy(fn ($item) => ($item->category?->value ?? $item->step->value).'-'.($item->designator_id ?? 'global'));
     $optionalCategory = match ($currentStep) { 3 => 'insera', 5 => 'slot_port', default => null };
     $optionalChoice = $optionalCategory ? ($lop->optional_capture_choices[$optionalCategory] ?? null) : null;
+
+    // Logika kunci sequential: Step N hanya bisa diakses jika Step N-1 sudah "complete".
+    // Step 1 dianggap complete jika material reservation ada (atau sudah ada data lokasi).
+    // Step selanjutnya (2-6) complete jika seluruh evidence di step tersebut sudah APPROVED.
+    $stepIsApproved = [1 => ($lop->materialReservation !== null)]; // Step 1 gate
+    for ($i = 2; $i <= 6; $i++) {
+        $prevStep = $i - 1;
+        if ($prevStep === 1) {
+            // Gate dari Step 1 ke Step 2 berdasarkan material reservation
+            $stepIsApproved[$i] = $lop->materialReservation !== null;
+        } elseif ($prevStep === 2 && $materialArrivalPerItem) {
+            // Gate dari Step 2 ke Step 3 jika ada checklist per item BOQ
+            $stepIsApproved[$i] = $materialArrivalApproved;
+        } else {
+            // Gate umum: evidence di step sebelumnya harus semua disetujui
+            $prevEvidence = $stepEvidence[$prevStep];
+            $stepIsApproved[$i] = $prevEvidence->isNotEmpty() && $prevEvidence->every(fn ($item) => $item->status === \App\Enums\EvidenceStatus::APPROVED);
+        }
+    }
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -51,10 +70,17 @@
                     $hasPending = $evidenceItems->contains(fn ($item) => $item->status === \App\Enums\EvidenceStatus::PENDING);
                     $complete = $number === 1 ? ($lop->materialReservation !== null) : ($evidenceItems->isNotEmpty() && ! $hasPending && ! $evidenceItems->contains('status', \App\Enums\EvidenceStatus::REJECTED));
                     if ($number === 2 && $materialArrivalPerItem) $complete = $materialArrivalApproved;
+                    $isAccessible = $stepIsApproved[$number] || $currentStep === $number;
                 @endphp
+                @if ($isAccessible)
                 <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
                     <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm {{ $currentStep === $number ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/20' : ($complete ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-ink-200 bg-white text-ink-400 dark:border-ink-700 dark:bg-ink-900') }}">{{ $complete && $currentStep !== $number ? '✓' : $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
                 </a>
+                @else
+                <span class="relative flex min-w-0 flex-col items-center text-center opacity-40 cursor-not-allowed before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
+                    <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm border-ink-200 bg-white text-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-500">{{ $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden text-ink-400">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block text-ink-400">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
+                </span>
+                @endif
             @endforeach
         </div>
     </nav>

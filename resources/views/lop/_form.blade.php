@@ -122,7 +122,7 @@
                 </x-select>
             </div>
 
-            <div class="order-3">
+            <div class="order-2">
                 <label for="branch" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Branch</label>
                 <select id="branch" name="branch" x-model="form.branch" @change="onBranchChange()"
                     :disabled="!form.area"
@@ -135,13 +135,13 @@
                 <p x-show="form.area && filteredBranches.length===0" class="mt-1.5 text-xs text-amber-600 dark:text-amber-400">Tidak ada branch untuk area ini.</p>
             </div>
 
-            <div class="order-2">
+            <div class="order-3">
                 <label for="sto" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">STO / Service Area</label>
                 <select id="sto" name="sto" x-model="form.sto"
                     :disabled="!form.branch"
                     class="w-full rounded-lg border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 px-3.5 py-2.5 text-sm text-ink-900 dark:text-ink-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition disabled:bg-ink-50 disabled:text-ink-400 disabled:cursor-not-allowed">
                     <option value="">Pilih STO</option>
-                    <template x-for="sa in filteredServiceAreas" :key="sa.workzone"><option :value="sa.workzone" x-text="`${sa.workzone} — ${sa.name}`"></option></template>
+                    <template x-for="sa in filteredServiceAreas" :key="sa.workzone"><option :value="sa.workzone" x-text="`${sa.workzone} - ${sa.name}`"></option></template>
                 </select>
                 @error('sto')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
                 <p x-show="!form.branch" class="mt-1.5 text-xs text-ink-400">Pilih Branch terlebih dahulu.</p>

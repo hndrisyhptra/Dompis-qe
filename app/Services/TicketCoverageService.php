@@ -22,6 +22,24 @@ class TicketCoverageService
 {
     public function __construct(private readonly LopVisibilityService $visibility) {}
 
+    private function resolveWorkzones(array $filters, array $branchQuery): array
+    {
+        $selected = collect();
+        if ($filters['region'] !== '') {
+            $selected = $branchQuery->where('region', $filters['region'])->pluck('id_branch');
+        }
+        if ($filters['branch'] !== '') {
+            $selected = $selected->merge([$filters['branch']]);
+        }
+        $areaQuery = ServiceArea::query()->whereIn('branch_id', $selected);
+
+        if (! empty($filters['sto_filter'])) {
+            $areaQuery->whereIn('workzone', $filters['sto_filter']);
+        }
+
+        return $areaQuery->pluck('workzone')->map(fn ($w) => mb_strtoupper(trim((string) $w)))->flip()->filter()->all();
+    }
+
     public function monitoringContext(User $user, array $input): array
     {
         $reportedFrom = TicketReportedDate::floor();
@@ -36,8 +54,9 @@ class TicketCoverageService
             'date_from' => $dateFrom !== '' ? max($dateFrom, $reportedFrom) : $reportedFrom,
             'date_to' => $dateTo !== '' ? $dateTo : now('Asia/Jakarta')->toDateString(),
             'q' => trim((string) ($input['q'] ?? '')),
+            'sto_filter' => $input['sto_filter'] ?? [],
         ];
-        $branches = Branch::query()->with('regionRef:id_region,name,code')
+        $branches = Branch::query()->with(['regionRef:id_region,name,code', 'serviceAreas:id_service_area,workzone,name,branch_id'])
             ->whereIn('id_branch', $this->visibility->accessibleBranchIds($user))
             ->orderBy('name')->get(['id_branch', 'name', 'region_id', 'region']);
         $serviceAreas = ServiceArea::query()
@@ -186,6 +205,10 @@ class TicketCoverageService
             ->whereRaw("TRIM(incident) <> ''");
         if ($restrictWorkzones) {
             $allowed = $areas->map(fn (ServiceArea $area) => $this->normalize($area->workzone))->flip();
+            if (!empty($filters['sto_filter'])) {
+                $filteredSto = collect($filters['sto_filter'])->map(fn ($w) => $this->normalize($w));
+                $allowed = $allowed->intersectByKeys($filteredSto->flip());
+            }
             $workzonesQuery = $source->table('ticket');
             TicketReportedDate::applyRange($workzonesQuery, $driver, $filters['date_from'], $filters['date_to']);
             $workzones = $workzonesQuery->distinct()->pluck('workzone')

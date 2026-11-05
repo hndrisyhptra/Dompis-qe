@@ -10,6 +10,7 @@ enum ProgramType: string
     case PREVENTIVE = 'preventive';
     case RELOK_UTILITAS = 'relok_utilitas';
     case RELOK_TIANG = 'relok_tiang';
+    case KURATIF = 'kuratif';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum ProgramType: string
             self::PREVENTIVE => 'QE Preventive',
             self::RELOK_UTILITAS => 'QE Relok Utilitas',
             self::RELOK_TIANG => 'QE Relok Tiang',
+            self::KURATIF => 'QE Kuratif',
         };
     }
 
@@ -28,6 +30,7 @@ enum ProgramType: string
             self::PREVENTIVE => 'QEPREV',
             self::RELOK_UTILITAS => 'QEREL',
             self::RELOK_TIANG => 'QERELTIANG',
+            self::KURATIF => 'QEKUR',
         };
     }
 
@@ -38,6 +41,7 @@ enum ProgramType: string
             self::PREVENTIVE => 2,
             self::RELOK_UTILITAS => 3,
             self::RELOK_TIANG => 4,
+            self::KURATIF => 5,
         };
     }
 
@@ -74,6 +78,7 @@ enum ProgramType: string
             self::PREVENTIVE => 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN',
             self::RELOK_TIANG => 'NON NUMBERING',
             self::RELOK_UTILITAS => null,
+            self::KURATIF => null,
         };
     }
 
@@ -86,6 +91,7 @@ enum ProgramType: string
             self::PREVENTIVE->value => ['preventive', 'qeprev', 'qepreventive'],
             self::RELOK_UTILITAS->value => ['relok utilitas', 'qerel', 'qerelok', 'qerelokutilitas'],
             self::RELOK_TIANG->value => ['relok tiang', 'qereltiang', 'qereloktiang'],
+            self::KURATIF->value => ['kuratif', 'qekur', 'qekuratif'],
         ];
         $matches = [];
         foreach ($aliases as $program => $names) {

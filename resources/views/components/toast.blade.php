@@ -11,20 +11,18 @@
         x-transition:leave-end="opacity-0"
         class="fixed top-5 right-5 z-[9999] w-full max-w-sm"
     >
-        <div class="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-ink-900 shadow-2xl overflow-hidden">
-            <div class="flex items-start gap-4 p-4">
-                <div class="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-lg font-bold shrink-0">
-                    &check;
+        <div class="rounded-2xl border border-emerald-100 dark:border-emerald-900 bg-white dark:bg-ink-900 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-none overflow-hidden">
+            <div class="flex items-center gap-4 p-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <h3 class="text-sm font-bold text-ink-900 dark:text-ink-50">Berhasil</h3>
-                    <p class="text-sm text-ink-500 dark:text-ink-400 mt-1 leading-relaxed">{{ session('status') }}</p>
+                <div class="flex-1 min-w-0 ml-1">
+                    <p class="text-sm font-bold text-ink-900 dark:text-ink-50 leading-snug">{{ session('status') }}</p>
                 </div>
-                <button @click="show = false" class="text-ink-400 hover:text-ink-600 dark:hover:text-ink-200">
-                    &times;
+                <button @click="show = false" class="w-8 h-8 flex items-center justify-center rounded-lg text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="h-1 bg-emerald-500"></div>
         </div>
     </div>
 @endif

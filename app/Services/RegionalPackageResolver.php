@@ -17,12 +17,50 @@ class RegionalPackageResolver
     public function expectedCode(QeLop $lop): ?string
     {
         $region = $this->normalizedRegion($lop);
+        $branch = $this->resolveBranch($lop);
+        $branchName = $branch?->name ?? '';
 
         return match (true) {
             str_contains($region, 'JATIM'), str_contains($region, 'JATENGDIY') => 'Paket-5',
-            str_contains($region, 'BALNUS') => 'Paket-10',
+            str_contains($region, 'BALNUS') => $this->resolveBalnusPackage($branchName),
             default => null,
         };
+    }
+
+    private function resolveBalnusPackage(string $branchName): string
+    {
+        $normalized = mb_strtoupper($branchName);
+
+        // Bali / Denpasar -> Paket-10
+        if (str_contains($normalized, 'DENPASAR') || str_contains($normalized, 'BALI')) {
+            return 'Paket-10';
+        }
+
+        // NUSRA: Flores, Kupang, Mataram -> Paket-12
+        if (str_contains($normalized, 'FLORES') || str_contains($normalized, 'KUPANG') || str_contains($normalized, 'MATARAM')) {
+            return 'Paket-12';
+        }
+
+        // Fallback default Paket-10
+        return 'Paket-10';
+    }
+
+    private function resolveBranch(QeLop $lop): ?\App\Models\Branch
+    {
+        $lop->loadMissing([
+            'branchRef.regionRef',
+            'serviceArea.branch.regionRef',
+        ]);
+
+        $branch = $lop->branchRef ?? $lop->serviceArea?->branch;
+        if ($branch === null && filled($lop->branch)) {
+            $branch = \App\Models\Branch::query()
+                ->with('regionRef')
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim((string) $lop->branch))])
+                ->first();
+        }
+
+        return $branch;
     }
 
     public function forLop(QeLop $lop): ?Package
@@ -40,6 +78,11 @@ class RegionalPackageResolver
     public function package10(): ?Package
     {
         return $this->byCanonicalCode('Paket-10');
+    }
+
+    public function package12(): ?Package
+    {
+        return $this->byCanonicalCode('Paket-12');
     }
 
     private function normalizedRegion(QeLop $lop): string

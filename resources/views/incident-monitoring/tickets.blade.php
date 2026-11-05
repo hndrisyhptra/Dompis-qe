@@ -51,35 +51,52 @@
         <form id="ticket-filters" method="GET" action="{{ route('incident-monitoring.tickets', [], false) }}" @submit="if (!$event.submitter?.hasAttribute('data-ticket-download')) loading = true" :class="filtersOpen ? '' : 'hidden lg:block'">
             <input type="hidden" name="usage" value="{{ $filters['usage'] }}">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                <x-input name="q" id="ticket-search" label="Cari nomor incident atau workzone" :value="$filters['q']" :use-old="false" placeholder="Nomor incident atau STO…" maxlength="100" class="rounded-md! border-ink-200! dark:border-ink-700!" />
-                <x-select name="kind" label="Jenis tiket" placeholder="Semua jenis tiket" class="rounded-md! border-ink-200! dark:border-ink-700!">
-                    <option value="gamas" @selected($filters['kind'] === 'gamas')>GAMAS</option>
-                    <option value="infracare" @selected($filters['kind'] === 'infracare')>INFRACARE</option>
-                    <option value="preman" @selected($filters['kind'] === 'preman')>PREMAN</option>
-                </x-select>
-                <x-input name="date_from" label="Tanggal laporan dari" type="date" :value="$filters['date_from']" :use-old="false" min="{{ $reportedFrom }}" x-model="dateFrom" class="rounded-md! border-ink-200! dark:border-ink-700!" />
-                <x-input name="date_to" label="Tanggal laporan sampai" type="date" :value="$filters['date_to']" :use-old="false" min="{{ $reportedFrom }}" x-bind:min="dateFrom || '{{ $reportedFrom }}'" class="rounded-md! border-ink-200! dark:border-ink-700!" />
-                <x-select name="region" label="Region" placeholder="Semua region" class="rounded-md! border-ink-200! dark:border-ink-700!">
-                    @foreach ($regions as $region)
-                        <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
-                    @endforeach
-                    @if ($filters['region'] !== '' && ! $regions->contains($filters['region']))<option value="{{ $filters['region'] }}" selected>Region di luar pilihan</option>@endif
-                </x-select>
-                <x-select name="branch" label="Branch" placeholder="Semua branch" class="rounded-md! border-ink-200! dark:border-ink-700!">
-                    @foreach ($branches as $branch)
-                        <option value="{{ $branch->getKey() }}" @selected((string) $filters['branch'] === (string) $branch->getKey())>{{ $branch->name }}</option>
-                    @endforeach
-                    @if ($filters['branch'] !== '' && ! $branches->contains('id_branch', (int) $filters['branch']))<option value="{{ $filters['branch'] }}" selected>Branch di luar pilihan</option>@endif
-                </x-select>
-                <x-select name="service_area" label="Service Area / STO" placeholder="Semua STO" class="rounded-md! border-ink-200! dark:border-ink-700!">
-                    @foreach ($serviceAreas as $serviceArea)
-                        <option value="{{ $serviceArea->getKey() }}" @selected((string) $filters['service_area'] === (string) $serviceArea->getKey())>{{ $serviceArea->workzone }}</option>
-                    @endforeach
-                    @if ($filters['service_area'] !== '' && ! $serviceAreas->contains('id_service_area', (int) $filters['service_area']))<option value="{{ $filters['service_area'] }}" selected>STO di luar pilihan</option>@endif
-                </x-select>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Cari nomor incident atau workzone</span>
+                    <input name="q" value="{{ $filters['q'] }}" placeholder="Nomor incident atau STO…" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Jenis tiket</span>
+                    <select name="kind" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                        <option value="">Semua jenis tiket</option>
+                        <option value="gamas" @selected($filters['kind'] === 'gamas')>GAMAS</option>
+                        <option value="infracare" @selected($filters['kind'] === 'infracare')>INFRACARE</option>
+                        <option value="preman" @selected($filters['kind'] === 'preman')>PREMAN</option>
+                    </select>
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Tanggal laporan dari</span>
+                    <input name="date_from" type="date" value="{{ $filters['date_from'] }}" min="{{ $reportedFrom }}" x-model="dateFrom" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Tanggal laporan sampai</span>
+                    <input name="date_to" type="date" value="{{ $filters['date_to'] }}" min="{{ $reportedFrom }}" x-bind:min="dateFrom || '{{ $reportedFrom }}'" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Region</span>
+                    <select name="region" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                        <option value="">Semua region</option>
+                        @foreach ($regions as $region)
+                            <option value="{{ $region }}" @selected($filters['region'] === $region)>{{ $region }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">Branch</span>
+                    <select name="branch" class="min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-900">
+                        <option value="">Semua branch</option>
+                        @foreach ($branches as $branch)
+                            <option value="{{ $branch->getKey() }}" @selected((string) $filters['branch'] === (string) $branch->getKey())>{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-ink-500">STO / Service Area</span>
+                    <x-sto-filter :branches="$branches" :selected="request('sto_filter', [])" />
+                </label>
                 <div class="flex items-end gap-2">
-                    <x-button x-bind:disabled="loading" class="min-h-11! w-auto! flex-1 rounded-md! shadow-none! disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></x-button>
-                    <a href="{{ route('incident-monitoring.tickets') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-3 text-sm font-medium text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
+                    <button type="submit" x-bind:disabled="loading" class="flex min-h-11 flex-1 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-bold text-white transition hover:bg-brand-700 disabled:opacity-60"><span x-text="loading ? 'Memuat…' : 'Terapkan'">Terapkan</span></button>
+                    <a href="{{ route('incident-monitoring.tickets') }}" @click="loading = true" class="inline-flex min-h-11 items-center rounded-md border border-ink-200 px-4 text-sm font-bold text-ink-700 hover:bg-ink-50 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">Reset</a>
                 </div>
             </div>
             <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Tanggal mulai minimal {{ $reportedFromLabel }}; tanggal akhir default hari ini. Download mengikuti isian filter terbaru, tanpa perlu klik Terapkan.</p>

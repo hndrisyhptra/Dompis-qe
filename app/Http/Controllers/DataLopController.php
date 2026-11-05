@@ -9,6 +9,7 @@ use App\Exports\DataLopExport;
 use App\Http\Requests\DataLopFilterRequest;
 use App\Http\Requests\DeleteLopRequest;
 use App\Http\Requests\StoreInseraEvidenceRequest;
+use App\Models\ServiceArea;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Services\AissBoqExportService;
@@ -49,11 +50,11 @@ class DataLopController extends Controller
         $lops = $query->latest()->paginate(20)->withQueryString();
         $this->visibility->prepareForView($request->user(), $lops->getCollection());
 
-        return view('data-lops.index', [
+        return view('data-lop.index', [
             'lops' => $lops,
             'programs' => ProgramType::cases(),
             'statuses' => LopStatus::cases(),
-            'branches' => $branchQuery->get(),
+            'branches' => $branchQuery->with('serviceAreas')->get(),
             'filters' => $filters,
         ]);
     }

@@ -19,6 +19,7 @@ class DataLopService
             'status' => trim((string) ($input['status'] ?? '')),
             'program' => trim((string) ($input['program'] ?? '')),
             'branch' => trim((string) ($input['branch'] ?? '')),
+            'sto_filter' => (array) ($input['sto_filter'] ?? []),
         ];
     }
 
@@ -29,6 +30,9 @@ class DataLopService
             $search = '%'.$filters['search'].'%';
             $query->where(fn (Builder $q) => $q->where('incident', 'like', $search)
                 ->orWhere('nama_lop', 'like', $search)->orWhere('sto', 'like', $search));
+        }
+        if (!empty($filters['sto_filter'])) {
+            $query->whereIn('sto', $filters['sto_filter']);
         }
         foreach (['status' => 'status_lop', 'program' => 'program_type', 'branch' => 'branch'] as $filter => $column) {
             if ($filters[$filter] !== '') {

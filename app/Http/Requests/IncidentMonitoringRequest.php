@@ -27,6 +27,7 @@ class IncidentMonitoringRequest extends FormRequest
             'missing_ihld' => ['nullable', 'boolean'],
             'retry' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'sto_filter' => ['nullable', 'array'],
         ];
     }
 }
