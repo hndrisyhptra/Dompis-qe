@@ -70,35 +70,35 @@
 
     <section>
         <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Revenue per Program</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Setiap program memiliki ringkasan dan grafik nilainya sendiri.</p></div>
-            <div class="flex gap-3 text-[10px] font-bold text-ink-500"><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-sm bg-blue-500"></i>Plan</span><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-sm bg-emerald-500"></i>Realisasi</span></div>
+            <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Revenue per Program</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Ringkasan realisasi dan pencapaian per program.</p></div>
         </div>
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            @foreach ($programRows as $row)
-                <article class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-                    <div class="flex items-start justify-between gap-3 border-b border-ink-100 p-5 dark:border-ink-800">
-                        <div><p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Program</p><h3 class="mt-1 text-base font-extrabold text-ink-900 dark:text-white">{{ $row['label'] }}</h3></div>
-                        <span class="rounded-full bg-ink-100 px-2.5 py-1 text-[10px] font-extrabold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ number_format($row['total_lops']) }} LOP</span>
-                    </div>
-                    <div class="p-5">
-                        @if ($row['has_plan'])
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="rounded-xl bg-blue-50 p-3 dark:bg-blue-950/30"><p class="text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-300">Nilai Plan</p><p class="mt-1 text-sm font-extrabold text-blue-900 dark:text-blue-100">{{ $money($row['plan_value']) }}</p></div>
-                                <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30"><p class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Realisasi</p><p class="mt-1 text-sm font-extrabold text-emerald-900 dark:text-emerald-100">{{ $money($row['actual_value']) }}</p></div>
-                            </div>
-                            <div class="mt-5 space-y-3">
-                                <div><div class="mb-1.5 flex justify-between text-[9px] font-bold text-ink-500"><span>Plan</span><span>{{ $compactMoney($row['plan_value']) }}</span></div><div class="h-3 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full bg-blue-500" style="width: {{ $row['plan_value'] > 0 ? max(2, $row['plan_bar_percentage']) : 0 }}%"></div></div></div>
-                                <div><div class="mb-1.5 flex justify-between text-[9px] font-bold text-ink-500"><span>Realisasi</span><span>{{ $compactMoney($row['actual_value']) }}</span></div><div class="h-3 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full bg-emerald-500" style="width: {{ $row['actual_value'] > 0 ? max(2, $row['actual_bar_percentage']) : 0 }}%"></div></div></div>
-                            </div>
-                            <div class="mt-5 grid grid-cols-2 gap-3 border-t border-ink-100 pt-4 text-xs dark:border-ink-800"><div><p class="text-[9px] font-bold uppercase text-ink-400">GAP</p><p class="mt-1 font-extrabold text-amber-600 dark:text-amber-400">{{ $money($row['gap_value']) }}</p></div><div class="text-right"><p class="text-[9px] font-bold uppercase text-ink-400">Rasio</p><p class="mt-1 font-extrabold text-violet-600 dark:text-violet-400">{{ $row['realization_percentage'] === null ? '—' : $row['realization_percentage'].'%' }}</p></div></div>
-                        @else
-                            <div class="rounded-xl bg-emerald-50 p-4 dark:bg-emerald-950/30"><p class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Nilai Realisasi</p><p class="mt-2 text-xl font-extrabold text-emerald-900 dark:text-emerald-100">{{ $money($row['actual_value']) }}</p><p class="mt-1 text-[10px] text-emerald-700/70 dark:text-emerald-300/70">QE Recovery tidak menggunakan nilai plan.</p></div>
-                            <div class="mt-5"><div class="mb-1.5 flex justify-between text-[9px] font-bold text-ink-500"><span>Realisasi Completed</span><span>{{ $compactMoney($row['actual_value']) }}</span></div><div class="h-4 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full bg-emerald-500" style="width: {{ $row['actual_value'] > 0 ? max(2, $row['actual_bar_percentage']) : 0 }}%"></div></div></div>
-                            <div class="mt-5 border-t border-ink-100 pt-4 text-[10px] leading-5 text-ink-400 dark:border-ink-800">Nilai berasal dari LOP QE Recovery berstatus Completed pada scope aktif.</div>
-                        @endif
-                    </div>
-                </article>
-            @endforeach
+        <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-ink-100 text-[11px] font-black uppercase tracking-wider text-ink-900 dark:bg-ink-700 dark:text-white">
+                        <tr>
+                            <th class="px-5 py-4">Program</th>
+                            <th class="px-3 py-4 text-center">LOP</th>
+                            <th class="px-3 py-4 text-right">Nilai Plan</th>
+                            <th class="px-3 py-4 text-right">Realisasi</th>
+                            <th class="px-3 py-4 text-right">GAP</th>
+                            <th class="px-5 py-4 text-center">Rasio</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
+                        @foreach ($programRows as $row)
+                        <tr class="hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                            <td class="px-5 py-4 font-black text-ink-900 dark:text-white">{{ $row['label'] }}</td>
+                            <td class="px-3 py-4 text-center font-bold text-ink-700 dark:text-ink-300">{{ number_format($row['total_lops']) }}</td>
+                            <td class="px-3 py-4 text-right font-black text-blue-700 dark:text-blue-300">{{ $row['has_plan'] ? $money($row['plan_value']) : '—' }}</td>
+                            <td class="px-3 py-4 text-right font-black text-emerald-700 dark:text-emerald-300">{{ $money($row['actual_value']) }}</td>
+                            <td class="px-3 py-4 text-right font-black text-amber-700 dark:text-amber-300">{{ $row['has_plan'] ? $money($row['gap_value']) : '—' }}</td>
+                            <td class="px-5 py-4 text-center font-black text-violet-700 dark:text-violet-300">{{ $row['has_plan'] && $row['realization_percentage'] !== null ? $row['realization_percentage'].'%' : '—' }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
     </section>
 
