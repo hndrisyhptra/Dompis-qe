@@ -50,7 +50,7 @@ class DataLopController extends Controller
         $lops = $query->latest()->paginate(20)->withQueryString();
         $this->visibility->prepareForView($request->user(), $lops->getCollection());
 
-        return view('data-lop.index', [
+        return view('data-lops.index', [
             'lops' => $lops,
             'programs' => ProgramType::cases(),
             'statuses' => LopStatus::cases(),
