@@ -150,6 +150,48 @@ class TicketCoverageService
         ];
     }
 
+    /**
+     * Hitung tiket yang belum punya LOP dan belum di-exclude per branch,
+     * mengikuti periode default Monitoring Incident.
+     *
+     * @return array<int, int>|null null bila sumber tiket tidak tersedia
+     */
+    public function withoutExcludeCountsByBranch(User $user): ?array
+    {
+        try {
+            $context = $this->monitoringContext($user, []);
+            $areas = $context['selectedAreas'];
+            if ($context['restrictWorkzones'] && $areas->isEmpty()) {
+                return [];
+            }
+
+            $occupancy = QeLop::withTrashed()->whereNotNull('incident')->pluck('incident')
+                ->map(fn ($incident) => $this->normalize($incident))->flip();
+            $excluded = IncidentExclude::query()->pluck('incident')
+                ->map(fn ($incident) => $this->normalize($incident))->flip();
+            $branchByWorkzone = $areas->mapWithKeys(fn (ServiceArea $area) => [
+                $this->normalize($area->workzone) => (int) $area->branch_id,
+            ]);
+
+            [$query] = $this->sourceQuery($context['filters'], $areas, $context['restrictWorkzones']);
+            $counts = [];
+            foreach ($query->select(['incident', 'workzone'])->cursor() as $ticket) {
+                $incident = $this->normalize($ticket->incident);
+                $branchId = $branchByWorkzone->get($this->normalize($ticket->workzone));
+                if ($branchId === null || $incident === '' || $occupancy->has($incident) || $excluded->has($incident)) {
+                    continue;
+                }
+                $counts[$branchId] = ($counts[$branchId] ?? 0) + 1;
+            }
+
+            return $counts;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+    }
+
     public function presentRows(Collection $tickets, array $occupancy, array $excluded, Collection $serviceAreas, Collection $branches, User $user): Collection
     {
         $pageIds = $tickets->map(fn ($ticket) => $occupancy[$this->normalize($ticket->incident)]['id'] ?? null)->filter()->all();

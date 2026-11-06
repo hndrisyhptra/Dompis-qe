@@ -15,7 +15,7 @@ class DashboardController extends Controller
     {
         $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Jakarta')->toDateString()],
-            'tab' => ['nullable', 'in:program,status,summary'],
+            'tab' => ['nullable', 'in:status,summary'],
             'program' => ['nullable', 'string', 'max:50'],
         ]);
 

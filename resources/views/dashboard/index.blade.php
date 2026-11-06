@@ -157,7 +157,7 @@
     </section>
 
     <nav role="tablist" aria-label="Tampilan dashboard" class="flex w-fit gap-1 rounded-md border border-ink-200 bg-ink-100 p-1 dark:border-ink-700 dark:bg-ink-800">
-        @foreach (['program' => 'Program', 'status' => 'Status LOP', 'summary' => 'Summary'] as $key => $label)
+        @foreach (['status' => 'Status LOP', 'summary' => 'Summary'] as $key => $label)
             <button type="button" id="dashboard-tab-{{ $key }}" role="tab" aria-controls="dashboard-panel-{{ $key }}"
                 :aria-selected="dashboardTab === '{{ $key }}'" :tabindex="dashboardTab === '{{ $key }}' ? 0 : -1"
                 @click="selectTab('{{ $key }}')" @keydown.arrow-right.prevent="nextTab(1)" @keydown.arrow-left.prevent="nextTab(-1)"
@@ -217,7 +217,7 @@
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5"/></svg>
                                 </span>
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
+                                    <p data-capture-full-label class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
                                     <p class="mt-1 text-[10px] text-ink-400">Ringkasan performa {{ count($region['branches']) }} branch</p>
                                 </div>
                                 <x-dashboard-capture-controls :id="'region-image-format-'.$loop->index" :label="$groupLabel" class="w-full shrink-0 sm:w-auto" />
@@ -287,33 +287,39 @@
         <article id="dashboard-panel-status" role="tabpanel" aria-labelledby="dashboard-tab-status" x-show="dashboardTab === 'status'" x-cloak class="rounded-md border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex items-start justify-between gap-4">
                 <div>
-                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Status LOP</h2>
-                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Matrix status per Region, Branch, dan Program berdasarkan workflow operasional.</p>
+                    <h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Monitoring Status LOP</h2>
+                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Monitoring status per Region, Branch, dan Program berdasarkan workflow.</p>
+                    <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Kolom Belum Exclude menunjukkan tiket incident yang belum termapping atau belum memiliki LOP.</p>
                 </div>
-                <span class="rounded-md bg-ink-50 px-2.5 py-1 text-xs font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ number_format($stats['total']) }} LOP</span>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-md bg-ink-50 px-2.5 py-1 text-xs font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ number_format($stats['total']) }} LOP</span>
+                    <span class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" title="Completed dibanding total LOP">Completion {{ $stats['completion_percentage'] }}%</span>
+                </div>
             </div>
 
             <p class="mt-3 text-[10px] text-ink-400 sm:hidden">Geser tabel ke samping untuk melihat seluruh tahapan.</p>
             <div class="mt-5 space-y-3">
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
-                    <div class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-ink-900">
+                    <div x-data="dashboardRegionCapture(@js($groupLabel))" x-ref="captureArea" class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-ink-900">
                         <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex min-w-0 items-center gap-3">
                                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5"/></svg>
                                 </span>
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
+                                    <p data-capture-full-label class="truncate text-sm font-extrabold text-ink-900 dark:text-white">{{ $groupLabel }}</p>
                                     <p class="mt-1 text-[10px] text-ink-400">{{ count($region['branches']) }} branch</p>
                                 </div>
+                                <x-dashboard-capture-controls :id="'status-region-image-format-'.$loop->index" :label="$groupLabel" class="w-full shrink-0 sm:w-auto" />
                             </div>
-                            <div class="grid grid-cols-4 gap-2 sm:min-w-97.5">
+                            <div class="grid grid-cols-5 gap-2 sm:min-w-120">
                                 @foreach ([
                                     ['Total', $region['summary']['total'], '', 'text-ink-900 dark:text-white'],
                                     ['Assigned', $region['summary']['pipeline']['assigned'], \App\Enums\LopStatus::ASSIGNED->value, 'text-blue-700 dark:text-blue-300'],
-                                    ['In Review', $region['summary']['pipeline']['waiting_approval'], \App\Enums\LopStatus::WAITING_APPROVAL->value, 'text-amber-700 dark:text-amber-300'],
-                                    ['Complete', $region['summary']['pipeline']['completed'], \App\Enums\LopStatus::COMPLETED->value, 'text-emerald-700 dark:text-emerald-300'],
+                                    ['Unassign', $region['summary']['pipeline']['draft'], \App\Enums\LopStatus::DRAFT->value, 'text-ink-600 dark:text-ink-300'],
+                                    ['Waiting Approval', $region['summary']['pipeline']['waiting_approval'], \App\Enums\LopStatus::WAITING_APPROVAL->value, 'text-amber-700 dark:text-amber-300'],
+                                    ['Completion', $region['summary']['percentage'].'%', '', 'text-emerald-700 dark:text-emerald-300'],
                                 ] as [$label, $value, $statusValue, $tone])
                                     <div class="rounded-md bg-ink-50 px-2 py-2 text-center dark:bg-ink-800">
                                         <x-matrix-number :$value :title="$label.' — '.$groupLabel" :filters="array_merge($matrixScopeFilters, $region['name'] !== 'REGION BELUM TERDATA' ? ['region' => $region['name']] : [], $statusValue ? ['status' => $statusValue] : [])" class="text-sm {{ $tone }}"/>
@@ -325,12 +331,14 @@
 
                         <div class="border-t border-ink-100 dark:border-ink-800">
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-270 border-separate border-spacing-0 text-xs">
+                                <table class="w-full min-w-294 border-separate border-spacing-0 text-xs">
                                     <thead class="bg-ink-50 dark:bg-ink-800/80">
                                         <tr>
-                                            <th class="sticky left-0 z-10 min-w-48 border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
-                                            @foreach ($pipelineStatuses as $status)<th class="min-w-24 border-b border-r border-ink-200 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700">{{ $status['label'] }}</th>@endforeach
-                                            <th class="min-w-20 border-b border-ink-200 bg-ink-100 px-3 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-700 dark:border-ink-700 dark:bg-ink-700 dark:text-ink-200">Total</th>
+                                            <th class="whitespace-nowrap border-b border-r border-ink-200 bg-ink-50 px-4 py-3 text-left text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700 dark:bg-ink-800">Branch / Program</th>
+                                            <th class="w-24 min-w-24 border-b border-r border-ink-200 bg-amber-50 px-2 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-amber-800 dark:border-ink-700 dark:bg-amber-950/30 dark:text-amber-200">Belum Exclude</th>
+                                            @foreach ($pipelineStatuses as $status)<th class="w-24 min-w-24 border-b border-r border-ink-200 px-2 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-700">{{ $status['label'] }}</th>@endforeach
+                                            <th class="w-24 min-w-24 border-b border-ink-200 bg-ink-100 px-2 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-ink-700 dark:border-ink-700 dark:bg-ink-700 dark:text-ink-200">Total</th>
+                                            <th class="w-24 min-w-24 border-b border-ink-200 bg-emerald-50 px-2 py-3 text-center text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/40 dark:text-emerald-200">Persentase</th>
                                         </tr>
                                     </thead>
                                     @foreach ($region['branches'] as $branch)
@@ -339,18 +347,30 @@
                                                 <td class="sticky left-0 z-10 border-r border-ink-200 bg-blue-50 px-3 py-2.5 text-blue-800 dark:border-ink-700 dark:bg-ink-900 dark:text-blue-300">
                                                     <button type="button" @click="branchOpen = !branchOpen" :aria-expanded="branchOpen" class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
                                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-blue-100 dark:bg-blue-900/50"><svg class="h-3 w-3 transition-transform" :class="branchOpen ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                                        <span>{{ $branch['name'] }}</span>
-                                                        <span class="ml-auto text-[9px] font-semibold text-blue-500">{{ count($branch['program']) }} Program</span>
+                                                        <span class="flex min-w-0 flex-col items-start">
+                                                            <span class="whitespace-nowrap">{{ $branch['name'] }}</span>
+                                                            <span class="whitespace-nowrap text-[9px] font-semibold text-blue-500">{{ count($branch['program']) }} Program</span>
+                                                        </span>
                                                     </button>
+                                                </td>
+                                                <td class="border-r border-ink-200 bg-amber-50/70 px-3 py-3 text-center font-extrabold text-amber-800 dark:border-ink-700 dark:bg-amber-950/20 dark:text-amber-200">
+                                                    @if ($incidentCountsAvailable && $branch['id'] !== null)
+                                                        <a href="{{ route('incident-monitoring.tickets', ['branch' => $branch['id'], 'usage' => 'without_lop']) }}" title="Buka incident yang belum memiliki LOP dan belum di-exclude — {{ $branch['name'] }}" class="tabular-nums hover:underline focus:outline-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-amber-500/40">{{ number_format($branch['without_exclude']) }}</a>
+                                                    @else
+                                                        <span title="Data incident tidak tersedia">—</span>
+                                                    @endif
                                                 </td>
                                                 @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-200 px-3 py-3 text-center font-extrabold dark:border-ink-700"><x-matrix-number :value="$branch['summary']['pipeline'][$status['value']]" :title="$status['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'status' => $status['value']])"/></td>@endforeach
                                                 <td class="bg-blue-100/60 px-3 py-3 text-center font-extrabold text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"><x-matrix-number :value="$branch['summary']['total']" :title="'Total LOP — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name']])"/></td>
+                                                <td class="bg-emerald-50 px-3 py-3 text-center font-extrabold text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"><x-matrix-number :value="$branch['summary']['percentage']" suffix="%" :title="'Completion — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'metric' => 'complete'])"/></td>
                                             </tr>
                                             @foreach ($branch['program'] as $program)
                                                 <tr x-show="branchOpen" x-cloak class="transition hover:bg-ink-50 dark:hover:bg-ink-800/40">
-                                                    <td class="sticky left-0 z-10 border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
+                                                    <td class="sticky left-0 z-10 whitespace-nowrap border-r border-ink-100 bg-white px-5 py-3 font-semibold text-ink-600 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"><span class="mr-2 text-ink-300 dark:text-ink-700">•</span>{{ $program['label'] }}</td>
+                                                    <td class="border-r border-ink-100 px-3 py-3 text-center text-ink-300 dark:border-ink-800 dark:text-ink-600" title="Incident tanpa LOP belum dapat dipetakan ke program">—</td>
                                                     @foreach ($pipelineStatuses as $status)<td class="border-r border-ink-100 px-3 py-3 text-center font-medium text-ink-600 dark:border-ink-800 dark:text-ink-300"><x-matrix-number :value="$program['pipeline'][$status['value']]" :title="$status['label'].' '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'status' => $status['value']])"/></td>@endforeach
                                                     <td class="bg-ink-50 px-3 py-3 text-center font-extrabold text-ink-900 dark:bg-ink-800/60 dark:text-white"><x-matrix-number :value="$program['total']" :title="$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value']])"/></td>
+                                                    <td class="bg-emerald-50/60 px-3 py-3 text-center font-extrabold text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200"><x-matrix-number :value="$program['percentage']" suffix="%" :title="'Completion '.$program['label'].' — '.$branch['name']" :filters="array_merge($matrixScopeFilters, ['branch' => $branch['name'], 'program' => $program['value'], 'metric' => 'complete'])"/></td>
                                                 </tr>
                                             @endforeach
                                         </tbody>

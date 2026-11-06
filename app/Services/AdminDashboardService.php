@@ -17,6 +17,7 @@ class AdminDashboardService
         private readonly DashboardMonitoringService $monitoring,
         private readonly LopVisibilityService $visibility,
         private readonly DashboardProgramMatrixService $programMatrix,
+        private readonly TicketCoverageService $ticketCoverage,
     ) {}
 
     public function dashboard(User $user, array $filters): array
@@ -45,6 +46,9 @@ class AdminDashboardService
             'active' => (int) ($aggregate?->active ?? 0),
             'waiting_review' => (int) ($aggregate?->waiting_review ?? 0),
             'completed' => (int) ($aggregate?->completed ?? 0),
+            'completion_percentage' => $total > 0
+                ? (int) round(((int) ($aggregate?->completed ?? 0) / $total) * 100)
+                : 0,
             'rejected' => (int) ($aggregate?->rejected ?? 0),
             'missing_ihld' => $missingIhld,
             'ihld_completion_percentage' => $total > 0
@@ -52,7 +56,8 @@ class AdminDashboardService
                 : 0,
         ];
 
-        $matrixRegions = $this->matrixRegions(clone $query, $user, $filterState);
+        $incidentCounts = $this->ticketCoverage->withoutExcludeCountsByBranch($user);
+        $matrixRegions = $this->matrixRegions(clone $query, $user, $filterState, $incidentCounts ?? []);
 
         return [
             'isSuperAdmin' => $isSuperAdmin,
@@ -60,12 +65,13 @@ class AdminDashboardService
             'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleBranchIds($user)->isEmpty(),
             'stats' => $stats,
             'matrixRegions' => $matrixRegions,
+            'incidentCountsAvailable' => $incidentCounts !== null,
             'programMatrix' => $isSuperAdmin ? null : $this->programMatrix->build(clone $query, $user, $filterState),
             'monitoring' => $this->monitoring->summary(clone $query, $user, $filterState, $filters['date'] ?? null),
-            'dashboardTab' => in_array($filters['tab'] ?? '', ['program', 'status', 'summary'], true) ? $filters['tab'] : 'program',
+            'dashboardTab' => in_array($filters['tab'] ?? '', ['status', 'summary'], true) ? $filters['tab'] : 'status',
             'pipelineStatuses' => collect(LopStatus::cases())->map(fn (LopStatus $status) => [
                 'value' => $status->value,
-                'label' => $status === LopStatus::WAITING_APPROVAL ? 'In Review' : $status->label(),
+                'label' => $status->label(),
             ]),
             'filters' => $filterState,
             'regions' => Branch::query()->whereNotNull('region')->distinct()->orderBy('region')->pluck('region'),
@@ -167,7 +173,7 @@ class AdminDashboardService
         return $query;
     }
 
-    private function matrixRegions(Builder $query, User $user, array $filters): array
+    private function matrixRegions(Builder $query, User $user, array $filters, array $incidentCounts): array
     {
         $aggregates = (clone $query)
             ->leftJoin('branches as matrix_branches', 'matrix_branches.id_branch', '=', 'qe_lops.branch_id')
@@ -205,13 +211,17 @@ class AdminDashboardService
         }
 
         $branchRecords = $branchQuery->get()
-            ->map(fn (Branch $branch) => ['name' => $branch->name, 'region' => $branch->region ?: 'REGION BELUM TERDATA']);
+            ->map(fn (Branch $branch) => [
+                'id' => (int) $branch->id_branch,
+                'name' => $branch->name,
+                'region' => $branch->region ?: 'REGION BELUM TERDATA',
+            ]);
 
         if ($user->hasRole(UserRole::SUPER_ADMIN) && $filters['region'] === '' && $filters['branch'] === '') {
             $knownBranches = $branchRecords->pluck('name');
             foreach (array_keys($counts) as $branchName) {
                 if (! $knownBranches->contains($branchName)) {
-                    $branchRecords->push(['name' => $branchName, 'region' => 'REGION BELUM TERDATA']);
+                    $branchRecords->push(['id' => null, 'name' => $branchName, 'region' => 'REGION BELUM TERDATA']);
                 }
             }
         }
@@ -222,8 +232,8 @@ class AdminDashboardService
 
         return $branchRecords
             ->groupBy('region')
-            ->map(function ($branches, string $region) use ($counts, $programCases): array {
-                $branchRows = $branches->map(function (array $branch) use ($counts, $programCases): array {
+            ->map(function ($branches, string $region) use ($counts, $programCases, $incidentCounts): array {
+                $branchRows = $branches->map(function (array $branch) use ($counts, $programCases, $incidentCounts): array {
                     $programRows = $programCases->map(function (ProgramType $program) use ($branch, $counts): array {
                         $pipeline = collect(LopStatus::cases())->mapWithKeys(function (LopStatus $status) use ($branch, $program, $counts): array {
                             return [$status->value => (int) ($counts[$branch['name']][$program->value][$status->value]['total'] ?? 0)];
@@ -237,7 +247,9 @@ class AdminDashboardService
                     })->values()->all();
 
                     return [
+                        'id' => $branch['id'],
                         'name' => $branch['name'],
+                        'without_exclude' => $branch['id'] === null ? null : (int) ($incidentCounts[$branch['id']] ?? 0),
                         'summary' => $this->summarizeMatrixRows($programRows),
                         'program' => $programRows,
                     ];

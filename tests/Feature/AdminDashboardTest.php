@@ -4,16 +4,19 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\IncidentExclude;
 use App\Models\QeEvidence;
 use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class AdminDashboardTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
 
     public function test_dashboard_is_only_available_to_admin_and_super_admin(): void
     {
@@ -260,9 +263,58 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertSee("dashboardRegionCapture('REGION BALNUS')", false)
             ->assertSee('data-capture-ignore', false)
+            ->assertSee('data-capture-full-label', false)
+            ->assertSee('whitespace-nowrap text-[9px] font-semibold text-blue-500', false)
             ->assertSeeInOrder(['Ringkasan performa', 'region-image-format-0'], false)
             ->assertSee('Capture', false)
             ->assertSee('JPG / JPEG', false);
+    }
+
+    public function test_status_tab_exposes_capture_controls_for_each_region_matrix(): void
+    {
+        Branch::create(['code' => 'DPS', 'name' => 'DENPASAR', 'region' => 'REGION BALNUS']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        $this->makeLop($admin, 'CAPTURE-STATUS', 'DENPASAR');
+
+        $this->actingAs($admin)->get(route('dashboard', ['tab' => 'status']))
+            ->assertOk()
+            ->assertSee('dashboardRegionCapture(', false)
+            ->assertSee('Capture', false)
+            ->assertSee('JPG / JPEG', false);
+    }
+
+    public function test_status_matrix_shows_only_without_exclude_incidents_by_branch(): void
+    {
+        $this->fakeIncidentTickets([]);
+        $branch = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        ServiceArea::create(['workzone' => 'SDA-AREA', 'name' => 'SDA-AREA', 'branch_id' => $branch->id_branch]);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
+
+        foreach (['INC-OPEN', 'INC-USED', 'INC-EXCLUDED'] as $incident) {
+            DB::connection('mysql_dompis')->table('ticket')->insert([
+                'incident' => $incident,
+                'jenis_tiket_2' => 'GAMAS GPON',
+                'workzone' => 'SDA-AREA',
+                'reported_date' => now('Asia/Jakarta')->toDateString(),
+            ]);
+        }
+        $this->makeLop($admin, 'INC-USED', 'SIDOARJO');
+        IncidentExclude::create([
+            'incident' => 'INC-EXCLUDED',
+            'keterangan_exclude' => 'non_material',
+            'created_by' => $admin->id_user,
+        ]);
+
+        $this->actingAs($admin)->get(route('dashboard', ['tab' => 'status']))
+            ->assertOk()
+            ->assertSee('Belum Exclude')
+            ->assertSee('href="'.str_replace('&', '&amp;', route('incident-monitoring.tickets', ['branch' => $branch->id_branch, 'usage' => 'without_lop'])).'"', false)
+            ->assertViewHas('incidentCountsAvailable', true)
+            ->assertViewHas('matrixRegions', function (array $regions): bool {
+                $branch = collect($regions)->flatMap(fn ($region) => $region['branches'])->firstWhere('name', 'SIDOARJO');
+
+                return $branch['without_exclude'] === 1;
+            });
     }
 
     private function makeLop(

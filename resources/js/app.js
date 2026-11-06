@@ -1889,6 +1889,31 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
                 },
             );
 
+            // Elemen yang dikecualikan dari gambar juga harus dikeluarkan
+            // dari layout clone agar tidak menyisakan ruang dan memotong judul.
+            clone
+                .querySelectorAll?.("[data-capture-ignore]")
+                .forEach((element) => element.remove());
+            clone
+                .querySelectorAll?.("[data-capture-full-label]")
+                .forEach((label) => {
+                    label.classList.remove("truncate");
+                    Object.assign(label.style, {
+                        width: "max-content",
+                        maxWidth: "none",
+                        overflow: "visible",
+                        textOverflow: "clip",
+                        whiteSpace: "nowrap",
+                    });
+                    if (label.parentElement) {
+                        Object.assign(label.parentElement.style, {
+                            width: "max-content",
+                            maxWidth: "none",
+                            flex: "0 0 auto",
+                        });
+                    }
+                });
+
             const originalWidth = Math.ceil(
                 node.getBoundingClientRect().width,
             );
@@ -1914,7 +1939,7 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
                     scrollArea.style.overflow = "visible";
                 }
 
-                // Jangan pecah nama service area menjadi dua baris.
+                // Nama branch/service area tetap satu baris saat dicapture.
                 clone
                     .querySelectorAll?.("button .wrap-break-word")
                     .forEach((label) => {
@@ -1976,7 +2001,7 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
     },
 });
 
-window.dashboardMatrixModal = (endpoint, initialTab = "program") => ({
+window.dashboardMatrixModal = (endpoint, initialTab = "status") => ({
     dashboardTab: initialTab,
     selectTab(tab) {
         this.dashboardTab = tab;
@@ -1985,7 +2010,7 @@ window.dashboardMatrixModal = (endpoint, initialTab = "program") => ({
         window.history.replaceState({}, "", url);
     },
     nextTab(direction) {
-        const tabs = ["program", "status", "summary"];
+        const tabs = ["status", "summary"];
         const tab =
             tabs[
                 (tabs.indexOf(this.dashboardTab) + direction + tabs.length) %
