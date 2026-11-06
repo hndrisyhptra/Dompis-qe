@@ -61,6 +61,8 @@ Pembaruan 27 Oktober 2026: label scope global pada Monitoring Exclude dan tabel 
 
 Pembaruan Monitoring Exclude 27 Oktober 2026: Capture Ticket Insera (7.72) sudah masuk `e6ec400`, serta material lainnya/perapian PDF BA (7.73) sudah masuk `8c8ebaf`. Worktree bersih sebelum task baru. Perubahan 7.74 belum di-commit: grup Region → Branch untuk Super Admin/Admin Area beserta drill-down dan regression test. Tidak ada migration atau perubahan data operasional.
 
+Pembaruan Monitoring Exclude 6 November 2026: matriks kini membagi tiket secara eksklusif dengan prioritas Sudah Include (incident memiliki LOP aktif/arsip), Sudah Exclude (tanpa LOP), lalu Belum Exclude (tanpa LOP). Drill-down Include menampilkan LOP terkait dan tidak menawarkan aksi exclude; record exclude lama pada incident yang sudah memiliki LOP tidak dihitung sebagai exclude/alasan. Regression suite `TicketExcludeMonitoringTest` lulus (18 tes). Perubahan kode belum di-commit; tidak ada migration atau perubahan data operasional.
+
 ### 2.3 Status migration lokal
 
 Migration redundan untuk tabel `qe_boq_plans`, relasi `boq_plan_id`, dan kolom `file_hash` sudah dikeluarkan dari perubahan kerja. Migration `2026_10_02_000001_expand_boq_item_name_columns.php` tetap penting untuk uraian BOQ panjang.

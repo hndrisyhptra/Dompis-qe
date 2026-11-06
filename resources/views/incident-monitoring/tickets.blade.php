@@ -11,7 +11,7 @@
     $reportedFrom = \App\Support\TicketReportedDate::floor();
     $reportedFromLabel = \Illuminate\Support\Carbon::createFromFormat('!Y-m-d', $reportedFrom)->format('d/m/Y');
     $hasCustomDates = $filters['date_from'] !== $reportedFrom || $filters['date_to'] !== now('Asia/Jakarta')->toDateString();
-    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || $hasCustomDates;
+    $hasFilters = $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['kind'] !== '' || $filters['q'] !== '' || ! empty($filters['sto_filter']) || $hasCustomDates;
 @endphp
 
 <div class="mx-auto max-w-7xl space-y-5" x-data="{ loading: false, dateFrom: @js($filters['date_from']), filtersOpen: {{ $hasFilters ? 'true' : 'false' }} }" :aria-busy="loading" @pageshow.window="loading = false">
@@ -102,7 +102,7 @@
             <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Berdasarkan reported date tiket Dompis. Tanggal mulai minimal {{ $reportedFromLabel }}; tanggal akhir default hari ini. Download mengikuti isian filter terbaru, tanpa perlu klik Terapkan.</p>
         </form>
         @if ($hasFilters)
-            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $filters['q'] !== '' ? 'pencarian “'.$filters['q'].'”; ' : '' }}{{ $filters['kind'] !== '' ? strtoupper($filters['kind']).'; ' : '' }}{{ $filters['date_from'] !== '' ? 'Dari '.$filters['date_from'].'; ' : '' }}{{ $filters['date_to'] !== '' ? 'Sampai '.$filters['date_to'].'; ' : '' }}{{ $filters['region'] !== '' ? $filters['region'].'; ' : '' }}{{ $filters['branch'] !== '' ? 'Branch pilihan; ' : '' }}{{ $filters['service_area'] !== '' ? 'STO pilihan' : '' }}</p>
+            <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Filter aktif: {{ $filters['q'] !== '' ? 'pencarian “'.$filters['q'].'”; ' : '' }}{{ $filters['kind'] !== '' ? strtoupper($filters['kind']).'; ' : '' }}{{ $filters['date_from'] !== '' ? 'Dari '.$filters['date_from'].'; ' : '' }}{{ $filters['date_to'] !== '' ? 'Sampai '.$filters['date_to'].'; ' : '' }}{{ $filters['region'] !== '' ? $filters['region'].'; ' : '' }}{{ $filters['branch'] !== '' ? 'Branch pilihan; ' : '' }}{{ $filters['service_area'] !== '' || ! empty($filters['sto_filter']) ? 'STO pilihan' : '' }}</p>
         @endif
     </section>
 

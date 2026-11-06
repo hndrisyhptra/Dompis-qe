@@ -76,12 +76,28 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->ticket('  ');
         $this->actingAs($this->super)->get(route('incident-monitoring.exclusions'))->assertOk()
             ->assertSee('Monitoring Exclude')->assertSee('JATENG DIY')->assertSee('JAWA TIMUR')->assertSee('BALI NUSRA')
-            ->assertViewHas('totals', fn ($row) => $row['count'] === 7 && $row['cells']['gamas:excluded'] === 4
-                && $row['cells']['gamas:not_excluded'] === 1 && $row['cells']['preman:not_excluded'] === 1)
+            ->assertViewHas('totals', fn ($row) => $row['count'] === 7 && $row['cells']['gamas:included'] === 2
+                && $row['cells']['gamas:excluded'] === 3 && $row['cells']['gamas:not_excluded'] === 0
+                && $row['cells']['gamas:total'] === 5 && $row['cells']['preman:not_excluded'] === 1)
             ->assertViewHas('matrixRows', fn ($rows) => $rows['branch:'.$this->branches['SBY']->getKey()]['count'] === 5
                 && $rows['branch:'.$this->branches['SMG']->getKey()]['count'] === 1 && $rows['branch:'.$this->branches['DPS']->getKey()]['count'] === 1)
-            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 7 && $rows->firstWhere('incident', 'INC-EX-0')['is_excluded']
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 7 && ! $rows->firstWhere('incident', 'INC-EX-0')['is_excluded']
                 && ! $rows->firstWhere('incident', 'INC-USED')['is_excluded']);
+        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'branch:'.$this->branches['SBY']->getKey(),
+            'detail_kind' => 'gamas', 'exclude_state' => 'included']))->assertOk()
+            ->assertViewHas('tickets', function ($rows) {
+                $this->assertSame(2, $rows->total());
+                $includedWithStaleExclude = $rows->firstWhere('incident', 'INC-EX-0');
+                $this->assertTrue($includedWithStaleExclude['is_included']);
+                $this->assertFalse($includedWithStaleExclude['is_excluded']);
+                $this->assertSame('LOP INC-EX-0', $includedWithStaleExclude['lop']?->nama_lop);
+
+                return true;
+            });
+        $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'branch:'.$this->branches['SBY']->getKey(),
+            'detail_kind' => 'gamas', 'exclude_state' => 'excluded']))->assertOk()
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 3
+                && ! $rows->contains(fn ($row) => $row['incident'] === 'INC-EX-0'));
         $this->get(route('incident-monitoring.tickets'))->assertOk()->assertSee(route('incident-monitoring.exclusions'), false);
     }
 
@@ -100,7 +116,7 @@ class TicketExcludeMonitoringTest extends TestCase
         $dom = new DOMDocument;
         @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
         $cells = (new DOMXPath($dom))->query('//a[@data-exclude-cell]');
-        $this->assertSame(126, $cells->count());
+        $this->assertSame(168, $cells->count());
         foreach ($cells as $cell) {
             $url = $cell->getAttribute('href');
             $count = (int) $cell->getAttribute('data-count');
@@ -110,7 +126,15 @@ class TicketExcludeMonitoringTest extends TestCase
             $this->get($url)->assertOk()->assertViewHas('tickets', function ($tickets) use ($count, $query) {
                 $this->assertSame($count, $tickets->total());
                 foreach ($tickets as $ticket) {
-                    $this->assertSame($query['exclude_state'] === 'excluded', $ticket['is_excluded']);
+                    if ($query['exclude_state'] === 'excluded') {
+                        $this->assertTrue($ticket['is_excluded']);
+                    }
+                    if ($query['exclude_state'] === 'not_excluded') {
+                        $this->assertFalse($ticket['is_excluded']);
+                    }
+                    if ($query['exclude_state'] === 'included') {
+                        $this->assertTrue($ticket['is_included']);
+                    }
                     if (isset($query['reason'])) {
                         $this->assertSame($query['reason'], $ticket['exclude_reason']);
                     }
@@ -392,7 +416,7 @@ class TicketExcludeMonitoringTest extends TestCase
             $this->assertStringContainsString('Pencarian: CAPTURE', $capture->textContent);
             $this->assertStringContainsString('SUDAH EXCLUDE', $capture->textContent);
             $this->assertSame(1, $xpath->query('.//table', $capture)->count());
-            $this->assertSame($user->hasRole(UserRole::SUPER_ADMIN) ? 54 : 36, $xpath->query('.//a[@data-exclude-cell]', $capture)->count());
+            $this->assertSame($user->hasRole(UserRole::SUPER_ADMIN) ? 72 : 48, $xpath->query('.//a[@data-exclude-cell]', $capture)->count());
             $this->assertSame(0, $xpath->query('.//form | .//*[@id="ticket-details"] | .//*[@data-incident]', $capture)->count());
             $this->assertSame(2, $xpath->query('.//select[@id="exclude-ticket-image-format"]/option[@value="png" or @value="jpeg"]', $capture)->count());
             $this->assertSame(1, $xpath->query('.//*[@data-capture-ignore]//button[@title="Capture gambar Monitoring Exclude Tiket"]', $capture)->count());
@@ -495,8 +519,6 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->ticket('INC-ACTION', 'PREMAN', 'DPS');
         $this->ticket('INC-ALREADY', 'PREMAN', 'DPS');
         $this->exclude('INC-ALREADY', 'legacy reason');
-        QeLop::create(['incident' => 'INC-ACTION', 'nama_lop' => 'Existing LOP',
-            'program_type' => 'recovery', 'status_lop' => 'progress', 'created_by' => $this->super->getKey()]);
         $url = route('incident-monitoring.exclusions', ['period' => 'month', 'month' => '2026-10',
             'matrix_region' => 'balnus', 'detail_kind' => 'preman', 'exclude_state' => 'not_excluded']).'#ticket-details';
         $response = $this->actingAs($this->super)->get($url)->assertOk();
@@ -515,12 +537,21 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->from($url)->post($form->getAttribute('action'), ['incident' => 'INC-ACTION', 'reason' => 'temporer'])
             ->assertRedirect($url)->assertSessionHasNoErrors()->assertSessionHas('status', 'Tiket berhasil di-exclude.');
         $this->assertDatabaseHas('incident_excludes', ['incident' => 'INC-ACTION', 'keterangan_exclude' => 'temporer', 'created_by' => $this->super->getKey()]);
-        $this->get($url)->assertOk()->assertViewHas('tickets', fn ($rows) => $rows->total() === 0)
-            ->assertViewHas('totals', fn ($row) => $row['cells']['preman:not_excluded'] === 0
-                && $row['cells']['preman:excluded'] === 2 && $row['cells']['preman:temporer'] === 1);
+        $excludedUrl = route('incident-monitoring.exclusions', ['period' => 'month', 'month' => '2026-10',
+            'matrix_region' => 'balnus', 'detail_kind' => 'preman', 'exclude_state' => 'excluded']);
+        $this->get($excludedUrl)->assertOk()->assertViewHas('tickets', function ($rows) {
+            $this->assertSame(2, $rows->total());
+            $actionTicket = $rows->firstWhere('incident', 'INC-ACTION');
+            $this->assertFalse($actionTicket['is_included']);
+            $this->assertTrue($actionTicket['is_excluded']);
+
+            return true;
+        })
+            ->assertViewHas('totals', fn ($row) => $row['cells']['preman:included'] === 0
+                && $row['cells']['preman:not_excluded'] === 0 && $row['cells']['preman:excluded'] === 2
+                && $row['cells']['preman:temporer'] === 1);
         $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'balnus', 'detail_kind' => 'preman', 'exclude_state' => 'excluded']))->assertOk()
             ->assertSee('Batalkan exclude tiket INC-ACTION')->assertDontSee('Alasan exclude tiket INC-ACTION');
-        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-ACTION', 'status_lop' => 'progress']);
     }
 
     public function test_admin_exclude_action_keeps_scope_checks_and_requires_a_valid_reason(): void

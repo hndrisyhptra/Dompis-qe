@@ -7,6 +7,7 @@ use App\Enums\ExcludeReason;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\IncidentExclude;
+use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
 use App\Support\TicketReportedDate;
@@ -53,8 +54,19 @@ class TicketExcludeMonitoringService
         $reasons = collect(ExcludeReason::cases())->mapWithKeys(fn (ExcludeReason $reason) => [$reason->value => $reason->label()])->all();
         $excluded = IncidentExclude::query()->get(['incident', 'keterangan_exclude'])
             ->mapWithKeys(fn ($row) => [$this->coverage->normalize($row->incident) => $row->keterangan_exclude])->all();
+        $lopOccupancy = [];
+        foreach (QeLop::withTrashed()->get(['id_qe_lops', 'incident']) as $lop) {
+            $incident = $this->coverage->normalize($lop->incident);
+            if ($incident !== '') {
+                $lopOccupancy[$incident] = ['id' => (int) $lop->id_qe_lops, 'usage' => 'with_lop'];
+            }
+        }
+        $included = array_keys($lopOccupancy);
         $buckets = [];
         foreach ($excluded as $incident => $reason) {
+            if (isset($lopOccupancy[$incident])) {
+                continue;
+            }
             $buckets[array_key_exists($reason ?? '', $reasons) ? $reason : 'other'][] = $incident;
         }
         if (isset($buckets['other'])) {
@@ -128,7 +140,7 @@ class TicketExcludeMonitoringService
         if (! $restricted || $selectedAreas->isNotEmpty()) {
             try {
                 [$base, $reportedDate] = $this->coverage->sourceQuery($filters, $selectedAreas, $restricted);
-                [$classification, $bindings] = $this->classification($buckets);
+                [$classification, $bindings] = $this->classification($included, $buckets);
                 $groups = (clone $base)->select('jenis_tiket_2')
                     ->selectRaw('UPPER(TRIM(workzone)) AS normalized_workzone')
                     ->selectRaw("{$classification} AS exclude_bucket, COUNT(*) AS total", $bindings)
@@ -143,10 +155,11 @@ class TicketExcludeMonitoringService
                     ), 'region_key' => $groupByBranch ? 'region:unmapped' : null];
                     $kind = $this->coverage->ticketKind($group->jenis_tiket_2);
                     $bucket = $group->exclude_bucket;
-                    $state = $bucket === 'not_excluded' ? 'not_excluded' : 'excluded';
+                    $state = in_array($bucket, ['included', 'not_excluded'], true) ? $bucket : 'excluded';
                     foreach ([$key, 'total'] as $target) {
                         $row = $target === 'total' ? $total : $matrixRows[$target];
                         $row['cells'][$kind.':'.$state] += (int) $group->total;
+                        $row['cells'][$kind.':total'] += (int) $group->total;
                         if ($state === 'excluded') {
                             $row['cells'][$kind.':'.$bucket] += (int) $group->total;
                         }
@@ -178,10 +191,15 @@ class TicketExcludeMonitoringService
                 }
                 if ($filters['reason'] !== '') {
                     $query->whereIn(DB::raw('UPPER(TRIM(incident))'), $buckets[$filters['reason']] ?? []);
+                    $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $included);
+                } elseif ($filters['exclude_state'] === 'included') {
+                    $query->whereIn(DB::raw('UPPER(TRIM(incident))'), $included);
                 } elseif ($filters['exclude_state'] === 'excluded') {
                     $query->whereIn(DB::raw('UPPER(TRIM(incident))'), array_keys($excluded));
+                    $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $included);
                 } elseif ($filters['exclude_state'] === 'not_excluded') {
                     $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), array_keys($excluded));
+                    $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $included);
                 }
                 $detailTotal = $query->count();
                 $rawTickets = $query->select(['id_ticket', 'incident', 'jenis_tiket_2', 'workzone'])
@@ -194,8 +212,9 @@ class TicketExcludeMonitoringService
                 $detailTotal = 0;
             }
         }
-        $rows = $this->coverage->presentRows($rawTickets, [], $excluded, $areas, $branches, $user)
-            ->map(fn ($row) => [...$row, 'is_excluded' => array_key_exists($row['incident'], $excluded),
+        $rows = $this->coverage->presentRows($rawTickets, $lopOccupancy, $excluded, $areas, $branches, $user)
+            ->map(fn ($row) => [...$row, 'is_included' => in_array($row['incident'], $included, true),
+                'is_excluded' => ! in_array($row['incident'], $included, true) && array_key_exists($row['incident'], $excluded),
                 'reason_label' => $reasons[$row['exclude_reason'] ?? ''] ?? 'Alasan lainnya']);
         $tickets = new LengthAwarePaginator($rows, $detailTotal, 25, $page, [
             'path' => route('incident-monitoring.exclusions'),
@@ -234,7 +253,7 @@ class TicketExcludeMonitoringService
                 ? ($matrixRows[$filters['matrix_region']]['label'] ?? collect($matrixGroups)->firstWhere('key', $filters['matrix_region'])['name'] ?? ($groupBySto ? 'STO pilihan' : 'Wilayah pilihan'))
                 : ($groupBySto ? 'Semua STO' : ($groupByBranch ? 'Semua regional / branch' : 'Semua regional')),
             self::KINDS[$filters['detail_kind']] ?? null,
-            ['all' => 'Semua tiket', 'excluded' => 'Sudah exclude', 'not_excluded' => 'Belum exclude'][$filters['exclude_state']],
+            ['all' => 'Semua tiket', 'included' => 'Sudah include', 'excluded' => 'Sudah exclude', 'not_excluded' => 'Belum exclude'][$filters['exclude_state']],
             $reasons[$filters['reason']] ?? null,
         ]));
 
@@ -262,23 +281,27 @@ class TicketExcludeMonitoringService
         return in_array($scope, [AdminScopeType::BRANCH, AdminScopeType::SERVICE_AREA], true);
     }
 
-    private function classification(array $buckets): array
+    private function classification(array $included, array $buckets): array
     {
         $sql = 'CASE';
         $bindings = [];
+        if ($included !== []) {
+            $sql .= ' WHEN UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($included), '?')).") THEN 'included'";
+            $bindings = [...$bindings, ...$included];
+        }
         foreach ($buckets as $reason => $incidents) {
             $sql .= ' WHEN UPPER(TRIM(incident)) IN ('.implode(',', array_fill(0, count($incidents), '?')).') THEN ?';
             $bindings = [...$bindings, ...$incidents, $reason];
         }
 
-        return $buckets === [] ? ["'not_excluded'", []] : [$sql." ELSE 'not_excluded' END", $bindings];
+        return $included === [] && $buckets === [] ? ["'not_excluded'", []] : [$sql." ELSE 'not_excluded' END", $bindings];
     }
 
     private function emptyRow(string $key, string $label, array $reasons, ?string $group = null): array
     {
         $cells = [];
         foreach (self::KINDS as $kind => $name) {
-            foreach (['excluded', 'not_excluded', ...array_keys($reasons)] as $bucket) {
+            foreach (['included', 'excluded', 'not_excluded', 'total', ...array_keys($reasons)] as $bucket) {
                 $cells[$kind.':'.$bucket] = 0;
             }
         }

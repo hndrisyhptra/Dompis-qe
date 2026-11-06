@@ -203,12 +203,12 @@ class TicketCoverageService
         })->values();
         $query = $source->table('ticket')->whereIn('jenis_tiket_2', $types)
             ->whereRaw("TRIM(incident) <> ''");
-        if ($restrictWorkzones) {
-            $allowed = $areas->map(fn (ServiceArea $area) => $this->normalize($area->workzone))->flip();
-            if (!empty($filters['sto_filter'])) {
-                $filteredSto = collect($filters['sto_filter'])->map(fn ($w) => $this->normalize($w));
-                $allowed = $allowed->intersectByKeys($filteredSto->flip());
-            }
+        $allowed = $areas->map(fn (ServiceArea $area) => $this->normalize($area->workzone))->flip();
+        if (! empty($filters['sto_filter'])) {
+            $filteredSto = collect($filters['sto_filter'])->map(fn ($workzone) => $this->normalize($workzone));
+            $allowed = $allowed->intersectByKeys($filteredSto->flip());
+        }
+        if ($restrictWorkzones || ! empty($filters['sto_filter'])) {
             $workzonesQuery = $source->table('ticket');
             TicketReportedDate::applyRange($workzonesQuery, $driver, $filters['date_from'], $filters['date_to']);
             $workzones = $workzonesQuery->distinct()->pluck('workzone')

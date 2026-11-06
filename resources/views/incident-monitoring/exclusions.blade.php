@@ -117,22 +117,24 @@
                 </div>
             @endif
             <div role="region" aria-label="Tabel {{ $matrixSummaryLabel }} tiket exclude, dapat digeser horizontal" tabindex="0" class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500">
-            <table class="w-full min-w-[1700px] border-collapse text-center text-xs tabular-nums">
+            <table class="w-full min-w-[1900px] border-collapse text-center text-xs tabular-nums">
                 <caption class="sr-only">Jumlah tiket sudah dan belum exclude menurut {{ $matrixSummaryLabel }}, jenis tiket, dan alasan pengecualian.</caption>
                 <thead class="bg-ink-50 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
                     <tr>
                         <th rowspan="3" scope="col" class="sticky left-0 z-10 border border-ink-200 bg-ink-50 px-3 py-3 text-center dark:border-ink-700 dark:bg-ink-800 {{ $groupByBranch ? 'min-w-64 whitespace-nowrap' : 'min-w-40' }}">{{ $matrixGroupLabel }}</th>
-                        <th colspan="6" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">JUMLAH TIKET</th>
+                        <th colspan="{{ count($kinds) * 4 }}" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">JUMLAH TIKET</th>
                         <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-emerald-50 px-3 py-3 text-center text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/50 dark:text-emerald-200">SUDAH EXCLUDE</th>
                     </tr>
                     <tr>
-                        @foreach ($kinds as $label)<th colspan="2" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
+                        @foreach ($kinds as $label)<th colspan="4" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
                         @foreach ($kinds as $label)<th colspan="{{ count($reasons) }}" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
                     </tr>
                     <tr>
                         @foreach ($kinds as $label)
+                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-blue-500 bg-blue-50 px-2 py-3 font-semibold text-blue-800 dark:border-ink-700 dark:border-b-blue-500 dark:bg-blue-950/30 dark:text-blue-200">Sudah<br>Include</th>
                             <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-emerald-500 bg-emerald-50/70 px-2 py-3 font-semibold text-emerald-800 dark:border-ink-700 dark:border-b-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-200">Sudah<br>Exclude</th>
                             <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-brand-700 bg-brand-500 px-2 py-3 font-semibold text-white dark:border-ink-700 dark:border-b-brand-500 dark:bg-brand-600 dark:text-white">Belum<br>Exclude</th>
+                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-ink-500 bg-ink-100 px-2 py-3 font-semibold text-ink-800 dark:border-ink-700 dark:border-b-ink-500 dark:bg-ink-800 dark:text-ink-100">Total</th>
                         @endforeach
                         @foreach ($kinds as $label)
                             @foreach ($reasons as $reason => $reasonLabel)
@@ -157,8 +159,8 @@
                                     @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $group, 'showRowLabel' => false])
                                 @else
                                     @foreach ($kinds as $kind => $label)
-                                        @foreach (['excluded', 'not_excluded'] as $state)
-                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white {{ $state === 'not_excluded' ? 'bg-brand-100/70 dark:bg-brand-900/30' : '' }}">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$state], 0, ',', '.') }}@endif</td>
+                                        @foreach (['included', 'excluded', 'not_excluded', 'total'] as $state)
+                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white {{ ['included' => 'bg-blue-50/70 dark:bg-blue-950/20', 'excluded' => 'bg-emerald-50/70 dark:bg-emerald-950/20', 'not_excluded' => 'bg-brand-100/70 dark:bg-brand-900/30', 'total' => 'bg-ink-50 dark:bg-ink-800/50'][$state] }}">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$state], 0, ',', '.') }}@endif</td>
                                         @endforeach
                                     @endforeach
                                     @foreach ($kinds as $kind => $label)
@@ -216,7 +218,7 @@
             <div role="region" aria-label="Daftar detail tiket" tabindex="0" class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500">
                 <table class="w-full min-w-212.5 text-left text-sm">
                     <thead class="bg-ink-50 text-xs text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
-                        @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'Status Exclude', 'Alasan', 'Aksi'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
+                        @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'LOP terkait', 'Status', 'Alasan', 'Aksi'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
                     </tr></thead>
                     <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                         @foreach ($tickets as $ticket)
@@ -225,10 +227,13 @@
                                 <td class="whitespace-nowrap px-4 py-3">{{ $ticket['reported_date'] ?? '—' }}</td>
                                 <td class="px-4 py-3">{{ $ticket['ticket_type'] }}</td>
                                 <td class="px-4 py-3">{{ $ticket['workzone'] }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span></td>
-                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200' }}">{{ $ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude' }}</span></td>
-                                <td class="px-4 py-3">{{ $ticket['is_excluded'] ? $ticket['reason_label'] : '—' }}</td>
+                                <td class="px-4 py-3">@if ($ticket['lop'])<span class="font-medium">{{ $ticket['lop']->nama_lop }}</span><span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $ticket['lop']->status_lop->label() }}</span>@elseif($ticket['is_included'])<span class="text-xs text-ink-500 dark:text-ink-400">LOP terarsip atau detail di luar scope</span>@else—@endif</td>
+                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_included'] ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : ($ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200') }}">{{ $ticket['is_included'] ? 'Sudah include' : ($ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude') }}</span></td>
+                                <td class="px-4 py-3">{{ $ticket['is_included'] ? '—' : ($ticket['is_excluded'] ? $ticket['reason_label'] : '—') }}</td>
                                 <td class="whitespace-nowrap px-4 py-3">
-                                    @if ($ticket['is_excluded'])
+                                    @if ($ticket['is_included'])
+                                        —
+                                    @elseif ($ticket['is_excluded'])
                                         <x-unexclude-ticket-button :incident="$ticket['incident']" :compact="true" />
                                     @else
                                         <x-exclude-ticket-form :incident="$ticket['incident']" />

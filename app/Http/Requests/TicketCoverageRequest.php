@@ -21,6 +21,8 @@ class TicketCoverageRequest extends IncidentMonitoringRequest
             'date_from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:'.$reportedFrom],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:'.$reportedFrom, ...($this->filled('date_from') ? ['after_or_equal:date_from'] : [])],
             'q' => ['nullable', 'string', 'max:100'],
+            'sto_filter' => ['sometimes', 'array', 'max:100'],
+            'sto_filter.*' => ['string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
         ];
     }

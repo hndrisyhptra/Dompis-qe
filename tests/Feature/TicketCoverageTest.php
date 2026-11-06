@@ -120,6 +120,23 @@ class TicketCoverageTest extends TestCase
         $this->assertDatabaseCount('qe_lops', 2);
     }
 
+    public function test_multiple_selected_service_areas_filter_ticket_counts_and_detail_rows(): void
+    {
+        foreach (['SBY-A', 'SBY-B', 'SDA-A', 'DPS-A'] as $workzone) {
+            $this->ticket('INC-'.$workzone, 'INFRACARE', $workzone);
+        }
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.tickets', [
+            'usage' => 'all', 'sto_filter' => ['SBY-A', 'DPS-A'],
+        ]))->assertOk()
+            ->assertViewHas('filters', fn ($filters) => $filters['sto_filter'] === ['SBY-A', 'DPS-A'])
+            ->assertViewHas('stats', fn ($stats) => $stats['total'] === 2)
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2
+                && $rows->pluck('incident')->sort()->values()->all() === ['INC-DPS-A', 'INC-SBY-A'])
+            ->assertSee('INC-SBY-A')->assertSee('INC-DPS-A')
+            ->assertDontSee('INC-SBY-B')->assertDontSee('INC-SDA-A');
+    }
+
     public function test_used_tickets_show_active_lop_details_and_archived_references_remain_occupied_without_an_archive_filter(): void
     {
         $used = $this->lop('INC-USED', attributes: ['status_lop' => 'waiting_approval']);
