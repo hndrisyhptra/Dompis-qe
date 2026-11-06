@@ -166,7 +166,7 @@ class LopManualInputTest extends TestCase
         ]);
 
         $this->actingAs($admin)->from(route('lop.edit', $lop))->put(route('lop.update', $lop), [
-            'incident' => 'INC777', 'nama_lop' => $lop->nama_lop,
+            'incident' => 'INP-ABC', 'nama_lop' => $lop->nama_lop,
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
             'area' => '3', 'segment' => 'odp', 'job_description' => 'Test',
         ])->assertRedirect(route('lop.edit', $lop))->assertSessionHasErrors('incident');
@@ -174,7 +174,7 @@ class LopManualInputTest extends TestCase
         $this->assertSame('INP3102092601', $lop->fresh()->incident);
     }
 
-    public function test_real_incident_number_cannot_be_changed_through_update(): void
+    public function test_real_incident_number_can_be_changed_when_the_new_value_is_unused(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
@@ -187,7 +187,6 @@ class LopManualInputTest extends TestCase
             'status_lop' => 'draft', 'created_by' => $admin->id_user,
         ]);
 
-        // Kirim incident berbeda -> diabaikan, nilai lama dipertahankan (tanpa error).
         $this->actingAs($admin)->put(route('lop.update', $lop), [
             'incident' => 'INC99999999', 'nama_lop' => $lop->nama_lop,
             'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
@@ -196,12 +195,12 @@ class LopManualInputTest extends TestCase
         ])->assertRedirect(route('lop.index'));
 
         $fresh = $lop->fresh();
-        $this->assertSame('INC50390302', $fresh->incident);
+        $this->assertSame('INC99999999', $fresh->incident);
         $this->assertSame('IHLD-1', $fresh->ihld_id);
-        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC99999999']);
+        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC50390302']);
     }
 
-    public function test_edit_form_locks_real_incident_and_allows_manual_incident(): void
+    public function test_incident_edit_form_is_enabled_for_real_and_manual_incidents(): void
     {
         $admin = User::factory()->role(UserRole::ADMIN->value)->create();
         Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
@@ -220,9 +219,37 @@ class LopManualInputTest extends TestCase
         ]);
 
         $this->actingAs($admin)->get(route('lop.edit', $real))
-            ->assertOk()->assertSee('tidak dapat diubah');
+            ->assertOk()->assertSee('Incident dapat diubah selama belum digunakan oleh LOP lain.')
+            ->assertDontSee('readonly');
         $this->actingAs($admin)->get(route('lop.edit', $manual))
-            ->assertOk()->assertSee('boleh diubah');
+            ->assertOk()->assertSee('Incident dapat diubah selama belum digunakan oleh LOP lain.')
+            ->assertDontSee('readonly');
+    }
+
+    public function test_incident_cannot_be_changed_to_one_already_used_by_another_lop(): void
+    {
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create();
+        Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $this->seedAreaBranchServiceArea();
+        $admin->refresh();
+        $current = QeLop::create([
+            'incident' => 'INC50390302', 'nama_lop' => 'Current', 'program_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => 'odp',
+            'job_description' => 'Test', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
+        ]);
+        QeLop::create([
+            'incident' => 'INC99999999', 'nama_lop' => 'Already used', 'program_type' => 'recovery',
+            'sto' => 'SDA', 'branch' => 'SIDOARJO', 'area' => '3', 'segment' => 'odp',
+            'job_description' => 'Test', 'status_lop' => 'draft', 'created_by' => $admin->id_user,
+        ]);
+
+        $this->actingAs($admin)->from(route('lop.edit', $current))->put(route('lop.update', $current), [
+            'incident' => 'inc99999999', 'nama_lop' => $current->nama_lop,
+            'program_type' => 'recovery', 'sto' => 'SDA', 'branch' => 'SIDOARJO',
+            'area' => '3', 'segment' => 'odp', 'job_description' => 'Test',
+        ])->assertRedirect(route('lop.edit', $current))->assertSessionHasErrors('incident');
+
+        $this->assertSame('INC50390302', $current->fresh()->incident);
     }
 
     public function test_only_super_admin_can_manage_lop_name_format(): void

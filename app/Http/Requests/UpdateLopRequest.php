@@ -24,15 +24,10 @@ class UpdateLopRequest extends FormRequest
         $lop = $this->route('qe_lop');
         $lopId = $lop?->id_qe_lops;
 
-        // Nomor tiket asli (INC…) tidak boleh diubah; hanya nomor manual (INP…).
-        // prepareForValidation() sudah memaksa balik nilai lama untuk tiket asli,
-        // jadi rule regex hanya relevan saat LOP memang bernomor manual.
-        $incidentIsManual = $lop === null || $lop->usesManualIncident();
-
         $rules = [
             'incident' => [
                 'required', 'string', 'max:100',
-                ...($incidentIsManual ? ['regex:/^INP\d+$/'] : []),
+                'regex:/^(?:INP\d+|INC[\w-]+)$/',
                 Rule::unique('qe_lops', 'incident')->ignore($lopId, 'id_qe_lops'),
             ],
             'nama_lop' => ['nullable', 'string', 'max:255'],
@@ -59,7 +54,7 @@ class UpdateLopRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'incident.regex' => 'Nomor tiket manual harus memakai format INP diikuti angka (contoh: INP3102092601).',
+            'incident.regex' => 'Incident harus memakai format INP diikuti angka atau nomor tiket INC.',
             'segment.max' => 'Maksimal 5 segmen untuk setiap program.',
             'segment.min' => 'Pilih minimal 1 segmen.',
             'sto.exists' => 'STO tidak ditemukan di Master Service Area.',
@@ -101,10 +96,7 @@ class UpdateLopRequest extends FormRequest
     {
         $lop = $this->route('qe_lop');
 
-        // LOP bernomor tiket asli: abaikan input user, kunci ke nilai lama.
-        $incident = $lop !== null && ! $lop->usesManualIncident()
-            ? $lop->incident
-            : mb_strtoupper(trim((string) $this->input('incident')));
+        $incident = mb_strtoupper(trim((string) $this->input('incident')));
 
         $program = $this->input('program_type');
         $segmentNormalized = LopSegment::normalizeInput($this->input('segment'));

@@ -101,20 +101,10 @@
                     </div>
                 </div>
             @else
-                {{-- Edit LOP: nomor tiket manual (INP…) boleh diubah; nomor tiket asli (INC…) dikunci. --}}
-                @if (isset($lop) && $lop->usesManualIncident())
-                    <div class="order-1">
-                        <x-input name="incident" label="Incident" placeholder="Contoh: INP3102092601" x-model="form.incident" autocomplete="off" />
-                        <p class="mt-1.5 text-xs text-ink-400">Nomor tiket manual — boleh diubah, tetap memakai format <span class="font-mono">INP…</span>.</p>
-                    </div>
-                @else
-                    <div class="order-1">
-                        <label for="incident" class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Incident</label>
-                        <input id="incident" type="text" x-model="form.incident" readonly tabindex="-1"
-                               class="w-full cursor-not-allowed rounded-lg border border-ink-100 bg-ink-50 px-3.5 py-2.5 text-sm text-ink-500 shadow-sm dark:border-ink-700 dark:bg-ink-800/60 dark:text-ink-400">
-                        <p class="mt-1.5 text-xs text-ink-400">Nomor tiket dari sistem tiket, tidak dapat diubah.</p>
-                    </div>
-                @endif
+                <div class="order-1">
+                    <x-input name="incident" label="Incident" placeholder="Contoh: INC123456 atau INP3102092601" x-model="form.incident" autocomplete="off" />
+                    <p class="mt-1.5 text-xs text-ink-400">Incident dapat diubah selama belum digunakan oleh LOP lain.</p>
+                </div>
             @endif
             <div class="order-4">
                 <x-select name="area" label="Area" placeholder="Pilih area" x-model="form.area" @change="onAreaChange()">
