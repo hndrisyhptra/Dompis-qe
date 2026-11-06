@@ -122,7 +122,7 @@
                         </span>
                         <div class="min-w-0 flex-1">
                             <dt class="text-[11px] font-semibold text-ink-400">{{ $label }}</dt>
-                            <dd class="mt-0.5 break-words text-sm font-bold text-ink-800 dark:text-ink-100">{{ $value }}</dd>
+                            <dd class="mt-0.5 wrap-break-word text-sm font-bold text-ink-800 dark:text-ink-100">{{ $value }}</dd>
                         </div>
                     </div>
                 @endforeach

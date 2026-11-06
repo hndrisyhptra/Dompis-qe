@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AdminScopeType;
+use App\Enums\ProgramType;
 use App\Enums\UserRole;
 use App\Models\Area;
 use App\Models\Branch;
@@ -62,7 +63,7 @@ class RevenueDashboardTest extends TestCase
                 && $stats['recovery_actual_value'] === 100_000.0
                 && $stats['gap_value'] === 100_000.0
                 && $stats['realization_percentage'] === 83)
-            ->assertViewHas('programRows', fn ($rows) => $rows->count() === 4
+            ->assertViewHas('programRows', fn ($rows) => $rows->count() === count(ProgramType::cases())
                 && $rows->firstWhere('program', 'recovery')['plan_value'] === 0.0
                 && $rows->firstWhere('program', 'recovery')['actual_value'] === 100_000.0
                 && $rows->firstWhere('program', 'preventive')['plan_value'] === 200_000.0
@@ -70,7 +71,7 @@ class RevenueDashboardTest extends TestCase
             ->assertViewHas('branchRows', fn ($rows) => $rows->count() === 3
                 && $rows->firstWhere('branch', 'SIDOARJO REV')['actual_value'] === 100_000.0
                 && $rows->firstWhere('branch', 'SIDOARJO REV')['plan_value'] === 0.0
-                && $rows->firstWhere('branch', 'SIDOARJO REV')['programs']->count() === 4
+                && $rows->firstWhere('branch', 'SIDOARJO REV')['programs']->count() === count(ProgramType::cases())
                 && $rows->firstWhere('branch', 'SURABAYA REV')['actual_value'] === 0.0)
             ->assertViewHas('segmentRows', fn ($rows) => $rows->first()['label'] === 'ODP'
                 && $rows->first()['plan_value'] === 400_000.0
@@ -104,6 +105,26 @@ class RevenueDashboardTest extends TestCase
                 && $stats['realization_percentage'] === 100);
     }
 
+    public function test_kuratif_plan_and_completed_realization_are_included_in_all_revenue_totals(): void
+    {
+        [$owner, $locations] = $this->locations();
+        $this->lopWithBoq($owner, $locations['sda'], 'REV-KURATIF', 'completed', 75_000, 'kuratif', ['odp', 'feeder']);
+
+        $this->actingAs($owner)
+            ->get(route('revenue.index'))
+            ->assertOk()
+            ->assertViewHas('stats', fn (array $stats) => $stats['plan_value'] === 75_000.0
+                && $stats['actual_value'] === 75_000.0
+                && $stats['planned_actual_value'] === 75_000.0
+                && $stats['gap_value'] === 0.0
+                && $stats['realization_percentage'] === 100)
+            ->assertViewHas('programRows', fn ($rows) => $rows->count() === count(ProgramType::cases())
+                && $rows->firstWhere('program', ProgramType::KURATIF->value)['plan_value'] === 75_000.0
+                && $rows->firstWhere('program', ProgramType::KURATIF->value)['actual_value'] === 75_000.0)
+            ->assertViewHas('segmentRows', fn ($rows) => $rows->firstWhere('segment', 'odp')['plan_value'] === 75_000.0
+                && $rows->firstWhere('segment', 'feeder')['plan_value'] === 75_000.0);
+    }
+
     public function test_matrix_includes_accessible_branch_without_lop_and_exposes_program_breakdown(): void
     {
         [$owner, $locations] = $this->locations();
@@ -128,7 +149,7 @@ class RevenueDashboardTest extends TestCase
                     && $empty['total_lops'] === 0
                     && $empty['plan_value'] === 0.0
                     && $empty['actual_value'] === 0.0
-                    && $empty['programs']->count() === 4
+                    && $empty['programs']->count() === count(ProgramType::cases())
                     && $sidoarjo['programs']->firstWhere('program', 'preventive')['plan_value'] === 150_000.0
                     && $sidoarjo['programs']->firstWhere('program', 'preventive')['actual_value'] === 150_000.0;
             });
@@ -137,6 +158,7 @@ class RevenueDashboardTest extends TestCase
     public function test_completed_lop_without_plan_boq_uses_technician_actual_reservation_for_revenue(): void
     {
         [$owner, $locations] = $this->locations();
+        $locations['sda']->branch->update(['region' => 'JAWA TIMUR']);
         $technician = User::factory()->role(UserRole::TEKNISI->value)->create();
         $materialType = DesignatorType::firstOrCreate(
             ['code' => 'MATERIAL'],

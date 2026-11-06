@@ -29,7 +29,7 @@
             <p class="mt-1 max-w-3xl text-sm leading-6 text-ink-500 dark:text-ink-400">Ringkasan nilai plan, realisasi, dan gap pekerjaan per program sesuai cakupan wilayah akun.</p>
         </div>
         <!-- <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
-            <strong>Metode:</strong> Plan hanya dihitung untuk QE Preventive dan QE Relok Utilitas. Realisasi memakai BOQ Plan atau reservasi aktual teknisi untuk LOP <strong>Completed</strong>. Reservasi JATIM/JATENG DIY memakai Paket 5 dan BALNUS memakai Paket 10; {{ $referencePackageLabel ?: 'paket terbaru' }} hanya menjadi fallback jika region belum terpetakan.
+            <strong>Metode:</strong> Plan dihitung untuk semua program selain QE Recovery. Realisasi memakai BOQ Plan atau reservasi aktual teknisi untuk LOP <strong>Completed</strong>. Reservasi JATIM/JATENG DIY memakai Paket 5 dan BALNUS memakai Paket 10; {{ $referencePackageLabel ?: 'paket terbaru' }} hanya menjadi fallback jika region belum terpetakan.
         </div> -->
     </header>
 
@@ -56,13 +56,13 @@
     @if ($stats['unclassified_boq_count'] > 0)
         <p role="alert" class="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">{{ $stats['unclassified_boq_count'] }} LOP memiliki BOQ lama dengan total gabungan tanpa rincian kategori. Total tersebut belum dihitung karena material dan jasa tidak dapat dipisahkan. Lengkapi/import ulang BOQ agar nilainya masuk sesuai aturan program.</p>
     @endif
-    <p class="text-xs text-ink-500 dark:text-ink-400">Recovery, Preventive, dan Relok Tiang: material saja. Relok Utilitas: material + jasa. Realisasi hanya LOP Completed; qty aktual 0 tetap dihitung 0.</p>
+    <p class="text-xs text-ink-500 dark:text-ink-400">Recovery, Preventive, Relok Tiang, dan Kuratif: material saja. Relok Utilitas: material + jasa. Realisasi hanya LOP Completed; qty aktual 0 tetap dihitung 0.</p>
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ([
-            ['Total Nilai Plan', $money($stats['plan_value']), 'Preventive + Relok Utilitas + Relok Tiang', 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'],
+            ['Total Nilai Plan', $money($stats['plan_value']), 'Semua program selain QE Recovery', 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'],
             ['Total Nilai Realisasi', $money($stats['actual_value']), 'Seluruh program berstatus Completed', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'],
             ['GAP', $money($stats['gap_value']), 'Sisa plan program terencana', 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'],
-            ['Rasio', $stats['realization_percentage'] === null ? '—' : $stats['realization_percentage'].'%', 'Realisasi Preventive + Relok terhadap plan', 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'],
+            ['Rasio', $stats['realization_percentage'] === null ? '—' : $stats['realization_percentage'].'%', 'Total realisasi seluruh program ÷ total plan', 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'],
         ] as [$label, $value, $helper, $tone])
             <article class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900"><span class="inline-flex rounded-lg px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider {{ $tone }}">{{ $label }}</span><p class="mt-3 break-words text-xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-2xl">{{ $value }}</p><p class="mt-1 text-[10px] leading-4 text-ink-400">{{ $helper }}</p></article>
         @endforeach
@@ -165,7 +165,7 @@
     </section>
 
     <section class="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Trend Nilai Plan Berdasarkan Segmen</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Hanya menampilkan plan QE Preventive dan QE Relok Utilitas. LOP multi-segmen dihitung pada setiap segmen terkait.</p></div>
+        <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Trend Nilai Plan Berdasarkan Segmen</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Menampilkan plan seluruh program selain QE Recovery. LOP multi-segmen dihitung pada setiap segmen terkait.</p></div>
         <div class="mt-6 space-y-4">
             @forelse ($segmentRows as $row)
                 <div class="grid gap-2 sm:grid-cols-[8rem_1fr_9rem] sm:items-center">

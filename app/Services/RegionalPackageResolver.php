@@ -21,7 +21,7 @@ class RegionalPackageResolver
         $branchName = $branch?->name ?? '';
 
         return match (true) {
-            str_contains($region, 'JATIM'), str_contains($region, 'JATENGDIY') => 'Paket-5',
+            str_contains($region, 'JATIM'), str_contains($region, 'JAWATIMUR'), str_contains($region, 'JATENGDIY') => 'Paket-5',
             str_contains($region, 'BALNUS') => $this->resolveBalnusPackage($branchName),
             default => null,
         };

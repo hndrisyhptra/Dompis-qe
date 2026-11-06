@@ -1084,6 +1084,13 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Catatan yang lolos disimpan di tabel `incident_excludes` memakai alasan dan pembuat yang sama dengan alur exclude tunggal. Tidak ada perubahan sumber Dompis, status LOP, migration, atau backfill. Status database produksi tetap perlu diverifikasi sesuai prosedur deployment fitur exclude.
 - Jalur ini memakai Form Request/controller/service; service pratinjau dan submit membaca tiket, scope, LOP, dan exclude secara terkelompok, bukan query per incident. Submit mengulang pemeriksaan sebelum penyimpanan. Verifikasi test belum dijalankan pada sesi ini.
 
+### 7.77 Penyelarasan Revenue QE Kuratif dan paket region legacy — 6 November 2026 (belum di-commit)
+
+- Audit menemukan Revenue sudah menghitung semua program selain Recovery sebagai plan, tetapi helper ringkasan dan keterangan trend segmen tidak menyebut QE Kuratif. Copy kini mengikuti aturan service: Recovery tanpa plan; Preventive, Relok Utilitas, Relok Tiang, dan Kuratif memiliki plan. Rasio memakai seluruh realisasi Completed dibanding total plan, sesuai aturan GAP/rasio Revenue sebelumnya.
+- Subquery realisasi reservasi kini mengenali label legacy `JAWA TIMUR` dan `JAWA TENGAH DIY` selain kode region JATIM/JATENG DIY saat memilih Paket-5. BOQ dengan snapshot tetap memakai harga snapshot; harga master hanya dipakai pada jalur reservasi tanpa snapshot.
+- Regression `RevenueDashboardTest` diperbarui agar menghitung jumlah program dari enum, menambah coverage plan + realisasi QE Kuratif dan multi-segmen, serta menguji harga Paket-5 pada branch dengan label legacy JAWA TIMUR.
+- Verifikasi: `RevenueDashboardTest` **7 tests / 41 assertions** lulus; test memakai SQLite. Tidak ada perubahan schema atau data operasional. Belum diuji pada database lokal MySQL/server produksi.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi

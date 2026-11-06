@@ -358,7 +358,9 @@ class RevenueService
         $package10Id = $this->regionalPackages->package10()?->id_package ?? 0;
         $regionalPackageSql = "CASE
             WHEN UPPER(REPLACE(COALESCE(value_branches.region, ''), ' ', '')) LIKE '%JATIM%'
+                OR UPPER(REPLACE(COALESCE(value_branches.region, ''), ' ', '')) LIKE '%JAWATIMUR%'
                 OR UPPER(REPLACE(COALESCE(value_branches.region, ''), ' ', '')) LIKE '%JATENGDIY%'
+                OR UPPER(REPLACE(COALESCE(value_branches.region, ''), ' ', '')) LIKE '%JAWATENGAHDIY%'
                 THEN COALESCE(NULLIF({$package5Id}, 0), value_lops.package_id, NULLIF({$referencePackageId}, 0))
             WHEN UPPER(REPLACE(COALESCE(value_branches.region, ''), ' ', '')) LIKE '%BALNUS%'
                 THEN COALESCE(NULLIF({$package10Id}, 0), value_lops.package_id, NULLIF({$referencePackageId}, 0))
