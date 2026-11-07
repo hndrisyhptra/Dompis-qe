@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProgramBucketTest extends TestCase
@@ -68,6 +69,93 @@ class ProgramBucketTest extends TestCase
             ->assertSee('REC-ACTIVE')
             ->assertSee('REC-DONE')
             ->assertDontSee('PREV-ONE');
+    }
+
+    public function test_show_displays_ten_lops_per_page_and_keeps_filtered_total(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        for ($index = 1; $index <= 12; $index++) {
+            $this->lop($admin, "PAGE-{$index}", 'recovery', 'assigned');
+        }
+
+        $firstPage = $this->actingAs($admin)->get(route('program.show', ['recovery', 'bucket' => 'assigned']))
+            ->assertOk()
+            ->assertViewHas('lops', fn ($lops) => $lops->total() === 12
+                && $lops->perPage() === 10
+                && $lops->count() === 10);
+
+        $this->assertStringContainsString('bucket=assigned', $firstPage->getContent());
+        $this->get(route('program.show', ['recovery', 'bucket' => 'assigned', 'page' => 2]))
+            ->assertOk()
+            ->assertViewHas('lops', fn ($lops) => $lops->total() === 12
+                && $lops->perPage() === 10
+                && $lops->count() === 2);
+    }
+
+    public function test_progress_summary_boq_relations_are_loaded_in_a_batch(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        for ($index = 1; $index <= 5; $index++) {
+            $this->lop($admin, "BOQ-BATCH-{$index}", 'recovery', 'assigned');
+        }
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $response = $this->actingAs($admin)->get(route('program.show', 'recovery'))->assertOk();
+        $boqQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query) => str_contains(strtolower($query['query']), 'qe_boqs'));
+
+        $this->assertCount(1, $boqQueries);
+        $this->assertSame(5, $response->viewData('lops')->getCollection()->count());
+        $this->assertNotEmpty($response->viewData('lops')->getCollection()->first()->progress_summary);
+    }
+
+    public function test_admin_row_actions_do_not_run_one_visibility_query_per_lop(): void
+    {
+        $admin = $this->userForBranch(UserRole::ADMIN, 'SURABAYA');
+        for ($index = 1; $index <= 10; $index++) {
+            $this->lop($admin, "SCOPE-BATCH-{$index}", 'recovery', 'assigned');
+        }
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->actingAs($admin)->get(route('program.show', 'recovery'))
+            ->assertOk()
+            ->assertViewHas('lops', fn ($lops) => $lops->count() === 10);
+
+        $perLopVisibilityChecks = collect(DB::getQueryLog())->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'select exists')
+                && str_contains($sql, 'qe_lops')
+                && str_contains($sql, 'id_qe_lops');
+        });
+
+        $this->assertCount(0, $perLopVisibilityChecks);
+    }
+
+    public function test_program_index_uses_one_status_aggregate_for_all_programs(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $this->lop($admin, 'IDX-REC', 'recovery', 'assigned');
+        $this->lop($admin, 'IDX-PREV', 'preventive', 'completed');
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->actingAs($admin)->get(route('program.index'))->assertOk();
+
+        $aggregates = collect(DB::getQueryLog())->filter(function (array $query): bool {
+            $sql = strtolower($query['query']);
+
+            return str_contains($sql, 'qe_lops')
+                && str_contains($sql, 'program_type')
+                && str_contains($sql, 'status_lop')
+                && str_contains($sql, 'group by');
+        });
+        $this->assertCount(1, $aggregates);
     }
 
     public function test_download_evidence_action_shows_only_for_completed_lops(): void

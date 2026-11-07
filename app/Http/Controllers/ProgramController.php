@@ -8,8 +8,8 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\QeLop;
 use App\Models\User;
-use App\Services\ProjectProgressService;
 use App\Services\LopVisibilityService;
+use App\Services\ProjectProgressService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,14 +57,22 @@ class ProgramController extends Controller
         $isSuperAdmin = $user->hasRole(UserRole::SUPER_ADMIN);
         [$regionFilter, $branchFilter] = $isSuperAdmin ? $this->resolveLocationFilters($request) : ['', ''];
 
-        $summaries = collect(ProgramType::cases())->map(function (ProgramType $type) use ($user, $isSuperAdmin, $regionFilter, $branchFilter) {
-            $query = $this->scopeForUser($this->baseQuery($type), $user);
+        $query = $this->scopeForUser(QeLop::query(), $user);
+        if ($isSuperAdmin) {
+            $this->applyLocationFilter($query, $regionFilter, $branchFilter);
+        }
 
-            if ($isSuperAdmin) {
-                $this->applyLocationFilter($query, $regionFilter, $branchFilter);
-            }
+        $countsByProgram = [];
+        foreach ($query->toBase()
+            ->select(['program_type', 'status_lop'])
+            ->selectRaw('COUNT(*) as c')
+            ->groupBy('program_type', 'status_lop')
+            ->get() as $row) {
+            $countsByProgram[$row->program_type][$row->status_lop ?? ''] = (int) $row->c;
+        }
 
-            $counts = $this->statusCounts($query);
+        $summaries = collect(ProgramType::cases())->map(function (ProgramType $type) use ($countsByProgram) {
+            $counts = $countsByProgram[$type->value] ?? [];
 
             return [
                 'label' => $type->label(),
@@ -135,7 +143,7 @@ class ProgramController extends Controller
             ->with([
                 'creator', 'activeAssignment.technician', 'assignments.technician',
                 'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader', 'branchRef', 'serviceArea', 'boq',
+                'survey', 'evidences.uploader', 'branchRef', 'serviceArea', 'boq.items.designator',
             ]);
 
         if ($bucketFilter !== '') {
@@ -150,7 +158,8 @@ class ProgramController extends Controller
                 ->orWhere('branch', 'like', "%{$search}%"));
         }
 
-        $lops = $query->latest()->paginate(20)->withQueryString();
+        $lops = $query->latest()->paginate(10)->withQueryString();
+        $this->visibility->prepareForView($user, $lops->getCollection());
         foreach ($lops->getCollection() as $lop) {
             $lop->setAttribute('progress_summary', $this->progressService->summary($lop));
         }
@@ -171,7 +180,9 @@ class ProgramController extends Controller
             'branchBreakdown' => $branchBreakdown,
             'lops' => $lops,
             'search' => $search,
-            'technicians' => $this->activeTechnicians($user),
+            'technicians' => $user->hasRole(...UserRole::adminLevel())
+                ? $this->activeTechnicians($user)
+                : collect(),
             'projectStatuses' => ProjectStatus::cases(),
             'projectStatusFilter' => $projectStatusFilter,
             'projectStatusCounts' => $projectStatusCounts,
