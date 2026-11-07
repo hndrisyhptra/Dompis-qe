@@ -12,8 +12,9 @@ window.technicianLocation = technicianLocation;
 installAuthSessionGuard();
 
 import Alpine from "alpinejs";
-import imageCompression from "browser-image-compression";
-import { toJpeg, toPng } from "html-to-image";
+
+let imageCompressionPromise;
+const loadImageCompression = () => imageCompressionPromise ??= import("browser-image-compression").then((module) => module.default);
 
 const COMPRESS_OPTS = {
     maxWidthOrHeight: 1920,
@@ -41,6 +42,7 @@ const isImageFile = (file) => file.type.startsWith("image/");
 async function compressImage(file, opts) {
     if (!isImageFile(file)) return file;
     try {
+        const imageCompression = await loadImageCompression();
         const blob = await imageCompression(file, {
             ...opts,
             fileType: file.type,
@@ -51,6 +53,7 @@ async function compressImage(file, opts) {
         });
     } catch (_) {
         try {
+            const imageCompression = await loadImageCompression();
             // Sejumlah browser mobile tidak dapat memakai Web Worker. Ulangi di main thread.
             const blob = await imageCompression(file, {
                 ...opts,
@@ -70,6 +73,7 @@ async function compressImage(file, opts) {
 async function makeThumb(file) {
     if (!isImageFile(file)) return null;
     try {
+        const imageCompression = await loadImageCompression();
         const blob = await imageCompression(file, THUMB_OPTS);
         return new File([blob], "thumb.webp", { type: "image/webp" });
     } catch (e) {
@@ -1973,11 +1977,11 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
                     !element.hasAttribute?.("data-capture-ignore"),
             };
 
+            const { toJpeg, toPng } = await import("html-to-image");
             const render = (renderOptions) =>
                 this.format === "jpeg"
                     ? toJpeg(clone, { ...renderOptions, quality: 0.95 })
                     : toPng(clone, renderOptions);
-
             let dataUrl;
             try {
                 dataUrl = await render(options);
@@ -2135,4 +2139,93 @@ window.dashboardMatrixModal = (
 });
 
 window.Alpine = Alpine;
+
+const lazyModalRequests = new Map();
+function showUiNotice(message) {
+    const notice = document.createElement("div");
+    notice.className = "fixed right-4 top-4 z-[10000] flex w-[calc(100%-2rem)] max-w-sm items-start justify-between gap-3 rounded-xl border border-red-200 bg-white p-4 text-sm text-red-800 shadow-xl dark:border-red-900 dark:bg-ink-900 dark:text-red-200";
+    notice.setAttribute("role", "alert");
+    notice.setAttribute("aria-live", "assertive");
+    const text = document.createElement("p");
+    text.className = "font-semibold";
+    text.textContent = message;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "shrink-0 rounded-md px-2 py-1 text-xs font-bold hover:bg-red-50 dark:hover:bg-red-950/40";
+    close.setAttribute("aria-label", "Tutup pemberitahuan");
+    close.textContent = "Tutup";
+    close.addEventListener("click", () => notice.remove(), { once: true });
+    notice.append(text, close);
+    document.body.append(notice);
+    window.setTimeout(() => notice.remove(), 6000);
+}
+
+document.addEventListener("submit", (event) => {
+    const submitter = event.submitter;
+    const label = submitter?.querySelector("[data-submit-label]");
+    if (!label || submitter.disabled) return;
+
+    queueMicrotask(() => {
+        if (event.defaultPrevented) return;
+        label.textContent = submitter.dataset.loadingLabel || "Memproses…";
+        submitter.querySelector("[data-submit-spinner]")?.classList.remove("hidden");
+        submitter.disabled = true;
+        submitter.setAttribute("aria-busy", "true");
+    });
+});
+
+document.addEventListener("click", async (event) => {
+    const trigger = event.target.closest("[data-lazy-modal-url][data-lazy-modal-target]");
+    if (!trigger) return;
+
+    event.preventDefault();
+    const targetId = trigger.dataset.lazyModalTarget;
+    let dialog = document.getElementById(targetId);
+
+    if (!dialog) {
+        let request = lazyModalRequests.get(targetId);
+        if (!request) {
+            trigger.setAttribute("aria-busy", "true");
+            const loadingDialog = document.createElement("dialog");
+            loadingDialog.className = "fixed inset-0 m-auto rounded-2xl border border-ink-100 bg-white p-0 shadow-2xl backdrop:bg-ink-950/50 dark:border-ink-700 dark:bg-ink-900";
+            loadingDialog.setAttribute("aria-label", "Memuat detail LOP");
+            loadingDialog.innerHTML = '<div role="status" class="flex items-center gap-3 px-6 py-5 text-sm font-semibold text-ink-700 dark:text-ink-200"><span class="h-5 w-5 animate-spin text-brand-600" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" class="h-full w-full"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></span>Memuat informasi…</div>';
+            document.body.append(loadingDialog);
+            loadingDialog.showModal();
+            request = fetch(trigger.dataset.lazyModalUrl, {
+                credentials: "same-origin",
+                headers: { Accept: "text/html", "X-Requested-With": "XMLHttpRequest" },
+            }).then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(response.status === 403
+                        ? "Anda tidak memiliki akses untuk membuka tindakan ini."
+                        : "Detail belum berhasil dimuat. Coba lagi.");
+                }
+                const template = document.createElement("template");
+                template.innerHTML = await response.text();
+                const modal = template.content.querySelector("dialog");
+                if (!modal || modal.id !== targetId) {
+                    throw new Error("Tampilan detail tidak dapat dibuka.");
+                }
+                document.body.append(template.content);
+                dialog = document.getElementById(targetId);
+                Alpine.initTree(dialog);
+                return dialog;
+            }).catch((error) => {
+                lazyModalRequests.delete(targetId);
+                showUiNotice(error.message || "Detail belum berhasil dimuat. Coba lagi.");
+                return null;
+            }).finally(() => {
+                trigger.removeAttribute("aria-busy");
+                loadingDialog.close();
+                loadingDialog.remove();
+            });
+            lazyModalRequests.set(targetId, request);
+        }
+        dialog = await request;
+    }
+
+    if (dialog && !dialog.open) dialog.showModal();
+});
+
 Alpine.start();

@@ -92,6 +92,42 @@ class ProgramBucketTest extends TestCase
                 && $lops->count() === 2);
     }
 
+    public function test_program_page_loads_row_modals_on_demand_and_preserves_filter_context(): void
+    {
+        $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
+        $lop = $this->lop($admin, 'LAZY-MODAL', 'recovery', 'assigned');
+        $filters = ['bucket' => 'assigned', 'q' => 'LAZY-MODAL'];
+
+        $pageResponse = $this->actingAs($admin)->get(route('program.show', ['recovery', ...$filters]))
+            ->assertOk()
+            ->assertSee('LAZY-MODAL')
+            ->assertSee('data-lazy-modal-url=', false)
+            ->assertSee('/program/recovery/lops/'.$lop->getKey().'/modal/detail?q=LAZY-MODAL&amp;bucket=assigned', false)
+            ->assertDontSee('<dialog id="program-detail-'.$lop->getKey().'"', false)
+            ->assertDontSee('<dialog id="program-tracking-'.$lop->getKey().'"', false);
+
+        $this->get(route('program.modal', ['program' => 'recovery', 'qe_lop' => $lop, 'kind' => 'detail', ...$filters]))
+            ->assertOk()
+            ->assertSee('<dialog id="program-detail-'.$lop->getKey().'"', false)
+            ->assertSee('LAZY-MODAL');
+    }
+
+    public function test_lazy_program_modal_enforces_lop_scope_and_assignment_permission(): void
+    {
+        $admin = $this->userForBranch(UserRole::ADMIN, 'SURABAYA');
+        $otherLop = $this->lop($admin, 'OUTSIDE-LAZY', 'recovery', 'assigned', 'SIDOARJO');
+
+        $this->actingAs($admin)
+            ->get(route('program.modal', ['program' => 'recovery', 'qe_lop' => $otherLop, 'kind' => 'assign']))
+            ->assertForbidden();
+
+        $visibleLop = $this->lop($admin, 'VISIBLE-LAZY', 'recovery', 'assigned', 'SURABAYA');
+        $this->get(route('program.modal', ['program' => 'recovery', 'qe_lop' => $visibleLop, 'kind' => 'assign']))
+            ->assertOk()
+            ->assertSee('Assign Teknisi')
+            ->assertSee('VISIBLE-LAZY');
+    }
+
     public function test_progress_summary_boq_relations_are_loaded_in_a_batch(): void
     {
         $admin = User::factory()->role(UserRole::SUPER_ADMIN->value)->create();
@@ -105,7 +141,6 @@ class ProgramBucketTest extends TestCase
         $response = $this->actingAs($admin)->get(route('program.show', 'recovery'))->assertOk();
         $boqQueries = collect(DB::getQueryLog())
             ->filter(fn (array $query) => str_contains(strtolower($query['query']), 'qe_boqs'));
-
         $this->assertCount(1, $boqQueries);
         $this->assertSame(5, $response->viewData('lops')->getCollection()->count());
         $this->assertNotEmpty($response->viewData('lops')->getCollection()->first()->progress_summary);

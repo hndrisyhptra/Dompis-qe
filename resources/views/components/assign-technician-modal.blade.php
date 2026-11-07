@@ -3,6 +3,7 @@
     'lop',
     'technicians',
     'returnTo' => 'show',
+    'returnUrl' => null,
 ])
 
 <x-modal :id="$id" title="Assign Teknisi" size="lg">
@@ -12,7 +13,7 @@
         @csrf
         <input type="hidden" name="technician_id" :value="selected">
         <input type="hidden" name="return_to" value="{{ $returnTo }}">
-        <input type="hidden" name="return_url" value="{{ request()->fullUrl() }}">
+        <input type="hidden" name="return_url" value="{{ $returnUrl ?? request()->fullUrl() }}">
 
         <div class="overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 to-ink-800 p-4 text-white dark:from-ink-800 dark:to-ink-900">
             <div class="flex items-start justify-between gap-4">

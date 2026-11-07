@@ -141,9 +141,8 @@ class ProgramController extends Controller
 
         $query = $base
             ->with([
-                'creator', 'activeAssignment.technician', 'assignments.technician',
-                'assignments.assigner', 'histories.user', 'materialReservation.items.designator',
-                'survey', 'evidences.uploader', 'branchRef', 'serviceArea', 'boq.items.designator',
+                'activeAssignment.technician', 'materialReservation.items.designator',
+                'evidences', 'branchRef', 'serviceArea', 'survey', 'boq.items.designator',
             ]);
 
         if ($bucketFilter !== '') {
@@ -180,14 +179,57 @@ class ProgramController extends Controller
             'branchBreakdown' => $branchBreakdown,
             'lops' => $lops,
             'search' => $search,
-            'technicians' => $user->hasRole(...UserRole::adminLevel())
-                ? $this->activeTechnicians($user)
-                : collect(),
             'projectStatuses' => ProjectStatus::cases(),
             'projectStatusFilter' => $projectStatusFilter,
             'projectStatusCounts' => $projectStatusCounts,
             ...$this->locationOptions($regionFilter, $branchFilter),
             ...$this->scopeContext($user, $isSuperAdmin, $regionFilter, $branchFilter),
+        ]);
+    }
+
+    public function modal(Request $request, string $program, QeLop $qe_lop, string $kind): View
+    {
+        $type = ProgramType::tryFrom($program);
+        abort_unless($type !== null && $qe_lop->program_type === $type, 404);
+
+        $this->authorize('view', $qe_lop);
+        if (! $request->user()->hasRole(UserRole::SUPER_ADMIN, UserRole::ADMIN)) {
+            abort_unless($this->scopeForUser(QeLop::query(), $request->user())->whereKey($qe_lop->getKey())->exists(), 404);
+        }
+
+        $validKinds = ['detail', 'tracking', 'assign', 'request-letter'];
+        abort_unless(in_array($kind, $validKinds, true), 404);
+
+        if ($kind === 'assign') {
+            $this->authorize('assign', $qe_lop);
+            $qe_lop->loadMissing('activeAssignment.technician');
+        } elseif ($kind === 'request-letter') {
+            abort_unless($type->usesProjectStatus(), 404);
+            $this->authorize('uploadEvidence', $qe_lop);
+            $qe_lop->loadMissing('evidences.uploader');
+        } elseif ($kind === 'tracking') {
+            $qe_lop->loadMissing(['histories.user', 'assignments.technician', 'assignments.assigner']);
+        } else {
+            $qe_lop->loadMissing([
+                'creator', 'activeAssignment.technician', 'branchRef', 'serviceArea',
+                'boq.items.designator', 'materialReservation.items.designator', 'survey', 'evidences',
+            ]);
+            $qe_lop->setAttribute('progress_summary', $this->progressService->summary($qe_lop));
+        }
+
+        $returnFilters = array_filter($request->only(['q', 'region', 'branch', 'bucket', 'project_status']), fn ($value) => filled($value));
+        $returnUrl = route('program.show', array_merge([$type->value], $returnFilters));
+        $technicians = $kind === 'assign' && $request->user()->hasRole(...UserRole::adminLevel())
+            ? $this->activeTechnicians($request->user())
+            : collect();
+
+        return view('program.partials.modal', [
+            'kind' => $kind,
+            'lop' => $qe_lop,
+            'modalId' => 'program-'.$kind.'-'.$qe_lop->getKey(),
+            'technicians' => $technicians,
+            'returnTo' => 'program:'.$type->value,
+            'returnUrl' => $returnUrl,
         ]);
     }
 

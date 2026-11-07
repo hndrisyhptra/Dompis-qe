@@ -17,7 +17,7 @@
         id="{{ $selectId }}"
         name="{{ $name }}"
         {{ $attributes->class([
-            'w-full rounded-lg border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 px-3.5 py-2.5 text-sm text-ink-900 dark:text-ink-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition',
+            'min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-sm transition duration-150 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-500 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-50 dark:disabled:bg-ink-900',
         ]) }}
     >
         @if ($placeholder)

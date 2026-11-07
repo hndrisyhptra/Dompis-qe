@@ -187,6 +187,7 @@ Route::middleware(['auth'])->prefix('lop')->name('lop.')->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('program')->name('program.')->group(function () {
+    Route::get('/{program}/lops/{qe_lop}/modal/{kind}', [ProgramController::class, 'modal'])->name('modal');
     Route::get('/', [ProgramController::class, 'index'])->name('index');
     Route::get('/{program}', [ProgramController::class, 'show'])->name('show');
 });
