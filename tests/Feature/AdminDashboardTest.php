@@ -44,9 +44,12 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($admin)
             ->get(route('dashboard', ['region' => 'REGION BALNUS']))
             ->assertOk()
-            ->assertSee('Summary per Branch')
+            ->assertSee('Memuat ringkasan aktivitas…')
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 1
-                && $stats['missing_ihld'] === 1)
+                && $stats['missing_ihld'] === 1);
+
+        $this->get(route('dashboard.monitoring-summary', ['region' => 'REGION BALNUS']))
+            ->assertOk()
             ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->count() === 1
                 && $monitoring['rows']->first()['name'] === 'SIDOARJO'
                 && $monitoring['rows']->first()['total_lops'] === 1);
@@ -106,10 +109,13 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('dashboard', ['region' => 'REGION JATIM']))
             ->assertOk()
-            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 2
-                && ! $monitoring['rows']->contains('name', 'DENPASAR'))
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 2
                 && $stats['missing_ihld'] === 1);
+
+        $this->get(route('dashboard.monitoring-summary', ['region' => 'REGION JATIM']))
+            ->assertOk()
+            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 2
+                && ! $monitoring['rows']->contains('name', 'DENPASAR'));
 
         $this->get(route('dashboard', [
             'region' => 'REGION JATIM',
@@ -120,8 +126,14 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertViewHas('stats', fn (array $stats) => $stats['total'] === 1
                 && $stats['active'] === 1
-                && $stats['missing_ihld'] === 1)
-            ->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 1
+                && $stats['missing_ihld'] === 1);
+
+        $this->get(route('dashboard.monitoring-summary', [
+            'region' => 'REGION JATIM',
+            'branch' => 'SIDOARJO',
+            'program' => 'recovery',
+            'status' => 'draft',
+        ]))->assertOk()->assertViewHas('monitoring', fn (array $monitoring) => $monitoring['rows']->sum('total_lops') === 1
                 && $monitoring['stats']['activities'] === 2);
     }
 
@@ -181,7 +193,8 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, false));
+            ->assertViewHas('matrixRegions', [])
+            ->assertViewHas('serviceAreaStatusGroups', fn (array $groups) => collect($groups)->sum('unmapped_lops') === 4);
     }
 
     public function test_service_area_matrix_groups_sto_rows_by_name_and_stays_collapseable(): void
@@ -205,6 +218,17 @@ class AdminDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('openGroups', false)
             ->assertSee('Lipat semua', false)
+            ->assertSee('data-capture-expand', false)
+            ->assertSee('Pengelompokan berdasarkan nama Service Area')
+            ->assertViewHas('isBranchAdmin', true)
+            ->assertViewHas('serviceAreaStatusGroups', function (array $groups): bool {
+                $sumenep = collect($groups)->firstWhere('name', 'SUMENEP');
+
+                return $sumenep['summary']['total'] === 2
+                    && $sumenep['count'] === count($sumenep['rows'])
+                    && count($sumenep['rows']) === 2
+                    && collect($groups)->sum(fn (array $group) => $group['summary']['total']) === 4;
+            })
             ->assertViewHas('programMatrix', function (array $matrix): bool {
                 $groups = collect($matrix['groups'])->keyBy('name');
 
@@ -287,7 +311,7 @@ class AdminDashboardTest extends TestCase
     {
         $this->fakeIncidentTickets([]);
         $branch = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
-        ServiceArea::create(['workzone' => 'SDA-AREA', 'name' => 'SDA-AREA', 'branch_id' => $branch->id_branch]);
+        $serviceArea = ServiceArea::create(['workzone' => 'SDA-AREA', 'name' => 'SDA-AREA', 'branch_id' => $branch->id_branch]);
         $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $branch->id_branch]);
 
         foreach (['INC-OPEN', 'INC-USED', 'INC-EXCLUDED'] as $incident) {
@@ -308,13 +332,16 @@ class AdminDashboardTest extends TestCase
         $this->actingAs($admin)->get(route('dashboard', ['tab' => 'status']))
             ->assertOk()
             ->assertSee('Belum Exclude')
-            ->assertSee('href="'.str_replace('&', '&amp;', route('incident-monitoring.tickets', ['branch' => $branch->id_branch, 'usage' => 'without_lop'])).'"', false)
+            ->assertSee('href="'.str_replace('&', '&amp;', route('incident-monitoring.tickets', ['branch' => $branch->id_branch, 'service_area' => $serviceArea->id_service_area, 'usage' => 'without_lop'])).'"', false)
             ->assertViewHas('incidentCountsAvailable', true)
-            ->assertViewHas('matrixRegions', function (array $regions): bool {
-                $branch = collect($regions)->flatMap(fn ($region) => $region['branches'])->firstWhere('name', 'SIDOARJO');
+            ->assertViewHas('serviceAreaStatusGroups', function (array $groups): bool {
+                $unmapped = collect($groups)->firstWhere('name', 'STO BELUM TERDATA');
 
-                return $branch['without_exclude'] === 1;
-            });
+                return collect($groups)->firstWhere('name', 'SDA-AREA')['without_exclude'] === 1
+                    && $unmapped['count'] === 0
+                    && $unmapped['unmapped_lops'] === 1;
+            })
+            ->assertViewHas('matrixRegions', []);
     }
 
     private function makeLop(

@@ -12,11 +12,18 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
 
 class DashboardProgramScopeMatrixTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithIncidentTickets, RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->fakeIncidentTickets([]);
+    }
 
     private function locations(): array
     {
@@ -118,7 +125,7 @@ class DashboardProgramScopeMatrixTest extends TestCase
         $this->lop($admin, $sa['DPS-A'], 'SA-TIANG', 'completed', 'relok_tiang', true);
         $this->lop($admin, $sa['SBY-B'], 'SIBLING-NOT-ALLOWED', 'draft');
         $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertViewHas('programMatrix', fn ($matrix) => $matrix['dimension'] === 'program'
-            && count($matrix['rows']) === 4 && $matrix['summary']['total'] === 2
+            && count($matrix['rows']) === count(ProgramType::cases()) && $matrix['summary']['total'] === 2
             && collect($matrix['rows'])->firstWhere('key', 'recovery')['summary']['unassigned'] === 1
             && collect($matrix['rows'])->firstWhere('key', 'relok_tiang')['summary']['complete'] === 1);
         $this->get(route('dashboard', ['program' => 'relok_tiang']))->assertOk()->assertViewHas('programMatrix', fn ($matrix) => count($matrix['rows']) === 1 && $matrix['summary']['total'] === 1);
@@ -147,12 +154,13 @@ class DashboardProgramScopeMatrixTest extends TestCase
         }
         $date = now('Asia/Jakarta')->toDateString();
         foreach ($admins as $admin) {
-            $this->actingAs($admin)->get(route('dashboard', ['program' => $program, 'date' => $date, 'tab' => 'program', 'branch' => 'OUTSIDE', 'region' => 'OUTSIDE']))->assertOk()
+            $this->actingAs($admin)->get(route('dashboard', ['program' => $program, 'date' => $date, 'tab' => 'status', 'branch' => 'OUTSIDE', 'region' => 'OUTSIDE']))->assertOk()
                 ->assertViewHas('filters', fn ($filters) => $filters['program'] === $program && $filters['branch'] === '' && $filters['region'] === '')
                 ->assertViewHas('stats', fn ($stats) => $stats['total'] === 1)
                 ->assertViewHas('programMatrix', fn ($matrix) => $matrix['summary']['total'] === 1 && $matrix['summary']['unassigned'] === 1)
-                ->assertViewHas('monitoring', fn ($monitoring) => $monitoring['date'] === $date && $monitoring['rows']->sum('total_lops') === 1)
-                ->assertSee('name="tab" value="program"', false)->assertSee('value="'.$date.'"', false);
+                ->assertSee('name="tab"', false)->assertSee('value="'.$date.'"', false);
+            $this->get(route('dashboard.monitoring-summary', ['program' => $program, 'date' => $date, 'branch' => 'OUTSIDE', 'region' => 'OUTSIDE']))
+                ->assertOk()->assertViewHas('monitoring', fn ($monitoring) => $monitoring['date'] === $date && $monitoring['rows']->sum('total_lops') === 1);
             $this->getJson(route('dashboard.matrix-lops', ['program' => $program, 'metric' => 'unassigned']))->assertJsonPath('total', 1)->assertJsonPath('data.0.incident', 'FILTER-'.$program);
         }
     }

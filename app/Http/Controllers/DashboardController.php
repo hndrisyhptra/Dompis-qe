@@ -25,6 +25,21 @@ class DashboardController extends Controller
         ));
     }
 
+    public function monitoringSummary(Request $request): View
+    {
+        $filters = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.now('Asia/Jakarta')->toDateString()],
+            'region' => ['nullable', 'string', 'max:255'],
+            'branch' => ['nullable', 'string', 'max:255'],
+            'program' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        return view('dashboard.partials.monitoring', $this->dashboardService->monitoringSummary(
+            $request->user(), $filters,
+        ));
+    }
+
     public function matrixLops(Request $request): JsonResponse
     {
         $request->validate([

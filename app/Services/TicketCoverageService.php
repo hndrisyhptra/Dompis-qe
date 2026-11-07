@@ -151,12 +151,12 @@ class TicketCoverageService
     }
 
     /**
-     * Hitung tiket yang belum punya LOP dan belum di-exclude per branch,
-     * mengikuti periode default Monitoring Incident.
+     * Hitung tiket yang belum punya LOP dan belum di-exclude per branch dan
+     * service area, mengikuti periode default Monitoring Incident.
      *
-     * @return array<int, int>|null null bila sumber tiket tidak tersedia
+     * @return array{branch: array<int, int>, service_area: array<int, int>}|null null bila sumber tiket tidak tersedia
      */
-    public function withoutExcludeCountsByBranch(User $user): ?array
+    public function withoutExcludeCountsByLocation(User $user): ?array
     {
         try {
             $context = $this->monitoringContext($user, []);
@@ -169,19 +169,29 @@ class TicketCoverageService
                 ->map(fn ($incident) => $this->normalize($incident))->flip();
             $excluded = IncidentExclude::query()->pluck('incident')
                 ->map(fn ($incident) => $this->normalize($incident))->flip();
-            $branchByWorkzone = $areas->mapWithKeys(fn (ServiceArea $area) => [
-                $this->normalize($area->workzone) => (int) $area->branch_id,
-            ]);
+            $areaByWorkzone = $areas->keyBy(fn (ServiceArea $area) => $this->normalize($area->workzone));
+            $counts = ['branch' => [], 'service_area' => []];
 
             [$query] = $this->sourceQuery($context['filters'], $areas, $context['restrictWorkzones']);
-            $counts = [];
-            foreach ($query->select(['incident', 'workzone'])->cursor() as $ticket) {
-                $incident = $this->normalize($ticket->incident);
-                $branchId = $branchByWorkzone->get($this->normalize($ticket->workzone));
-                if ($branchId === null || $incident === '' || $occupancy->has($incident) || $excluded->has($incident)) {
+            $used = $occupancy->keys()->all();
+            $excludedIncidents = $excluded->keys()->all();
+            $query->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $used)
+                ->whereNotIn(DB::raw('UPPER(TRIM(incident))'), $excludedIncidents);
+
+            $grouped = $query->selectRaw('UPPER(TRIM(workzone)) AS normalized_workzone, COUNT(*) AS total')
+                ->groupBy('normalized_workzone')->get();
+
+            foreach ($grouped as $row) {
+                $area = $areaByWorkzone->get($row->normalized_workzone);
+                if ($area === null) {
                     continue;
                 }
-                $counts[$branchId] = ($counts[$branchId] ?? 0) + 1;
+
+                $areaId = (int) $area->id_service_area;
+                $branchId = (int) $area->branch_id;
+                $total = (int) $row->total;
+                $counts['service_area'][$areaId] = ($counts['service_area'][$areaId] ?? 0) + $total;
+                $counts['branch'][$branchId] = ($counts['branch'][$branchId] ?? 0) + $total;
             }
 
             return $counts;
@@ -251,11 +261,12 @@ class TicketCoverageService
             $allowed = $allowed->intersectByKeys($filteredSto->flip());
         }
         if ($restrictWorkzones || ! empty($filters['sto_filter'])) {
-            $workzonesQuery = $source->table('ticket');
-            TicketReportedDate::applyRange($workzonesQuery, $driver, $filters['date_from'], $filters['date_to']);
-            $workzones = $workzonesQuery->distinct()->pluck('workzone')
-                ->filter(fn ($workzone) => $allowed->has($this->normalize($workzone)))->values();
-            $query->whereIn('workzone', $workzones);
+            $workzones = $allowed->keys()->all();
+            if ($workzones === []) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereIn(DB::raw("UPPER(TRIM(COALESCE(workzone, '')) )"), $workzones);
+            }
         }
         if ($filters['q'] !== '') {
             $query->where(fn (Builder $q) => $q->where('incident', 'like', '%'.$filters['q'].'%')
@@ -363,6 +374,7 @@ class TicketCoverageService
             $matches = $tickets->get($incident);
             if ($matches === null || $matches->isEmpty()) {
                 $result['not_found'][] = $incident;
+
                 continue;
             }
             $matches = $matches->filter(fn ($ticket) => $this->ticketKind($ticket->jenis_tiket_2) !== null
@@ -370,18 +382,22 @@ class TicketCoverageService
                 && (string) $ticket->reported_date >= TicketReportedDate::floor());
             if ($matches->isEmpty()) {
                 $result['not_found'][] = $incident;
+
                 continue;
             }
             if ($allowedWorkzones !== null && $matches->every(fn ($ticket) => ! $allowedWorkzones->has($this->normalize($ticket->workzone)))) {
                 $result['out_of_scope'][] = $incident;
+
                 continue;
             }
             if ($knownLops->has($incident)) {
                 $result['has_lop'][] = $incident;
+
                 continue;
             }
             if ($existing->has($incident)) {
                 $result['already_excluded'][] = $incident;
+
                 continue;
             }
             $result['eligible'][] = $incident;

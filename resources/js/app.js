@@ -1894,6 +1894,10 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
             clone
                 .querySelectorAll?.("[data-capture-ignore]")
                 .forEach((element) => element.remove());
+            clone.querySelectorAll?.("[data-capture-expand]").forEach((row) => {
+                row.style.removeProperty("display");
+                row.removeAttribute("data-capture-expand");
+            });
             clone
                 .querySelectorAll?.("[data-capture-full-label]")
                 .forEach((label) => {
@@ -2001,13 +2005,80 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
     },
 });
 
-window.dashboardMatrixModal = (endpoint, initialTab = "status") => ({
+window.dashboardMatrixModal = (
+    endpoint,
+    initialTab = "status",
+    monitoringSummaryEndpoint = "",
+    monitoringFilters = {},
+    monitoringDate = "",
+) => ({
     dashboardTab: initialTab,
+    monitoringSummaryEndpoint,
+    monitoringFilters,
+    monitoringDate,
+    monitoringSummaryHtml: "",
+    monitoringSummaryLoaded: initialTab === "summary",
+    monitoringSummaryLoading: false,
+    monitoringSummaryError: "",
+    init() {
+        if (this.dashboardTab === "summary") {
+            this.loadMonitoringSummary();
+        }
+    },
     selectTab(tab) {
         this.dashboardTab = tab;
         const url = new URL(window.location.href);
         url.searchParams.set("tab", tab);
         window.history.replaceState({}, "", url);
+        if (tab === "summary") {
+            this.loadMonitoringSummary();
+        }
+    },
+    async loadMonitoringSummary() {
+        if (
+            this.monitoringSummaryLoaded ||
+            this.monitoringSummaryLoading ||
+            !this.monitoringSummaryEndpoint
+        ) {
+            return;
+        }
+
+        this.monitoringSummaryLoading = true;
+        this.monitoringSummaryError = "";
+        try {
+            const url = new URL(
+                this.monitoringSummaryEndpoint,
+                window.location.origin,
+            );
+            Object.entries(this.monitoringFilters || {}).forEach(
+                ([key, value]) => {
+                    if (value !== "" && value !== null && value !== undefined) {
+                        url.searchParams.set(key, value);
+                    }
+                },
+            );
+            if (this.monitoringDate) {
+                url.searchParams.set("date", this.monitoringDate);
+            }
+
+            const response = await fetch(url, {
+                headers: {
+                    Accept: "text/html",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+            if (!response.ok) {
+                throw new Error("Ringkasan aktivitas gagal dimuat.");
+            }
+
+            this.monitoringSummaryHtml = await response.text();
+            this.monitoringSummaryLoaded = true;
+        } catch (error) {
+            this.monitoringSummaryError =
+                error?.message || "Ringkasan aktivitas gagal dimuat.";
+        } finally {
+            this.monitoringSummaryLoading = false;
+        }
     },
     nextTab(direction) {
         const tabs = ["status", "summary"];

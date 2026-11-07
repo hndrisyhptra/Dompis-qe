@@ -1093,6 +1093,14 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Regression `RevenueDashboardTest` diperbarui agar menghitung jumlah program dari enum, menambah coverage plan + realisasi QE Kuratif dan multi-segmen, serta menguji harga Paket-5 pada branch dengan label legacy JAWA TIMUR.
 - Verifikasi: `RevenueDashboardTest` **7 tests / 41 assertions** lulus; test memakai SQLite. Tidak ada perubahan schema atau data operasional. Belum diuji pada database lokal MySQL/server produksi.
 
+### 7.78 Audit dan optimasi query Dashboard/Revenue — 7 November 2026
+
+- Dashboard kini menunda agregasi histori aktivitas sampai tab Summary dibuka. Endpoint `dashboard.monitoring-summary` memakai normalisasi filter, scope canonical, dan service monitoring yang sama; tab Status tetap menampilkan data matrix yang sama tanpa menunggu scan histori Summary.
+- Untuk Admin Branch, agregasi matrix Region/Branch yang tidak ditampilkan dilewati; tabel statusnya memakai grouping Service Area yang memang tampil.
+- Revenue membangun agregat BOQ/reservasi sekali per kombinasi branch/program, lalu memakai hasil itu untuk ringkasan program dan branch. Penghitungan segment tetap memakai aturan yang sama, tetapi hasil LOP dibaca menggunakan cursor agar tidak seluruhnya ditampung di memory PHP.
+- Regression: AdminDashboard, RevenueDashboard, dan DashboardProgramScopeMatrix diperbarui untuk summary lazy dan test source ticket memakai SQLite fake. `AdminDashboardTest` 11 test dan `RevenueDashboardTest` 7 test lulus; satu test lama DashboardProgramScopeMatrix diperbarui agar jumlah program mengikuti enum (termasuk Kuratif).
+- Tidak ada migration atau write query. Schema produksi belum dapat diperiksa; indeks tidak ditambah tanpa `EXPLAIN` produksi. Belum ada pengukuran durasi di server produksi.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi

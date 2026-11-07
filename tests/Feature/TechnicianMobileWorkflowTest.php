@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\EvidenceApprovalService;
 use App\Services\EvidenceService;
 use App\Services\ProjectProgressService;
+use App\Services\TechnicianDashboardService;
 use App\Services\TechnicianWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -54,6 +55,36 @@ class TechnicianMobileWorkflowTest extends TestCase
 
         $this->actingAs($technician)->get(route('technician.dashboard'))->assertOk();
         $this->actingAs($admin)->get(route('technician.dashboard'))->assertForbidden();
+    }
+
+    public function test_technician_dashboard_status_counts_match_assigned_projects(): void
+    {
+        [, $technician, $first] = $this->assignedProject();
+        $second = QeLop::create([
+            'incident' => 'LOP-MOBILE-02', 'nama_lop' => 'Completed project', 'program_type' => 'recovery',
+            'status_lop' => 'completed', 'created_by' => $technician->id_user,
+        ]);
+        $second->assignments()->create([
+            'technician_id' => $technician->id_user, 'assigned_by' => $technician->id_user,
+            'assigned_at' => now(), 'status' => 'active',
+        ]);
+        $third = QeLop::create([
+            'incident' => 'LOP-MOBILE-03', 'nama_lop' => 'Waiting project', 'program_type' => 'recovery',
+            'status_lop' => 'waiting_approval', 'created_by' => $technician->id_user,
+        ]);
+        $third->assignments()->create([
+            'technician_id' => $technician->id_user, 'assigned_by' => $technician->id_user,
+            'assigned_at' => now(), 'status' => 'active',
+        ]);
+
+        $dashboard = app(TechnicianDashboardService::class)->dashboard($technician);
+
+        $this->assertSame(2, $dashboard['activeCount']);
+        $this->assertSame(1, $dashboard['approvalCount']);
+        $this->assertSame(1, $dashboard['completedCount']);
+        $this->assertSame(0, $dashboard['attentionCount']);
+        $this->assertSame(2, $dashboard['projects']->count());
+        $this->assertTrue($dashboard['projects']->contains('id_qe_lops', $first->getKey()));
     }
 
     public function test_technician_is_redirected_from_legacy_lop_pages_to_mobile_workspace(): void

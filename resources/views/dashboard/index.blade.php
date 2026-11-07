@@ -8,7 +8,7 @@
     $matrixScopeFilters = array_filter($filters, fn ($value) => $value !== '');
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-6" x-data="dashboardMatrixModal(@js(route('dashboard.matrix-lops', [], false)), @js($dashboardTab))">
+<div class="mx-auto max-w-7xl space-y-6" x-data="dashboardMatrixModal(@js(route('dashboard.matrix-lops', [], false)), @js($dashboardTab), @js(route('dashboard.monitoring-summary', [], false)), @js($filters), @js($dashboardDate))">
     <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
             <div class="flex flex-wrap items-center gap-2">
@@ -64,7 +64,7 @@
 
             <form method="GET" action="{{ route('dashboard') }}" class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto]">
                 <input type="hidden" name="tab" :value="dashboardTab">
-                <input type="hidden" name="date" value="{{ $monitoring['date'] }}">
+                <input type="hidden" name="date" value="{{ $dashboardDate }}">
                 <input type="hidden" name="program" value="{{ $filters['program'] }}">
                 <label class="space-y-1.5">
                     <span class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Region</span>
@@ -179,7 +179,7 @@
                 </div>
                 <form method="GET" action="{{ route('dashboard') }}" x-data="{ changing: false }" @submit="changing = true" :aria-busy="changing" class="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
                     <input type="hidden" name="tab" value="program">
-                    <input type="hidden" name="date" value="{{ $monitoring['date'] }}">
+                    <input type="hidden" name="date" value="{{ $dashboardDate }}">
                     @foreach (['region', 'branch', 'status'] as $field)<input type="hidden" name="{{ $field }}" value="{{ $filters[$field] }}">@endforeach
                     <label for="dashboard-program-filter" class="text-[10px] font-bold uppercase tracking-wider text-ink-500 dark:text-ink-400">Pilih Program</label>
                     <div class="flex gap-2">
@@ -299,6 +299,9 @@
 
             <p class="mt-3 text-[10px] text-ink-400 sm:hidden">Geser tabel ke samping untuk melihat seluruh tahapan.</p>
             <div class="mt-5 space-y-3">
+                @if ($isBranchAdmin)
+                    @include('dashboard.partials.branch-service-area-status-matrix')
+                @else
                 @forelse ($matrixRegions as $region)
                     @php($groupLabel = ($isSuperAdmin || count($region['branches']) > 1) ? $region['name'] : ($region['branches'][0]['name'] ?? $scopeLabel))
                     <div x-data="dashboardRegionCapture(@js($groupLabel))" x-ref="captureArea" class="overflow-hidden rounded-md border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-ink-900">
@@ -382,11 +385,23 @@
                 @empty
                     <div class="rounded-md border border-dashed border-ink-200 px-6 py-12 text-center text-sm text-ink-400 dark:border-ink-700">Tidak ada data matrix pada cakupan ini.</div>
                 @endforelse
+                @endif
             </div>
         </article>
 
         <div id="dashboard-panel-summary" role="tabpanel" aria-labelledby="dashboard-tab-summary" x-show="dashboardTab === 'summary'" x-cloak>
-            @include('dashboard.partials.monitoring')
+            @if ($dashboardTab === 'summary')
+                <div x-show="!monitoringSummaryError">
+                    @include('dashboard.partials.monitoring')
+                </div>
+            @else
+                <div x-html="monitoringSummaryHtml" x-show="!monitoringSummaryError"></div>
+            @endif
+            <div x-show="monitoringSummaryLoading" class="rounded-md border border-ink-200 bg-white p-8 text-center text-sm text-ink-500 dark:border-ink-700 dark:bg-ink-900" role="status">Memuat ringkasan aktivitas…</div>
+            <div x-show="monitoringSummaryError" class="rounded-md border border-rose-200 bg-rose-50 p-5 text-center text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300" role="alert">
+                <p x-text="monitoringSummaryError"></p>
+                <button type="button" @click="loadMonitoringSummary()" class="mt-3 rounded-md border border-rose-300 px-3 py-2 text-xs font-bold dark:border-rose-800">Coba lagi</button>
+            </div>
         </div>
     </section>
 

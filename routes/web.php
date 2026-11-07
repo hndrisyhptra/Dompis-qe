@@ -67,6 +67,9 @@ Route::middleware(['auth', 'role:TEKNISI'])->prefix('technician')->name('technic
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('dashboard');
+Route::get('/dashboard/monitoring-summary', [DashboardController::class, 'monitoringSummary'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
+    ->name('dashboard.monitoring-summary');
 Route::get('/dashboard/matrix-lops', [DashboardController::class, 'matrixLops'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('dashboard.matrix-lops');

@@ -34,7 +34,10 @@ class RevenueService
         $query = $this->scopedLops($user);
         $this->applyFilters($query, $filterState, $branches, $serviceAreas);
 
-        $programRows = $this->programRows(clone $query);
+        // BOQ dan reservasi adalah subquery mahal. Ambil agregat satu kali
+        // per branch/program, lalu gunakan hasil yang sama untuk dua matriks.
+        $revenueRows = $this->revenueRows(clone $query);
+        $programRows = $this->programRowsFromRows($revenueRows);
         $planValue = (float) $programRows->sum('plan_value');
         $actualValue = (float) $programRows->sum('actual_value');
         $plannedActualValue = (float) $programRows->sum('planned_actual_value');
@@ -54,7 +57,7 @@ class RevenueService
         ];
 
         $branchRows = $this->branchRows(
-            clone $query,
+            $revenueRows,
             $this->matrixBranches($branches, $serviceAreas, $filterState),
         );
         $maxBranchValue = max(1, (float) $branchRows
@@ -204,19 +207,8 @@ class RevenueService
         return $matrixBranches->values();
     }
 
-    private function branchRows(Builder $query, Collection $branches): Collection
+    private function branchRows(Collection $rows, Collection $branches): Collection
     {
-        $boqValue = $this->boqValueSql();
-        $actualValue = $this->actualValueSql();
-        $rows = $this->withBoq($query)
-            ->select(['qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type'])
-            ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_lops')
-            ->selectRaw("SUM(CASE WHEN qe_lops.program_type <> ? THEN {$boqValue} ELSE 0 END) as plan_value", [ProgramType::RECOVERY->value])
-            ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? THEN {$actualValue} ELSE 0 END) as actual_value", [LopStatus::COMPLETED->value])
-            ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? AND qe_lops.program_type <> ? THEN {$actualValue} ELSE 0 END) as planned_actual_value", [LopStatus::COMPLETED->value, ProgramType::RECOVERY->value])
-            ->groupBy('qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type')
-            ->get();
-
         return $branches->map(function (Branch $branch) use ($rows): array {
             $branchRows = $rows->filter(fn ($row): bool => (int) $row->branch_id === (int) $branch->id_branch
                 || ($row->branch_id === null && mb_strtolower(trim((string) $row->branch)) === mb_strtolower($branch->name)));
@@ -245,27 +237,38 @@ class RevenueService
         })->values();
     }
 
-    private function programRows(Builder $query): Collection
+    private function programRowsFromRows(Collection $rows): Collection
+    {
+        $rowsByProgram = $rows->groupBy(fn ($row) => $row->program_type instanceof ProgramType
+            ? $row->program_type->value
+            : (string) $row->program_type)
+            ->map(fn (Collection $programRows) => (object) [
+                'total_lops' => (int) $programRows->sum('total_lops'),
+                'unclassified_boq_count' => (int) $programRows->sum('unclassified_boq_count'),
+                'plan_value' => (float) $programRows->sum('plan_value'),
+                'actual_value' => (float) $programRows->sum('actual_value'),
+                'planned_actual_value' => (float) $programRows->sum('planned_actual_value'),
+            ]);
+
+        return collect(ProgramType::cases())
+            ->map(fn (ProgramType $program): array => $this->programRevenueRow($program, $rowsByProgram->get($program->value)))
+            ->values();
+    }
+
+    private function revenueRows(Builder $query): Collection
     {
         $boqValue = $this->boqValueSql();
         $actualValue = $this->actualValueSql();
-        $rows = $this->withBoq($query)
-            ->select('qe_lops.program_type')
+
+        return $this->withBoq($query)
+            ->select(['qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type'])
             ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_lops')
             ->selectRaw('SUM(CASE WHEN '.$this->unclassifiedBoqSql().' THEN 1 ELSE 0 END) as unclassified_boq_count')
             ->selectRaw("SUM(CASE WHEN qe_lops.program_type <> ? THEN {$boqValue} ELSE 0 END) as plan_value", [ProgramType::RECOVERY->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? THEN {$actualValue} ELSE 0 END) as actual_value", [LopStatus::COMPLETED->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? AND qe_lops.program_type <> ? THEN {$actualValue} ELSE 0 END) as planned_actual_value", [LopStatus::COMPLETED->value, ProgramType::RECOVERY->value])
-            ->groupBy('qe_lops.program_type')
+            ->groupBy('qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type')
             ->get();
-
-        $rowsByProgram = $rows->keyBy(fn ($row) => $row->program_type instanceof ProgramType
-            ? $row->program_type->value
-            : (string) $row->program_type);
-
-        return collect(ProgramType::cases())
-            ->map(fn (ProgramType $program): array => $this->programRevenueRow($program, $rowsByProgram->get($program->value)))
-            ->values();
     }
 
     private function programRevenueRow(ProgramType $program, mixed $row): array
@@ -299,7 +302,7 @@ class RevenueService
             ->where('qe_lops.program_type', '!=', ProgramType::RECOVERY->value)
             ->select(['qe_lops.id_qe_lops', 'qe_lops.segment'])
             ->selectRaw("{$boqValue} as plan_value")
-            ->get();
+            ->cursor();
 
         foreach ($lops as $lop) {
             if ((float) $lop->plan_value <= 0) {

@@ -28,12 +28,19 @@ class TechnicianDashboardService
             ->latest()->limit(5)->get();
         $this->attachProgress($projects);
 
+        $counts = (clone $query)
+            ->selectRaw('SUM(CASE WHEN status_lop != ? THEN 1 ELSE 0 END) AS active_count', [LopStatus::COMPLETED->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) AS approval_count', [LopStatus::WAITING_APPROVAL->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) AS completed_count', [LopStatus::COMPLETED->value])
+            ->selectRaw('SUM(CASE WHEN status_lop = ? THEN 1 ELSE 0 END) AS attention_count', [LopStatus::REJECTED->value])
+            ->first();
+
         return [
             'projects' => $projects,
-            'activeCount' => (clone $query)->where('status_lop', '!=', LopStatus::COMPLETED->value)->count(),
-            'approvalCount' => (clone $query)->where('status_lop', LopStatus::WAITING_APPROVAL->value)->count(),
-            'completedCount' => (clone $query)->where('status_lop', LopStatus::COMPLETED->value)->count(),
-            'attentionCount' => (clone $query)->where('status_lop', LopStatus::REJECTED->value)->count(),
+            'activeCount' => (int) $counts->active_count,
+            'approvalCount' => (int) $counts->approval_count,
+            'completedCount' => (int) $counts->completed_count,
+            'attentionCount' => (int) $counts->attention_count,
             'unreadCount' => $technician->unreadNotifications()->count(),
         ];
     }

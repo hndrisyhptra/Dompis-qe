@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AdminScopeType;
 use App\Enums\LopStatus;
 use App\Enums\ProgramType;
 use App\Enums\UserRole;
@@ -56,8 +57,41 @@ class AdminDashboardService
                 : 0,
         ];
 
-        $incidentCounts = $this->ticketCoverage->withoutExcludeCountsByBranch($user);
-        $matrixRegions = $this->matrixRegions(clone $query, $user, $filterState, $incidentCounts ?? []);
+        $scope = $user->admin_scope_type ?? ($user->branch_id ? AdminScopeType::BRANCH : null);
+        $isBranchAdmin = $user->hasRole(UserRole::ADMIN) && $scope === AdminScopeType::BRANCH;
+        $incidentCoverage = $this->ticketCoverage->withoutExcludeCountsByLocation($user);
+        $incidentCounts = $incidentCoverage['branch'] ?? [];
+        $matrixRegions = $isBranchAdmin
+            ? []
+            : $this->matrixRegions(clone $query, $user, $filterState, $incidentCounts);
+        $programMatrix = $isSuperAdmin ? null : $this->programMatrix->build(clone $query, $user, $filterState);
+        $serviceAreaStatusGroups = collect($programMatrix['groups'] ?? [])->map(function (array $group) use ($incidentCoverage): array {
+            $rows = collect($group['rows'])->map(function (array $row) use ($incidentCoverage): array {
+                $serviceAreaId = $row['filters']['service_area_id'] ?? null;
+                $row['without_exclude'] = $serviceAreaId === null
+                    ? 0
+                    : (int) ($incidentCoverage['service_area'][$serviceAreaId] ?? 0);
+
+                return $row;
+            });
+            $stoCount = $rows->filter(fn (array $row) => ! empty($row['filters']['service_area_id']))->count();
+            $unmappedLopCount = $rows->filter(fn (array $row) => empty($row['filters']['service_area_id']))
+                ->sum(fn (array $row) => $row['summary']['total']);
+
+            return [
+                ...$group,
+                'rows' => $rows->all(),
+                'count' => $stoCount,
+                'unmapped_lops' => $unmappedLopCount,
+                'without_exclude' => $rows->sum('without_exclude'),
+            ];
+        })->all();
+
+        $dashboardTab = in_array($filters['tab'] ?? '', ['status', 'summary'], true) ? $filters['tab'] : 'status';
+        $dashboardDate = $filters['date'] ?? now('Asia/Jakarta')->toDateString();
+        $summaryData = $dashboardTab === 'summary'
+            ? $this->monitoringSummary($user, [...$filterState, 'date' => $dashboardDate])
+            : [];
 
         return [
             'isSuperAdmin' => $isSuperAdmin,
@@ -65,10 +99,14 @@ class AdminDashboardService
             'scopeWarning' => ! $isSuperAdmin && $this->visibility->accessibleBranchIds($user)->isEmpty(),
             'stats' => $stats,
             'matrixRegions' => $matrixRegions,
-            'incidentCountsAvailable' => $incidentCounts !== null,
-            'programMatrix' => $isSuperAdmin ? null : $this->programMatrix->build(clone $query, $user, $filterState),
-            'monitoring' => $this->monitoring->summary(clone $query, $user, $filterState, $filters['date'] ?? null),
-            'dashboardTab' => in_array($filters['tab'] ?? '', ['status', 'summary'], true) ? $filters['tab'] : 'status',
+            'incidentCountsAvailable' => $incidentCoverage !== null,
+            'isBranchAdmin' => $isBranchAdmin,
+            'branchAdminId' => $isBranchAdmin ? $user->branch_id : null,
+            'serviceAreaStatusGroups' => $serviceAreaStatusGroups,
+            'programMatrix' => $programMatrix,
+            'dashboardDate' => $dashboardDate,
+            'dashboardTab' => $dashboardTab,
+            ...$summaryData,
             'pipelineStatuses' => collect(LopStatus::cases())->map(fn (LopStatus $status) => [
                 'value' => $status->value,
                 'label' => $status->label(),
@@ -76,6 +114,18 @@ class AdminDashboardService
             'filters' => $filterState,
             'regions' => Branch::query()->whereNotNull('region')->distinct()->orderBy('region')->pluck('region'),
             'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
+        ];
+    }
+
+    public function monitoringSummary(User $user, array $filters): array
+    {
+        $filterState = $this->normalizeFilters($user->hasRole(UserRole::SUPER_ADMIN), $filters);
+        $query = $this->scopedLops($user);
+        $this->applyFilters($query, $filterState);
+
+        return [
+            'monitoring' => $this->monitoring->summary(clone $query, $user, $filterState, $filters['date'] ?? null),
+            'matrixScopeFilters' => array_filter($filterState, fn ($value) => $value !== '' && $value !== null),
         ];
     }
 
