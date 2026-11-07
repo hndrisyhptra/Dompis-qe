@@ -63,13 +63,16 @@ class TechnicianController extends Controller
     {
         $this->authorize('view', $qe_lop);
         $state = $this->workflowService->state($qe_lop);
+        $hasActiveAssignment = (int) ($qe_lop->activeAssignment?->technician_id ?? 0) === (int) $request->user()->getKey();
+        $canEditBaBongkar = $request->user()->can('editBaBongkar', $qe_lop);
 
         // Step terkunci: hanya boleh membuka step yang <= step pertama yang
         // belum lengkap (currentStep). Step yang sudah selesai tetap boleh
         // dibuka untuk review; step di depannya dikunci. Setelah submit/selesai
         // atau reject, keenam tahap terbuka untuk peninjauan tanpa form pekerjaan.
-        $readOnly = in_array($qe_lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::COMPLETED, LopStatus::REJECTED], true);
-        $maxStep = $readOnly ? 6 : $state['currentStep'];
+        $readOnly = ! $hasActiveAssignment
+            || in_array($qe_lop->status_lop, [LopStatus::WAITING_APPROVAL, LopStatus::COMPLETED, LopStatus::REJECTED], true);
+        $maxStep = $readOnly ? 6 : min($state['currentStep'], $qe_lop->status_lop === LopStatus::SURVEY ? 3 : 6);
         $rejectedStep = $state['rejectedSteps']->keys()->min();
         $requestedStep = max(1, min(6, $request->integer('step', $rejectedStep ?? $state['currentStep'])));
 
@@ -86,6 +89,8 @@ class TechnicianController extends Controller
             'step' => $requestedStep,
             'maxStep' => $maxStep,
             'readOnly' => $readOnly,
+            'hasActiveAssignment' => $hasActiveAssignment,
+            'canEditBaBongkar' => $canEditBaBongkar,
             'showBoqReview' => $showBoqReview,
             'reservationPackage' => $this->workflowService->reservationPackage($qe_lop),
             'designators' => ! $readOnly && $requestedStep === 1 ? ReservedDesignatorRules::apply(Designator::query())

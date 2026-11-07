@@ -113,6 +113,61 @@ class BaBongkarWorkflowTest extends TestCase
         $this->assertSame('completed', $this->lop->fresh()->status_lop->value);
     }
 
+    public function test_survey_status_must_be_advanced_before_ba_bongkar_can_be_saved(): void
+    {
+        $this->lop->update(['status_lop' => 'survey']);
+
+        $this->actingAs($this->tech)
+            ->get(route('technician.projects.show', [$this->lop, 'step' => 6]))
+            ->assertRedirect(route('technician.projects.show', [$this->lop, 'step' => 3]));
+
+        $this->post(route('technician.projects.survey-complete', $this->lop))
+            ->assertRedirect(route('technician.projects.show', [$this->lop, 'step' => 4]));
+        $this->assertSame('progress', $this->lop->fresh()->status_lop->value);
+
+        $this->get(route('technician.projects.show', [$this->lop, 'step' => 6]))
+            ->assertOk()
+            ->assertSee('Apakah pekerjaan ini memerlukan BA Bongkar?');
+        $this->put(route('technician.projects.ba-bongkar', $this->lop), ['required' => '0', 'action' => 'draft'])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+    }
+
+    public function test_ba_form_is_not_rendered_when_status_policy_would_reject_the_save(): void
+    {
+        $this->lop->update(['status_lop' => 'picked_up']);
+
+        $this->actingAs($this->tech)
+            ->get(route('technician.projects.show', [$this->lop, 'step' => 6]))
+            ->assertOk()
+            ->assertSee('BA Bongkar belum bisa diubah')
+            ->assertDontSee('name="required"', false);
+
+        $this->put(route('technician.projects.ba-bongkar', $this->lop), ['required' => '0', 'action' => 'draft'])
+            ->assertForbidden();
+    }
+
+    public function test_former_assignee_sees_ba_read_only_instead_of_an_unauthorized_form(): void
+    {
+        $replacement = User::factory()->role('TEKNISI')->create();
+        $this->lop->assignments()->where('status', 'active')->update(['status' => 'replaced', 'unassigned_at' => now()]);
+        $this->lop->assignments()->create([
+            'technician_id' => $replacement->getKey(),
+            'assigned_by' => $this->admin->getKey(),
+            'assigned_at' => now(),
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->tech)
+            ->get(route('technician.projects.show', [$this->lop, 'step' => 6]))
+            ->assertOk()
+            ->assertSee('Assignment LOP ini sudah tidak aktif untuk akun Anda.')
+            ->assertDontSee('name="required"', false);
+
+        $this->put(route('technician.projects.ba-bongkar', $this->lop), ['required' => '0', 'action' => 'draft'])
+            ->assertForbidden();
+    }
+
     public function test_yes_builds_private_pdf_and_only_admin_reviews_ba_without_extra_signatures(): void
     {
         $doc = $this->generate();

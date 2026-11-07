@@ -45,6 +45,12 @@
     </div>
 </section>
 
+@unless ($hasActiveAssignment)
+    <div role="status" class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+        Assignment LOP ini sudah tidak aktif untuk akun Anda. Halaman hanya dapat ditinjau; hubungi Admin jika pekerjaan perlu ditugaskan kembali.
+    </div>
+@endunless
+
 @if ($showBoqReview)
     @include('technician.partials.boq-review')
 @endif
@@ -56,16 +62,20 @@
         </div>
         <h2 class="mt-4 text-lg font-extrabold">Siap mulai pekerjaan?</h2>
         <p class="mx-auto mt-2 max-w-xs text-xs leading-5 text-ink-500">Pickup menandai bahwa Work Order sudah Anda terima dan membuka workflow lapangan.</p>
-        <form method="POST" action="{{ route('technician.projects.pickup', $lop) }}" class="mt-5">@csrf
-            <button class="min-h-12 w-full rounded-2xl bg-brand-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20 active:scale-[.99]">Pickup Order</button>
-        </form>
+        @if ($hasActiveAssignment)
+            <form method="POST" action="{{ route('technician.projects.pickup', $lop) }}" class="mt-5">@csrf
+                <button class="min-h-12 w-full rounded-2xl bg-brand-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-brand-600/20 active:scale-[.99]">Pickup Order</button>
+            </form>
+        @endif
     </section>
 @elseif ($lop->status_lop === \App\Enums\LopStatus::REJECTED)
     <section class="mt-5 rounded-3xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-900 dark:bg-brand-900/10">
         <h2 class="text-base font-extrabold text-brand-700 dark:text-brand-300">Project perlu diperbaiki</h2>
         <p class="mt-2 text-xs leading-5 text-brand-700/80 dark:text-brand-300/80">Buka step bertanda reject untuk melihat alasan penolakan dan mengganti evidence. Gunakan Mulai perbaikan untuk melanjutkan workflow.</p>
 
-        <form method="POST" action="{{ route('technician.projects.resume', $lop) }}" class="mt-4">@csrf<button class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white">Mulai perbaikan</button></form>
+        @if ($hasActiveAssignment)
+            <form method="POST" action="{{ route('technician.projects.resume', $lop) }}" class="mt-4">@csrf<button class="min-h-12 w-full rounded-2xl bg-brand-600 text-sm font-extrabold text-white">Mulai perbaikan</button></form>
+        @endif
     </section>
 @elseif (in_array($lop->status_lop, [\App\Enums\LopStatus::WAITING_APPROVAL, \App\Enums\LopStatus::COMPLETED], true))
     <section class="mt-5 rounded-3xl border border-ink-100 bg-white p-6 text-center dark:border-ink-800 dark:bg-ink-900">
@@ -80,11 +90,23 @@
 
 @if ($lop->status_lop !== \App\Enums\LopStatus::ASSIGNED)
     @if ($readOnly)
-        <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Pilih tahap untuk melihat evidence. Foto milik Anda yang belum approved dapat dihapus untuk koreksi. Foto approved harus direset admin terlebih dahulu.</p>
+        @if ($hasActiveAssignment)
+            <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Pilih tahap untuk melihat evidence. Foto milik Anda yang belum approved dapat dihapus untuk koreksi. Foto approved harus direset admin terlebih dahulu.</p>
+        @else
+            <p class="mt-3 text-xs leading-5 text-ink-500 dark:text-ink-400">Pilih tahap untuk meninjau evidence project ini.</p>
+        @endif
         @include('technician.partials.step-review')
     @else
     @if ($step === 6)
-        @include('technician.partials.ba-bongkar')
+        @if ($canEditBaBongkar)
+            @include('technician.partials.ba-bongkar')
+        @else
+            <section class="mt-5 space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
+                <p class="text-sm font-extrabold text-amber-900 dark:text-amber-100">BA Bongkar belum bisa diubah</p>
+                <p class="text-xs leading-5 text-amber-800 dark:text-amber-200">Selesaikan tahap Evidence Pra agar status project menjadi Progress. Form BA Bongkar dapat disimpan setelah itu.</p>
+                @include('ba-bongkar.summary', ['showHeading' => false])
+            </section>
+        @endif
     @elseif ($step === 1)
         @php
             $materialRows = $state['items']->values()->map(fn ($item, $index) => ['designator_id' => (string) $item->designator_id, 'qty' => (int) round((float) $item->qty), 'open' => $index === 0]);
