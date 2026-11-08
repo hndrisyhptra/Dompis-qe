@@ -76,7 +76,7 @@ enum ProgramType: string
         return match ($this) {
             self::RECOVERY => 'GAMAS, UNKNOWN, TSEL, atau PREMAN',
             self::PREVENTIVE => 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN',
-            self::RELOK_TIANG => 'NON NUMBERING atau INFRACARE',
+            self::RELOK_TIANG => 'NON NUMBERING, INFRACARE, atau PREMAN',
             self::RELOK_UTILITAS => null,
             self::KURATIF => null,
         };

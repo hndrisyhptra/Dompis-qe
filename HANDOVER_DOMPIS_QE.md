@@ -1282,3 +1282,7 @@ branch, commit terbaru, dan diff yang belum di-commit. Jangan mengubah file dulu
 Berikan ringkasan kondisi aktual, risiko aktif, dan file yang perlu disentuh untuk
 permintaan saya berikutnya.
 ```
+
+## 13. Monitoring Incident satu halaman
+
+8 November 2026 — Daftar tiket dan Monitoring Exclude digabung ke tampilan `incident-monitoring.exclusions`. Halaman ini memuat filter bersama, kartu status, distribusi jenis tiket, matriks, dan satu daftar detail responsif. Kartu serta angka matriks menyaring daftar detail yang sama. Ringkasan status dan jenis tiket dihitung dari agregat matriks agar halaman tidak menjalankan dashboard tiket kedua. Filter Service Area berbasis `service_areas.name` mencakup seluruh STO dengan nama tersebut dalam scope; parameter ID `service_area` lama tetap didukung. Route `/incident-monitoring/tickets` tetap kompatibel dan memetakan `usage` lama ke status detail; menu utama dan tautan baru memakai `/incident-monitoring/exclusions`. Exclude Massal tetap menjadi alur terpisah. QE Relok Tiang kini menerima jenis tiket persis PREMAN selain NON NUMBERING dan INFRACARE; aturan berlaku pada validasi form dan Bulk LOP. Tidak ada perubahan schema atau data operasional.

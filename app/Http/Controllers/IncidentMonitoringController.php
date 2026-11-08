@@ -34,11 +34,18 @@ class IncidentMonitoringController extends Controller
         ));
     }
 
-    public function tickets(TicketCoverageRequest $request): View
+    public function tickets(TicketCoverageRequest $request, TicketExcludeMonitoringService $exclusions): View
     {
-        return view('incident-monitoring.tickets', $this->coverage->dashboard(
-            $request->user(), $request->validated(),
-        ));
+        $filters = $request->validated();
+        $filters['usage'] ??= 'without_lop';
+        $filters['exclude_state'] = [
+            'all' => 'all',
+            'without_lop' => 'not_excluded',
+            'with_lop' => 'included',
+            'excluded' => 'excluded',
+        ][$filters['usage']];
+
+        return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $filters));
     }
 
     public function exclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
@@ -94,7 +101,7 @@ class IncidentMonitoringController extends Controller
         $category = match ($filters['usage']) {
             'without_lop' => 'belum-memiliki-lop', 'with_lop' => 'sudah-memiliki-lop', 'excluded' => 'tiket-exclude', default => 'total-tiket'
         };
-        $period = implode('_', array_filter([$filters['date_from'] ?? null, $filters['date_to'] ?? null])) ?: 'semua-periode';
+        $period = implode('_', array_filter([$data['filters']['date_from'] ?? null, $data['filters']['date_to'] ?? null])) ?: 'semua-periode';
         try {
             return Excel::download(new TicketCoverageExport($data), "monitoring-incident-{$category}-{$period}.xlsx", headers: ['Cache-Control' => 'private, no-store']);
         } catch (Throwable $exception) {

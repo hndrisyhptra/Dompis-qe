@@ -57,7 +57,7 @@ function incidentForm(fetch, validateIncident = true) {
     vm.runInNewContext(component, { window, URLSearchParams, fetch });
     const model = window.lopForm({
         validateIncident,
-        incidentTicketTypes: { recovery: 'GAMAS, UNKNOWN, TSEL, atau PREMAN', preventive: 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN', relok_tiang: 'NON NUMBERING', relok_utilitas: null },
+        incidentTicketTypes: { recovery: 'GAMAS, UNKNOWN, TSEL, atau PREMAN', preventive: 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN', relok_tiang: 'NON NUMBERING, INFRACARE, atau PREMAN', relok_utilitas: null },
         initial: { program_type: 'recovery', branch: 'SIDOARJO', sto: 'SDA', area: '3' },
     });
     const watchers = {};

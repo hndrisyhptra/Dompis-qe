@@ -37,7 +37,8 @@ class IncidentTicketValidationService
             ProgramType::RECOVERY => str_contains($normalized, 'GAMAS') || str_contains($normalized, 'TSEL') || in_array($normalized, ['UNKNOWN', 'PREMAN'], true),
             ProgramType::PREVENTIVE => str_contains($normalized, 'GAMAS') || in_array($normalized, ['UNKNOWN', 'INFRACARE', 'PREMAN'], true),
             ProgramType::RELOK_TIANG => preg_match('/\bNON NUMBERING\b/u', $normalized) === 1
-                || preg_match('/\bINFRACARE\b/u', $normalized) === 1,
+                || preg_match('/\bINFRACARE\b/u', $normalized) === 1
+                || $normalized === 'PREMAN',
             ProgramType::RELOK_UTILITAS => true,
         };
 

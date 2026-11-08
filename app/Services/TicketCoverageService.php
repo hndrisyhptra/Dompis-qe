@@ -43,14 +43,24 @@ class TicketCoverageService
     public function monitoringContext(User $user, array $input): array
     {
         $reportedFrom = TicketReportedDate::floor();
+        $period = ($input['period'] ?? 'range') === 'month' ? 'month' : 'range';
+        $month = $input['month'] ?? now('Asia/Jakarta')->format('Y-m');
         $dateFrom = trim((string) ($input['date_from'] ?? ''));
         $dateTo = trim((string) ($input['date_to'] ?? ''));
+        if ($period === 'month') {
+            $monthStart = Carbon::createFromFormat('!Y-m', $month);
+            $dateFrom = max($monthStart->toDateString(), $reportedFrom);
+            $dateTo = $monthStart->endOfMonth()->toDateString();
+        }
         $filters = [
             'region' => trim((string) ($input['region'] ?? '')),
             'branch' => $input['branch'] ?? '',
             'service_area' => $input['service_area'] ?? '',
+            'service_area_name' => trim((string) ($input['service_area_name'] ?? '')),
             'kind' => $input['kind'] ?? '',
             'usage' => in_array($input['usage'] ?? '', ['all', 'without_lop', 'with_lop', 'excluded'], true) ? $input['usage'] : 'without_lop',
+            'period' => $period,
+            'month' => $month,
             'date_from' => $dateFrom !== '' ? max($dateFrom, $reportedFrom) : $reportedFrom,
             'date_to' => $dateTo !== '' ? $dateTo : now('Asia/Jakarta')->toDateString(),
             'q' => trim((string) ($input['q'] ?? '')),
@@ -67,16 +77,22 @@ class TicketCoverageService
         $selectedBranches = $branches->filter(fn (Branch $branch) => ($filters['region'] === '' || ($branch->regionRef?->name ?? $branch->region) === $filters['region'])
             && ($filters['branch'] === '' || (int) $branch->getKey() === (int) $filters['branch']));
         $selectedAreas = $serviceAreas->whereIn('branch_id', $selectedBranches->modelKeys())
-            ->when($filters['service_area'] !== '', fn (Collection $areas) => $areas->where('id_service_area', (int) $filters['service_area']));
+            ->when($filters['service_area'] !== '', fn (Collection $areas) => $areas->where('id_service_area', (int) $filters['service_area']))
+            ->when($filters['service_area_name'] !== '', fn (Collection $areas) => $areas->filter(
+                fn (ServiceArea $area) => trim((string) $area->name) === $filters['service_area_name']
+            ));
+        $serviceAreaNames = $serviceAreas->whereIn('branch_id', $selectedBranches->modelKeys())
+            ->map(fn (ServiceArea $area) => trim((string) $area->name))
+            ->filter()->unique()->sort()->values();
         $restrictWorkzones = $user->hasRole(UserRole::ADMIN)
-            || $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '';
+            || $filters['region'] !== '' || $filters['branch'] !== '' || $filters['service_area'] !== '' || $filters['service_area_name'] !== '';
 
-        return compact('filters', 'branches', 'serviceAreas', 'regions', 'selectedBranches', 'selectedAreas', 'restrictWorkzones');
+        return compact('filters', 'branches', 'serviceAreas', 'serviceAreaNames', 'regions', 'selectedBranches', 'selectedAreas', 'restrictWorkzones');
     }
 
     public function dashboard(User $user, array $input, bool $forExport = false): array
     {
-        ['filters' => $filters, 'branches' => $branches, 'serviceAreas' => $serviceAreas,
+        ['filters' => $filters, 'branches' => $branches, 'serviceAreas' => $serviceAreas, 'serviceAreaNames' => $serviceAreaNames,
             'regions' => $regions, 'selectedAreas' => $selectedAreas, 'restrictWorkzones' => $restrictWorkzones] = $this->monitoringContext($user, $input);
 
         // Occupancy includes archives and other scopes; only visible LOP details are loaded below.
@@ -121,6 +137,7 @@ class TicketCoverageService
                 'locationLabel' => implode('; ', array_filter([
                     $filters['region'],
                     $filters['branch'] !== '' ? ($branches->firstWhere('id_branch', (int) $filters['branch'])?->name ?? 'Branch di luar scope') : null,
+                    $filters['service_area_name'] !== '' ? $filters['service_area_name'] : null,
                     $filters['service_area'] !== '' ? ($serviceAreas->firstWhere('id_service_area', (int) $filters['service_area'])?->workzone ?? 'STO di luar scope') : null,
                 ])) ?: 'Seluruh wilayah dalam scope',
                 'checkedAt' => $checkedAt,
@@ -137,6 +154,7 @@ class TicketCoverageService
             'filters' => $filters,
             'branches' => $branches,
             'serviceAreas' => $serviceAreas,
+            'serviceAreaNames' => $serviceAreaNames,
             'regions' => $regions,
             'stats' => $stats,
             'chartRows' => $chartRows,

@@ -83,7 +83,7 @@
             @endif
 
             @can('view-incident-monitoring')
-            <a href="{{ route('incident-monitoring.tickets') }}"
+            <a href="{{ route('incident-monitoring.exclusions') }}"
                @if(request()->routeIs('incident-monitoring.*')) aria-current="page" @endif
                class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200 font-semibold' : $navLinkInactive }}">
                 @if (request()->routeIs('incident-monitoring.*'))

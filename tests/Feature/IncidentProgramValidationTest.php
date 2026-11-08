@@ -137,29 +137,34 @@ class IncidentProgramValidationTest extends TestCase
         }
     }
 
-    public function test_preman_is_accepted_for_recovery_and_preventive_after_lookup_and_on_save(): void
+    public function test_preman_is_accepted_for_recovery_preventive_and_tiang_after_lookup_and_on_save(): void
     {
-        $this->fakeIncidentTickets(['INC-PREMAN-REC' => 'PREMAN', 'INC-PREMAN-PREV' => '  pReMaN  ']);
-        foreach (['recovery' => 'INC-PREMAN-REC', 'preventive' => 'INC-PREMAN-PREV'] as $program => $incident) {
+        $this->fakeIncidentTickets([
+            'INC-PREMAN-REC' => 'PREMAN', 'INC-PREMAN-PREV' => '  pReMaN  ', 'INC-PREMAN-TIANG' => ' PREMAN ',
+        ]);
+        foreach (['recovery' => 'INC-PREMAN-REC', 'preventive' => 'INC-PREMAN-PREV', 'relok_tiang' => 'INC-PREMAN-TIANG'] as $program => $incident) {
             $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => $incident, 'program_type' => $program]))
                 ->assertOk()->assertJsonPath('found', true)->assertJsonPath('incident_validation.valid', true)
-                ->assertJsonPath('incident_validation.required_type', $program === 'preventive' ? 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN' : 'GAMAS, UNKNOWN, TSEL, atau PREMAN');
+                ->assertJsonPath('incident_validation.required_type', match ($program) {
+                    'preventive' => 'GAMAS, UNKNOWN, INFRACARE, atau PREMAN',
+                    'relok_tiang' => 'NON NUMBERING, INFRACARE, atau PREMAN',
+                    default => 'GAMAS, UNKNOWN, TSEL, atau PREMAN',
+                });
             $this->post(route('lop.store'), $this->payload($incident, $program))->assertSessionHasNoErrors();
             $this->assertDatabaseHas('qe_lops', ['incident' => $incident, 'program_type' => $program]);
         }
-        $this->post(route('lop.store'), $this->payload('INC-PREMAN-REC', 'relok_tiang'))->assertSessionHasErrors('incident');
     }
 
-    public function test_bulk_import_accepts_preman_only_for_recovery_and_preventive(): void
+    public function test_bulk_import_accepts_preman_for_recovery_preventive_and_tiang(): void
     {
         $this->fakeIncidentTickets(['INC-PREMAN-REC' => 'PREMAN', 'INC-PREMAN-PREV' => 'PREMAN', 'INC-PREMAN-TIANG' => 'PREMAN']);
         $batch = $this->import([['INC-PREMAN-REC', 'recovery'], ['INC-PREMAN-PREV', 'preventive'], ['INC-PREMAN-TIANG', 'relok_tiang']]);
-        $this->assertSame('partial', $batch->status);
-        $this->assertSame(2, $batch->success_rows);
-        $this->assertSame(1, $batch->failed_rows);
+        $this->assertSame('completed', $batch->status);
+        $this->assertSame(3, $batch->success_rows);
+        $this->assertSame(0, $batch->failed_rows);
         $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-PREMAN-REC', 'program_type' => 'recovery']);
         $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-PREMAN-PREV', 'program_type' => 'preventive']);
-        $this->assertDatabaseMissing('qe_lops', ['incident' => 'INC-PREMAN-TIANG']);
+        $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-PREMAN-TIANG', 'program_type' => 'relok_tiang']);
     }
 
     public function test_infracare_is_accepted_for_tiang_but_rejected_for_recovery_and_similar_labels_are_rejected_for_preventive(): void
@@ -171,7 +176,7 @@ class IncidentProgramValidationTest extends TestCase
         ]);
         $this->actingAs($this->admin)->getJson(route('lop.ticket-lookup', ['incident' => 'INC-INFRA', 'program_type' => 'relok_tiang']))
             ->assertOk()->assertJsonPath('incident_validation.valid', true)
-            ->assertJsonPath('incident_validation.required_type', 'NON NUMBERING atau INFRACARE');
+            ->assertJsonPath('incident_validation.required_type', 'NON NUMBERING, INFRACARE, atau PREMAN');
         $this->post(route('lop.store'), $this->payload('INC-INFRA', 'relok_tiang'))->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseHas('qe_lops', ['incident' => 'INC-INFRA', 'program_type' => 'relok_tiang']);
 

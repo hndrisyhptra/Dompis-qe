@@ -41,13 +41,23 @@ class TicketExcludeMonitoringService
             $input['date_to'] = $start->endOfMonth()->toDateString();
         }
         $context = $this->coverage->monitoringContext($user, $input);
-        ['filters' => $filters, 'branches' => $branches, 'serviceAreas' => $areas,
+        ['filters' => $filters, 'branches' => $branches, 'serviceAreas' => $areas, 'serviceAreaNames' => $serviceAreaNames,
             'selectedAreas' => $selectedAreas, 'restrictWorkzones' => $restricted] = $context;
         // Drill-down changes the detail list only; the matrix keeps its global filters.
+        $legacyUsage = $input['usage'] ?? null;
+        $legacyState = [
+            'all' => 'all',
+            'without_lop' => 'not_excluded',
+            'with_lop' => 'included',
+            'excluded' => 'excluded',
+        ][$legacyUsage] ?? null;
         $filters = [...$filters, 'period' => $period, 'month' => $month,
             'matrix_region' => $input['matrix_region'] ?? '', 'detail_kind' => $input['detail_kind'] ?? '',
-            'exclude_state' => $input['exclude_state'] ?? 'all', 'reason' => $input['reason'] ?? ''];
+            'exclude_state' => $input['exclude_state'] ?? $legacyState ?? 'all', 'reason' => $input['reason'] ?? ''];
         unset($filters['usage']);
+        if ($legacyUsage !== null) {
+            $filters['usage'] = $legacyUsage;
+        }
         if ($filters['reason'] !== '') {
             $filters['exclude_state'] = 'excluded';
         }
@@ -84,7 +94,8 @@ class TicketExcludeMonitoringService
         $branchesById = $branches->keyBy('id_branch');
         if ($groupByBranch) {
             foreach ($context['selectedBranches'] as $branch) {
-                if ($filters['service_area'] !== '' && ! $selectedAreas->contains('branch_id', $branch->getKey())) {
+                if (($filters['service_area'] !== '' || $filters['service_area_name'] !== '')
+                    && ! $selectedAreas->contains('branch_id', $branch->getKey())) {
                     continue;
                 }
                 [$regionKey, $regionLabel] = $this->region($branch);
@@ -131,6 +142,8 @@ class TicketExcludeMonitoringService
         }
         $knownWorkzones = array_keys($rowByWorkzone);
         $total = $this->emptyRow('', 'TOTAL', $reasons);
+        $stats = ['total' => 0, 'without_lop' => 0, 'with_lop' => 0, 'excluded' => 0];
+        $chartRows = collect();
         $rawTickets = collect();
         $detailTotal = 0;
         $sourceUnavailable = false;
@@ -172,6 +185,21 @@ class TicketExcludeMonitoringService
                     }
                 }
 
+                $stats = [
+                    'total' => (int) $total['count'],
+                    'without_lop' => (int) collect(self::KINDS)->keys()->sum(fn (string $kind) => $total['cells'][$kind.':not_excluded']),
+                    'with_lop' => (int) collect(self::KINDS)->keys()->sum(fn (string $kind) => $total['cells'][$kind.':included']),
+                    'excluded' => (int) collect(self::KINDS)->keys()->sum(fn (string $kind) => $total['cells'][$kind.':excluded']),
+                ];
+                $chartRows = collect(['gamas' => 'GAMAS', 'infracare' => 'INFRACARE', 'preman' => 'PREMAN'])
+                    ->map(function (string $label, string $kind) use ($total): array {
+                        return ['kind' => $kind, 'label' => $label, 'count' => (int) $total['cells'][$kind.':total']];
+                    })
+                    ->filter(fn (array $row) => $row['count'] > 0)
+                    ->sortByDesc('count')->values();
+                $maxCount = max(1, (int) $chartRows->max('count'));
+                $chartRows = $chartRows->map(fn (array $row) => [...$row, 'width' => $row['count'] / $maxCount * 100]);
+
                 $query = clone $base;
                 if ($filters['matrix_region'] !== '') {
                     $zones = array_keys(array_filter($rowByWorkzone, fn ($key, $zone) => $key === $filters['matrix_region']
@@ -208,6 +236,8 @@ class TicketExcludeMonitoringService
             } catch (Throwable $exception) {
                 report($exception);
                 $sourceUnavailable = true;
+                $stats = null;
+                $chartRows = collect();
                 $rawTickets = collect();
                 $detailTotal = 0;
             }
@@ -252,15 +282,17 @@ class TicketExcludeMonitoringService
             $filters['matrix_region'] !== ''
                 ? ($matrixRows[$filters['matrix_region']]['label'] ?? collect($matrixGroups)->firstWhere('key', $filters['matrix_region'])['name'] ?? ($groupBySto ? 'STO pilihan' : 'Wilayah pilihan'))
                 : ($groupBySto ? 'Semua STO' : ($groupByBranch ? 'Semua regional / branch' : 'Semua regional')),
+            $filters['service_area_name'] !== '' ? $filters['service_area_name'] : null,
             self::KINDS[$filters['detail_kind']] ?? null,
             ['all' => 'Semua tiket', 'included' => 'Sudah include', 'excluded' => 'Sudah exclude', 'not_excluded' => 'Belum exclude'][$filters['exclude_state']],
             $reasons[$filters['reason']] ?? null,
         ]));
 
         return [
-            'filters' => $filters, 'branches' => $branches, 'serviceAreas' => $areas, 'regions' => $context['regions'],
+            'filters' => $filters, 'branches' => $branches, 'serviceAreas' => $areas,
+            'serviceAreaNames' => $serviceAreaNames, 'regions' => $context['regions'],
             'matrixRows' => $matrixRows, 'matrixGroups' => $matrixGroups, 'totals' => $total,
-            'tickets' => $tickets, 'reasons' => $reasons,
+            'tickets' => $tickets, 'stats' => $stats, 'chartRows' => $chartRows, 'reasons' => $reasons,
             'kinds' => self::KINDS, 'sourceUnavailable' => $sourceUnavailable, 'checkedAt' => $checkedAt,
             'detailLabel' => $detailLabel, 'groupBySto' => $groupBySto, 'groupByBranch' => $groupByBranch,
             'scopeLabel' => $user->hasRole(UserRole::SUPER_ADMIN) ? 'Seluruh wilayah' : $this->visibility->label($user),
