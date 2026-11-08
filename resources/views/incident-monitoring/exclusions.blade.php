@@ -31,6 +31,16 @@
         $filters['q'] !== '' ? 'Pencarian: '.$filters['q'] : null,
     ], fn ($value) => $value !== null && $value !== ''));
 @endphp
+
+<style>
+    .incident-ticket-table { border-collapse: separate; border-spacing: 0; }
+    .incident-ticket-table th:not(:last-child),
+    .incident-ticket-table td:not(:last-child) { border-right: 1px solid rgb(226 232 240); }
+    .incident-ticket-table tbody tr:not(:last-child) > td { border-bottom: 1px solid rgb(226 232 240); }
+    .dark .incident-ticket-table th:not(:last-child),
+    .dark .incident-ticket-table td:not(:last-child) { border-right-color: rgb(55 65 81); }
+    .dark .incident-ticket-table tbody tr:not(:last-child) > td { border-bottom-color: rgb(55 65 81); }
+</style>
 <div class="mx-auto max-w-7xl space-y-5" x-data="{ period: @js($filters['period']), dateFrom: @js($filters['date_from']), filtersOpen: false, loading: false }" :aria-busy="loading" @pageshow.window="loading = false">
     <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -240,23 +250,33 @@
                 @endforeach
             </div>
             <div role="region" aria-label="Daftar detail tiket, dapat digeser horizontal" tabindex="0" class="hidden overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500 lg:block">
-                <table class="w-full min-w-260 text-left text-sm">
-                    <thead class="bg-ink-50 text-xs text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
-                        @foreach (['Incident', 'Tanggal Laporan', 'Jenis Tiket', 'STO / Branch', 'LOP terkait', 'Status LOP', 'ID IHLD', 'Status exclude', 'Alasan', 'Aksi'] as $label)<th scope="col" class="px-4 py-3 font-semibold">{{ $label }}</th>@endforeach
+                <table class="incident-ticket-table w-full min-w-[1744px] table-fixed text-left text-xs">
+                    <colgroup><col style="width: 8rem"><col style="width: 7rem"><col style="width: 10rem"><col style="width: 8rem"><col style="width: 18rem"><col style="width: 10rem"><col style="width: 12rem"><col style="width: 12rem"><col style="width: 10rem"><col style="width: 14rem"></colgroup>
+                    <thead class="bg-ink-50 text-[11px] font-bold uppercase tracking-wide text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
+                        <th scope="col" class="px-3 py-3 text-center">Incident</th>
+                        <th scope="col" class="px-3 py-3 text-center">Tanggal Laporan</th>
+                        <th scope="col" class="px-3 py-3 text-center">Jenis Tiket</th>
+                        <th scope="col" class="px-3 py-3 text-center">STO / Branch</th>
+                        <th scope="col" class="px-3 py-3 text-center">LOP terkait</th>
+                        <th scope="col" class="px-3 py-3 text-center">Status LOP</th>
+                        <th scope="col" class="px-3 py-3 text-center">ID IHLD</th>
+                        <th scope="col" class="px-3 py-3 text-center">Status exclude</th>
+                        <th scope="col" class="px-3 py-3 text-center">Alasan</th>
+                        <th scope="col" class="px-3 py-3 text-center">Aksi</th>
                     </tr></thead>
                     <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
                         @foreach ($tickets as $ticket)
-                            <tr data-incident="{{ $ticket['incident'] }}">
-                                <td class="px-4 py-3 font-medium">{{ $ticket['incident'] }}</td>
-                                <td class="whitespace-nowrap px-4 py-3">{{ $ticket['reported_date'] ?? '—' }}</td>
-                                <td class="px-4 py-3">{{ $ticket['ticket_type'] }}</td>
-                                <td class="px-4 py-3">{{ $ticket['workzone'] }}<span class="mt-1 block text-xs text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span></td>
-                                <td class="px-4 py-3">@if ($ticket['lop'])<a href="{{ route('lop.detail', $ticket['lop'], false) }}" class="font-medium text-brand-600 hover:underline dark:text-brand-300">{{ $ticket['lop']->nama_lop }}</a>@elseif($ticket['is_included'])<span class="text-xs text-ink-500 dark:text-ink-400">LOP terarsip atau detail di luar scope</span>@else—@endif</td>
-                                <td class="whitespace-nowrap px-4 py-3">{{ $ticket['lop']?->status_lop?->label() ?? '—' }}</td>
-                                <td class="px-4 py-3">@if($ticket['lop'] && filled($ticket['lop']->ihld_id))<x-copyable-value :value="$ticket['lop']->ihld_id" label="ID IHLD" />@else<span class="text-ink-500 dark:text-ink-400">{{ $ticket['lop'] ? 'Belum diisi' : '—' }}</span>@endif</td>
-                                <td class="whitespace-nowrap px-4 py-3"><span class="rounded-md px-2 py-1 text-xs font-medium {{ $ticket['is_included'] ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : ($ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200') }}">{{ $ticket['is_included'] ? 'Sudah include' : ($ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude') }}</span></td>
-                                <td class="px-4 py-3">{{ $ticket['is_excluded'] ? $ticket['reason_label'] : '—' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3">@if ($ticket['is_excluded'])<x-unexclude-ticket-button :incident="$ticket['incident']" :compact="true" />@elseif (! $ticket['is_included'])<x-exclude-ticket-form :incident="$ticket['incident']" />@else—@endif</td>
+                            <tr class="align-middle transition-colors hover:bg-brand-50/40 dark:hover:bg-ink-800/50" data-incident="{{ $ticket['incident'] }}">
+                                <td class="whitespace-nowrap px-3 py-3 font-mono font-semibold text-ink-900 dark:text-white">{{ $ticket['incident'] }}</td>
+                                <td class="whitespace-nowrap px-3 py-3">{{ $ticket['reported_date'] ?? '—' }}</td>
+                                <td class="break-words px-3 py-3 font-medium">{{ $ticket['ticket_type'] }}</td>
+                                <td class="px-3 py-3"><span class="inline-flex rounded-sm bg-ink-100 px-1.5 py-0.5 font-mono font-semibold text-ink-700 dark:bg-ink-800 dark:text-ink-200">{{ $ticket['workzone'] }}</span><span class="mt-1 block text-[11px] leading-4 text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span></td>
+                                <td class="min-w-0 px-3 py-3">@if ($ticket['lop'])<a href="{{ route('lop.detail', $ticket['lop'], false) }}" title="{{ $ticket['lop']->nama_lop }}" class="block max-w-full truncate font-medium leading-5 text-brand-600 hover:underline dark:text-brand-300">{{ $ticket['lop']->nama_lop }}</a>@elseif($ticket['is_included'])<span class="block truncate text-[11px] leading-4 text-ink-500 dark:text-ink-400" title="LOP terarsip atau detail di luar scope">LOP terarsip atau detail di luar scope</span>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
+                                <td class="whitespace-nowrap px-3 py-3 text-center">@if($ticket['lop'])<x-badge :variant="$ticket['lop']->status_lop->badgeVariant()">{{ $ticket['lop']->status_lop->label() }}</x-badge>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
+                                <td class="whitespace-nowrap px-3 py-3"><div class="flex justify-center">@if($ticket['lop'] && filled($ticket['lop']->ihld_id))<x-copyable-value :value="$ticket['lop']->ihld_id" label="ID IHLD" :nowrap="true" class="font-mono" />@else<span class="text-ink-400 dark:text-ink-500">{{ $ticket['lop'] ? 'Belum diisi' : '—' }}</span>@endif</div></td>
+                                <td class="px-3 py-3 text-center"><span class="inline-flex min-w-28 justify-center whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold {{ $ticket['is_included'] ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : ($ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200') }}">{{ $ticket['is_included'] ? 'Sudah include' : ($ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude') }}</span></td>
+                                <td class="px-3 py-3 text-center">@if($ticket['is_excluded'])<span class="inline-flex min-w-24 justify-center whitespace-nowrap rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ $ticket['reason_label'] }}</span>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
+                                <td class="whitespace-nowrap px-3 py-3"><div class="flex justify-center">@if ($ticket['is_excluded'])<x-unexclude-ticket-button :incident="$ticket['incident']" :compact="true" />@elseif (! $ticket['is_included'])<x-exclude-ticket-form :incident="$ticket['incident']" :compact="true" />@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</div></td>
                             </tr>
                         @endforeach
                     </tbody>
