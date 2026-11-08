@@ -17,7 +17,21 @@
     $branchChartWidth = max(720, ($branchRows->count() * 112) + 40);
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-6">
+<style>
+    .revenue-page [class*="rounded-"] { border-radius: .625rem !important; }
+    .revenue-matrix { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+    .revenue-matrix th:first-child, .revenue-matrix td:first-child { width: 28%; }
+    .revenue-matrix th:nth-child(2), .revenue-matrix td:nth-child(2) { width: 12%; }
+    .revenue-matrix th:nth-child(n+3):nth-child(-n+6) { width: 15%; text-align: center; }
+    .revenue-matrix th:not(:last-child),
+    .revenue-matrix td:not(:last-child) { border-right: 1px solid rgb(226 232 240); }
+    .revenue-matrix tbody tr:not(:last-child) > td { border-bottom: 1px solid rgb(226 232 240); }
+    .dark .revenue-matrix th:not(:last-child),
+    .dark .revenue-matrix td:not(:last-child) { border-right-color: rgb(55 65 81); }
+    .dark .revenue-matrix tbody tr:not(:last-child) > td { border-bottom-color: rgb(55 65 81); }
+</style>
+
+<div class="revenue-page mx-auto max-w-7xl space-y-6">
     <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
             <div class="flex flex-wrap items-center gap-2">
@@ -74,14 +88,14 @@
         </div>
         <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
+                <table class="revenue-matrix text-xs">
                     <thead class="bg-ink-100 text-[11px] font-black uppercase tracking-wider text-ink-900 dark:bg-ink-700 dark:text-white">
                         <tr>
-                            <th class="px-5 py-4">Program</th>
+                            <th class="px-5 py-4 text-center">Program</th>
                             <th class="px-3 py-4 text-center">LOP</th>
-                            <th class="px-3 py-4 text-right">Nilai Plan</th>
-                            <th class="px-3 py-4 text-right">Realisasi</th>
-                            <th class="px-3 py-4 text-right">GAP</th>
+                            <th class="px-3 py-4 text-center">Nilai Plan</th>
+                            <th class="px-3 py-4 text-center">Realisasi</th>
+                            <th class="px-3 py-4 text-center">GAP</th>
                             <th class="px-5 py-4 text-center">Rasio</th>
                         </tr>
                     </thead>
@@ -138,10 +152,10 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Per Branch</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Seluruh branch pada scope ditampilkan. Buka branch untuk melihat breakdown setiap program.</p></div>
+        <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">Matrix Per Branch</h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Seluruh branch pada scope ditampilkan. Buka branch untuk melihat ringkasan per nama Service Area, lalu buka Service Area dan STO untuk melihat revenue setiap program.</p></div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-180 text-left text-xs">
-                <thead class="bg-ink-50 text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:bg-ink-800"><tr><th class="px-5 py-3">Branch</th><th class="px-4 py-3 text-center">Total LOP</th><th class="px-4 py-3 text-right">Plan</th><th class="px-4 py-3 text-right">Realisasi</th><th class="px-4 py-3 text-right">GAP</th><th class="px-5 py-3 text-center">Rasio</th></tr></thead>
+            <table class="revenue-matrix w-full min-w-180 text-left text-xs">
+                <thead class="bg-ink-50 text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:bg-ink-800"><tr><th class="px-5 py-3">Branch</th><th class="px-4 py-3 text-center">Total LOP</th><th class="px-4 py-3">Plan</th><th class="px-4 py-3">Realisasi</th><th class="px-4 py-3">GAP</th><th class="px-5 py-3">Rasio</th></tr></thead>
                 @forelse ($branchRows as $row)
                     <tbody x-data="{ open: false }" class="border-b border-ink-100 last:border-b-0 dark:border-ink-800">
                         <tr @click="open = !open" class="cursor-pointer transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
@@ -151,8 +165,44 @@
                         <tr x-show="open" x-cloak x-transition.opacity>
                             <td colspan="6" class="bg-ink-50/70 px-5 py-4 dark:bg-ink-950/40">
                                 <div class="overflow-hidden rounded-xl border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
-                                    <div class="border-b border-ink-100 px-4 py-3 text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-800">Breakdown Program · {{ $row['branch'] }}</div>
-                                    <div class="overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-ink-50 text-[9px] font-bold uppercase tracking-wider text-ink-400 dark:bg-ink-800/70"><tr><th class="px-4 py-2.5 text-left">Program</th><th class="px-4 py-2.5 text-center">Total LOP</th><th class="px-4 py-2.5 text-right">Plan</th><th class="px-4 py-2.5 text-right">Realisasi</th><th class="px-4 py-2.5 text-right">GAP</th><th class="px-4 py-2.5 text-center">Rasio</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@foreach ($row['programs'] as $program)<tr><td class="px-4 py-3 font-extrabold text-ink-800 dark:text-ink-100">{{ $program['label'] }}</td><td class="px-4 py-3 text-center">{{ number_format($program['total_lops']) }}</td><td class="px-4 py-3 text-right tabular-nums">{{ $program['has_plan'] ? $money($program['plan_value']) : '—' }}</td><td class="px-4 py-3 text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $money($program['actual_value']) }}</td><td class="px-4 py-3 text-right tabular-nums">{{ $program['has_plan'] ? $money($program['gap_value']) : '—' }}</td><td class="px-4 py-3 text-center font-bold">{{ $program['has_plan'] && $program['realization_percentage'] !== null ? $program['realization_percentage'].'%' : '—' }}</td></tr>@endforeach</tbody></table></div>
+                                    <div class="border-b border-ink-100 px-4 py-3 text-[10px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-800">Rincian Service Area / STO · {{ $row['branch'] }}</div>
+                                    <div class="overflow-x-auto">
+                                        <table class="revenue-matrix w-full min-w-160 text-xs">
+                                            <thead class="bg-ink-50 text-[9px] font-bold uppercase tracking-wider text-ink-400 dark:bg-ink-800/70"><tr><th class="px-4 py-2.5 text-left">Service Area / STO</th><th class="px-4 py-2.5 text-center">Total LOP</th><th class="px-4 py-2.5">Plan</th><th class="px-4 py-2.5">Realisasi</th><th class="px-4 py-2.5">GAP</th><th class="px-4 py-2.5">Rasio</th></tr></thead>
+                                            @forelse ($row['service_areas'] as $serviceAreaGroup)
+                                                <tbody x-data="{ openGroup: false }" class="border-b border-ink-100 last:border-b-0 dark:border-ink-800">
+                                                    <tr @click="openGroup = !openGroup" class="cursor-pointer transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                                                        <td class="px-4 py-3"><button type="button" @click.stop="openGroup = !openGroup" :aria-expanded="openGroup" class="flex items-center gap-2 text-left font-extrabold text-ink-800 dark:text-ink-100"><svg class="h-3.5 w-3.5 shrink-0 text-ink-400 transition-transform" :class="openGroup && 'rotate-90'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg><span>{{ $serviceAreaGroup['name'] }}</span><span class="text-[9px] font-semibold text-ink-400">{{ $serviceAreaGroup['service_areas']->count() }} STO</span></button></td>
+                                                        <td class="px-4 py-3 text-center font-bold">{{ number_format($serviceAreaGroup['total_lops']) }}</td>
+                                                        <td class="px-4 py-3 text-right tabular-nums">{{ $money($serviceAreaGroup['plan_value']) }}</td>
+                                                        <td class="px-4 py-3 text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $money($serviceAreaGroup['actual_value']) }}</td>
+                                                        <td class="px-4 py-3 text-right tabular-nums">{{ $money($serviceAreaGroup['gap_value']) }}</td>
+                                                        <td class="px-4 py-3 text-center font-bold">{{ $serviceAreaGroup['realization_percentage'] === null ? '—' : $serviceAreaGroup['realization_percentage'].'%' }}</td>
+                                                    </tr>
+                                                    <tr x-show="openGroup" x-cloak x-transition.opacity>
+                                                        <td colspan="6" class="bg-ink-50/70 px-4 py-3 dark:bg-ink-950/40">
+                                                            <div class="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
+                                                                <div class="border-b border-ink-100 px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-800">Daftar STO · {{ $serviceAreaGroup['name'] }}</div>
+                                                                <div class="overflow-x-auto"><table class="revenue-matrix w-full min-w-160 text-xs"><thead class="bg-ink-50 text-[9px] font-bold uppercase tracking-wider text-ink-400 dark:bg-ink-800/70"><tr><th class="px-3 py-2.5 text-left">STO</th><th class="px-3 py-2.5 text-center">Total LOP</th><th class="px-3 py-2.5">Plan</th><th class="px-3 py-2.5">Realisasi</th><th class="px-3 py-2.5">GAP</th><th class="px-3 py-2.5">Rasio</th></tr></thead>
+                                                                    @foreach ($serviceAreaGroup['service_areas'] as $serviceAreaRow)
+                                                                        <tbody x-data="{ openSto: false }" class="border-b border-ink-100 last:border-b-0 dark:border-ink-800">
+                                                                            <tr @click="openSto = !openSto" class="cursor-pointer transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                                                                                <td class="px-3 py-3"><button type="button" @click.stop="openSto = !openSto" :aria-expanded="openSto" class="flex items-center gap-2 text-left font-bold text-ink-800 dark:text-ink-100"><svg class="h-3 w-3 shrink-0 text-ink-400 transition-transform" :class="openSto && 'rotate-90'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>{{ $serviceAreaRow['workzone'] }}</button></td>
+                                                                                <td class="px-3 py-3 text-center">{{ number_format($serviceAreaRow['total_lops']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ $money($serviceAreaRow['plan_value']) }}</td><td class="px-3 py-3 text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $money($serviceAreaRow['actual_value']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ $money($serviceAreaRow['gap_value']) }}</td><td class="px-3 py-3 text-center font-bold">{{ $serviceAreaRow['realization_percentage'] === null ? '—' : $serviceAreaRow['realization_percentage'].'%' }}</td>
+                                                                            </tr>
+                                                                            <tr x-show="openSto" x-cloak x-transition.opacity><td colspan="6" class="bg-ink-50/70 px-3 py-3 dark:bg-ink-950/40"><div class="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900"><div class="border-b border-ink-100 px-3 py-2.5 text-[9px] font-extrabold uppercase tracking-wider text-ink-500 dark:border-ink-800">Breakdown Program · {{ $serviceAreaRow['label'] }}</div><div class="overflow-x-auto"><table class="revenue-matrix min-w-full text-xs"><thead class="bg-ink-50 text-[9px] font-bold uppercase tracking-wider text-ink-400 dark:bg-ink-800/70"><tr><th class="px-3 py-2.5 text-left">Program</th><th class="px-3 py-2.5 text-center">Total LOP</th><th class="px-3 py-2.5">Plan</th><th class="px-3 py-2.5">Realisasi</th><th class="px-3 py-2.5">GAP</th><th class="px-3 py-2.5">Rasio</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800">@foreach ($serviceAreaRow['programs'] as $program)<tr><td class="px-3 py-3 font-extrabold text-ink-800 dark:text-ink-100">{{ $program['label'] }}</td><td class="px-3 py-3 text-center">{{ number_format($program['total_lops']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ $program['has_plan'] ? $money($program['plan_value']) : '—' }}</td><td class="px-3 py-3 text-right font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $money($program['actual_value']) }}</td><td class="px-3 py-3 text-right tabular-nums">{{ $program['has_plan'] ? $money($program['gap_value']) : '—' }}</td><td class="px-3 py-3 text-center font-bold">{{ $program['has_plan'] && $program['realization_percentage'] !== null ? $program['realization_percentage'].'%' : '—' }}</td></tr>@endforeach</tbody></table></div></div></td></tr>
+                                                                        </tbody>
+                                                                    @endforeach
+                                                                </table></div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            @empty
+                                                <tbody><tr><td colspan="6" class="px-4 py-6 text-center text-ink-400">Belum ada Service Area pada branch ini.</td></tr></tbody>
+                                            @endforelse
+                                        </table>
+                                    </div>
                                 </div>
                             </td>
                         </tr>

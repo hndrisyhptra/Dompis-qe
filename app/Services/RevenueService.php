@@ -56,10 +56,10 @@ class RevenueService
                 : null,
         ];
 
-        $branchRows = $this->branchRows(
-            $revenueRows,
-            $this->matrixBranches($branches, $serviceAreas, $filterState),
-        );
+        $matrixBranches = $this->matrixBranches($branches, $serviceAreas, $filterState);
+        $matrixServiceAreas = $serviceAreas->whereIn('branch_id', $matrixBranches->modelKeys())
+            ->when($filterState['service_area'] !== null, fn (Collection $areas) => $areas->where('id_service_area', $filterState['service_area']));
+        $branchRows = $this->branchRows($revenueRows, $matrixBranches, $matrixServiceAreas);
         $maxBranchValue = max(1, (float) $branchRows
             ->max(fn (array $row) => max($row['plan_value'], $row['actual_value'])));
         $branchRows = $branchRows->map(function (array $row) use ($maxBranchValue): array {
@@ -207,20 +207,71 @@ class RevenueService
         return $matrixBranches->values();
     }
 
-    private function branchRows(Collection $rows, Collection $branches): Collection
+    private function branchRows(Collection $rows, Collection $branches, Collection $serviceAreas): Collection
     {
-        return $branches->map(function (Branch $branch) use ($rows): array {
+        return $branches->map(function (Branch $branch) use ($rows, $serviceAreas): array {
             $branchRows = $rows->filter(fn ($row): bool => (int) $row->branch_id === (int) $branch->id_branch
                 || ($row->branch_id === null && mb_strtolower(trim((string) $row->branch)) === mb_strtolower($branch->name)));
-            $rowsByProgram = $branchRows->keyBy(fn ($row): string => $row->program_type instanceof ProgramType
-                ? $row->program_type->value
-                : (string) $row->program_type);
-            $programs = collect(ProgramType::cases())
-                ->map(fn (ProgramType $program): array => $this->programRevenueRow($program, $rowsByProgram->get($program->value)))
-                ->values();
+            $programs = $this->programRowsFromRows($branchRows);
             $plan = (float) $programs->sum('plan_value');
             $actual = (float) $programs->sum('actual_value');
             $plannedActual = (float) $programs->sum('planned_actual_value');
+            $branchAreas = $serviceAreas->where('branch_id', $branch->id_branch)->values();
+            $serviceAreaRows = $branchAreas->map(function (ServiceArea $serviceArea) use ($branchRows): array {
+                $areaRows = $branchRows->filter(function ($row) use ($serviceArea): bool {
+                    if ((int) ($row->service_area_id ?? 0) === (int) $serviceArea->id_service_area) {
+                        return true;
+                    }
+
+                    return $row->service_area_id === null
+                        && mb_strtoupper(trim((string) $row->sto)) === mb_strtoupper(trim($serviceArea->workzone));
+                });
+
+                return $this->serviceAreaRevenueRow($serviceArea->id_service_area, $serviceArea->workzone, $serviceArea->name, $areaRows);
+            });
+            $mappedAreaIds = $branchAreas->pluck('id_service_area')->map(fn ($id) => (int) $id)->all();
+            $mappedWorkzones = $branchAreas->pluck('workzone')->map(fn ($workzone) => mb_strtoupper(trim((string) $workzone)))->all();
+            $unmappedRows = $branchRows->filter(fn ($row): bool => ! in_array((int) ($row->service_area_id ?? 0), $mappedAreaIds, true)
+                && ! ($row->service_area_id === null && in_array(mb_strtoupper(trim((string) $row->sto)), $mappedWorkzones, true)));
+            if ($unmappedRows->isNotEmpty()) {
+                $serviceAreaRows->push($this->serviceAreaRevenueRow(null, 'STO belum terpetakan', 'Service Area belum terpetakan', $unmappedRows));
+            }
+            $serviceAreaGroups = $serviceAreaRows
+                ->groupBy(fn (array $row): string => $row['service_area_id'] === null
+                    ? '__unmapped'
+                    : (mb_strtolower(trim($row['name'])) ?: '__unnamed'))
+                ->map(function (Collection $areas): array {
+                    $programs = collect(ProgramType::cases())->map(function (ProgramType $program) use ($areas): array {
+                        $programRows = $areas->flatMap(fn (array $area) => $area['programs'])
+                            ->where('program', $program->value);
+                        $plan = (float) $programRows->sum('plan_value');
+                        $actual = (float) $programRows->sum('actual_value');
+
+                        return [
+                            'program' => $program->value,
+                            'label' => $program->label(),
+                            'total_lops' => (int) $programRows->sum('total_lops'),
+                            'plan_value' => $plan,
+                            'actual_value' => $actual,
+                            'gap_value' => max(0, $plan - $actual),
+                            'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
+                            'has_plan' => $program !== ProgramType::RECOVERY,
+                        ];
+                    })->values();
+                    $plan = (float) $areas->sum('plan_value');
+                    $actual = (float) $areas->sum('actual_value');
+
+                    return [
+                        'name' => $areas->first()['name'] ?: 'Service Area tanpa nama',
+                        'total_lops' => (int) $areas->sum('total_lops'),
+                        'plan_value' => $plan,
+                        'actual_value' => $actual,
+                        'gap_value' => max(0, $plan - $actual),
+                        'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
+                        'programs' => $programs,
+                        'service_areas' => $areas->values(),
+                    ];
+                })->values();
 
             return [
                 'branch_id' => $branch->id_branch,
@@ -233,8 +284,29 @@ class RevenueService
                 'gap_value' => max(0, $plan - $actual),
                 'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
                 'programs' => $programs,
+                'service_areas' => $serviceAreaGroups,
             ];
         })->values();
+    }
+
+    private function serviceAreaRevenueRow(?int $id, string $workzone, ?string $name, Collection $rows): array
+    {
+        $programs = $this->programRowsFromRows($rows);
+        $plan = (float) $programs->sum('plan_value');
+        $actual = (float) $programs->sum('actual_value');
+
+        return [
+            'service_area_id' => $id,
+            'workzone' => $workzone,
+            'name' => trim((string) $name),
+            'label' => $id === null ? $name : ($workzone.($name !== null && trim($name) !== '' ? ' · '.$name : '')),
+            'total_lops' => (int) $programs->sum('total_lops'),
+            'plan_value' => $plan,
+            'actual_value' => $actual,
+            'gap_value' => max(0, $plan - $actual),
+            'realization_percentage' => $plan > 0 ? (int) round(($actual / $plan) * 100) : null,
+            'programs' => $programs,
+        ];
     }
 
     private function programRowsFromRows(Collection $rows): Collection
@@ -261,13 +333,13 @@ class RevenueService
         $actualValue = $this->actualValueSql();
 
         return $this->withBoq($query)
-            ->select(['qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type'])
+            ->select(['qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.service_area_id', 'qe_lops.sto', 'qe_lops.program_type'])
             ->selectRaw('COUNT(qe_lops.id_qe_lops) as total_lops')
             ->selectRaw('SUM(CASE WHEN '.$this->unclassifiedBoqSql().' THEN 1 ELSE 0 END) as unclassified_boq_count')
             ->selectRaw("SUM(CASE WHEN qe_lops.program_type <> ? THEN {$boqValue} ELSE 0 END) as plan_value", [ProgramType::RECOVERY->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? THEN {$actualValue} ELSE 0 END) as actual_value", [LopStatus::COMPLETED->value])
             ->selectRaw("SUM(CASE WHEN qe_lops.status_lop = ? AND qe_lops.program_type <> ? THEN {$actualValue} ELSE 0 END) as planned_actual_value", [LopStatus::COMPLETED->value, ProgramType::RECOVERY->value])
-            ->groupBy('qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.program_type')
+            ->groupBy('qe_lops.branch_id', 'qe_lops.branch', 'qe_lops.service_area_id', 'qe_lops.sto', 'qe_lops.program_type')
             ->get();
     }
 
