@@ -62,10 +62,10 @@ class TicketExcludeMonitoringService
             $filters['exclude_state'] = 'excluded';
         }
         $reasons = collect(ExcludeReason::cases())->mapWithKeys(fn (ExcludeReason $reason) => [$reason->value => $reason->label()])->all();
-        $excluded = IncidentExclude::query()->get(['incident', 'keterangan_exclude'])
+        $excluded = DB::table('incident_excludes')->get(['incident', 'keterangan_exclude'])
             ->mapWithKeys(fn ($row) => [$this->coverage->normalize($row->incident) => $row->keterangan_exclude])->all();
         $lopOccupancy = [];
-        foreach (QeLop::withTrashed()->get(['id_qe_lops', 'incident']) as $lop) {
+        foreach (QeLop::withTrashed()->select(['id_qe_lops', 'incident'])->toBase()->cursor() as $lop) {
             $incident = $this->coverage->normalize($lop->incident);
             if ($incident !== '') {
                 $lopOccupancy[$incident] = ['id' => (int) $lop->id_qe_lops, 'usage' => 'with_lop'];
@@ -243,8 +243,8 @@ class TicketExcludeMonitoringService
             }
         }
         $rows = $this->coverage->presentRows($rawTickets, $lopOccupancy, $excluded, $areas, $branches, $user)
-            ->map(fn ($row) => [...$row, 'is_included' => in_array($row['incident'], $included, true),
-                'is_excluded' => ! in_array($row['incident'], $included, true) && array_key_exists($row['incident'], $excluded),
+            ->map(fn ($row) => [...$row, 'is_included' => isset($lopOccupancy[$row['incident']]),
+                'is_excluded' => ! isset($lopOccupancy[$row['incident']]) && array_key_exists($row['incident'], $excluded),
                 'reason_label' => $reasons[$row['exclude_reason'] ?? ''] ?? 'Alasan lainnya']);
         $tickets = new LengthAwarePaginator($rows, $detailTotal, 25, $page, [
             'path' => route('incident-monitoring.exclusions'),

@@ -264,15 +264,8 @@ class TicketCoverageService
     {
         $source = DB::connection('mysql_dompis');
         $driver = $source->getDriverName();
-        $typesQuery = $source->table('ticket');
-        TicketReportedDate::applyRange($typesQuery, $driver, $filters['date_from'], $filters['date_to']);
-        $types = $typesQuery->distinct()->pluck('jenis_tiket_2')->filter(function ($type) use ($filters): bool {
-            $kind = $this->ticketKind($type);
-
-            return $kind !== null && ($filters['kind'] === '' || $filters['kind'] === $kind);
-        })->values();
-        $query = $source->table('ticket')->whereIn('jenis_tiket_2', $types)
-            ->whereRaw("TRIM(incident) <> ''");
+        $query = $source->table('ticket')->whereRaw("TRIM(incident) <> ''");
+        $this->applyTicketKindFilter($query, $filters['kind']);
         $allowed = $areas->map(fn (ServiceArea $area) => $this->normalize($area->workzone))->flip();
         if (! empty($filters['sto_filter'])) {
             $filteredSto = collect($filters['sto_filter'])->map(fn ($workzone) => $this->normalize($workzone));
@@ -294,6 +287,23 @@ class TicketCoverageService
         $reportedDate = TicketReportedDate::applyRange($query, $driver, $filters['date_from'], $filters['date_to']);
 
         return [$query, $reportedDate];
+    }
+
+    private function applyTicketKindFilter(Builder $query, string $kind): void
+    {
+        $query->where(function (Builder $types) use ($kind): void {
+            if ($kind === '' || $kind === 'infracare') {
+                $types->orWhereRaw('UPPER(TRIM(jenis_tiket_2)) = ?', ['INFRACARE']);
+            }
+
+            if ($kind === '' || $kind === 'preman') {
+                $types->orWhereRaw('UPPER(TRIM(jenis_tiket_2)) = ?', ['PREMAN']);
+            }
+
+            if ($kind === '' || $kind === 'gamas') {
+                $types->orWhereRaw('UPPER(TRIM(jenis_tiket_2)) LIKE ?', ['%GAMAS%']);
+            }
+        });
     }
 
     private function sourceData(array $filters, Collection $areas, bool $restrictWorkzones, array $occupancy, array $excluded, int $page, bool $forExport = false): array

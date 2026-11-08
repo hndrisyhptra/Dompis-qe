@@ -368,7 +368,7 @@ class TicketExcludeMonitoringTest extends TestCase
                 return true;
             });
         $queries = $source->getQueryLog();
-        $this->assertCount(5, $queries);
+        $this->assertCount(3, $queries);
         $this->assertStringContainsString('limit 25 offset 25', end($queries)['query']);
     }
 
