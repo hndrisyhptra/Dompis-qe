@@ -167,20 +167,20 @@
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                                 </x-table-action>
                             @endif
-                            <x-table-action label="Detail LOP" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'detail', ...$modalCarry])" :data-lazy-modal-target="'program-detail-'.$lop->id_qe_lops">
+                            <x-table-action label="Detail LOP" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'detail', ...$modalCarry], false)" :data-lazy-modal-target="'program-detail-'.$lop->id_qe_lops">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
                             </x-table-action>
                             @can('assign', $lop)
-                                <x-table-action :label="$lop->activeAssignment ? 'Reassign Teknisi' : 'Assign Teknisi'" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'assign', ...$modalCarry])" :data-lazy-modal-target="'program-assign-'.$lop->id_qe_lops">
+                                <x-table-action :label="$lop->activeAssignment ? 'Reassign Teknisi' : 'Assign Teknisi'" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'assign', ...$modalCarry], false)" :data-lazy-modal-target="'program-assign-'.$lop->id_qe_lops">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-6.75-3.75A3.75 3.75 0 1 1 6.75 6.75a3.75 3.75 0 0 1 7.5 0ZM3 20.25a6.75 6.75 0 0 1 13.5 0v.75H3v-.75Z" /></svg>
                                 </x-table-action>
                             @endcan
-                            <x-table-action label="Tracking Riwayat" tone="info" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'tracking', ...$modalCarry])" :data-lazy-modal-target="'program-tracking-'.$lop->id_qe_lops">
+                            <x-table-action label="Tracking Riwayat" tone="info" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'tracking', ...$modalCarry], false)" :data-lazy-modal-target="'program-tracking-'.$lop->id_qe_lops">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                             </x-table-action>
                             @if ($lop->program_type->usesProjectStatus())
                                 @can('uploadEvidence', $lop)
-                                    <x-table-action label="Kelola Surat Permintaan" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'request-letter', ...$modalCarry])" :data-lazy-modal-target="'program-request-letter-'.$lop->id_qe_lops">
+                                    <x-table-action label="Kelola Surat Permintaan" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'request-letter', ...$modalCarry], false)" :data-lazy-modal-target="'program-request-letter-'.$lop->id_qe_lops">
                                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75h6.75m-3.375-3.375v6.75"/></svg>
                                     </x-table-action>
                                 @endcan

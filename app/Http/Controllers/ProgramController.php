@@ -218,7 +218,7 @@ class ProgramController extends Controller
         }
 
         $returnFilters = array_filter($request->only(['q', 'region', 'branch', 'bucket', 'project_status']), fn ($value) => filled($value));
-        $returnUrl = route('program.show', array_merge([$type->value], $returnFilters));
+        $returnUrl = route('program.show', array_merge([$type->value], $returnFilters), false);
         $technicians = $kind === 'assign' && $request->user()->hasRole(...UserRole::adminLevel())
             ? $this->activeTechnicians($request->user())
             : collect();

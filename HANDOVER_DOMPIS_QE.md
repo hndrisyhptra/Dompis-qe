@@ -1109,9 +1109,17 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - `ProgramBucketTest` menambah regression untuk HTML tanpa modal eager, endpoint modal, filter yang dipertahankan, authorization/scope, serta jumlah relasi BOQ batch. Suite ProgramBucket/Login/AdminDashboard/TechnicianMobile **65 tests / 531 assertions** lulus. `view:cache`, Vite build, dan diff check lulus. Vite memisahkan chunk kompresi gambar (**53.17 kB / 21.07 kB gzip**) dari bundle utama; belum ada benchmark perbandingan TTFB/LCP dari produksi.
 - Tidak ada migration atau perubahan database. React tidak ditambahkan: hasil audit menunjuk biaya render/query eager sebagai sumber bottleneck Program, sementara pemindahan halaman ke React memerlukan API/state baru dan tidak memperbaiki query itu. Alpine/Blade tetap dipakai untuk modal interaktif. Audit statis menemukan kandidat optimasi lanjutan berupa pilihan master yang dimuat tanpa batas pada beberapa form (`LopImportController`, `UserController`, `DataBoqController`, `DesignatorPriceController`); jumlah data dan dampak UX harus diukur sebelum mengubah pencarian/pilihan.
 
+### 7.80 URL same-origin untuk modal Detail/Assign Program — 9 November 2026 (belum di-commit)
+
+- Laporan produksi menunjukkan tombol Detail LOP dan Assign Teknisi gagal dengan `Failed to fetch`; URL modal yang disalin browser memakai `http://`. Penyebab pasti pada konfigurasi server belum diverifikasi, tetapi ketidakcocokan scheme HTTP/HTTPS dapat memblokir fetch same-origin.
+- URL lazy modal, action assign/unassign, dan return URL form kini menggunakan path relatif agar request tetap pada origin/protokol halaman. Redirect sesudah aksi tetap absolut dan memakai scheme HTTPS dari `APP_URL` bila host cocok dengan host request, untuk instalasi yang PHP-FPM-nya menerima request internal sebagai HTTP.
+- Tidak ada perubahan schema/database. PHP syntax dan `git diff --check` lulus; feature test belum dijalankan. Perlu deploy dan verifikasi browser produksi setelah cache view/config dibangun ulang.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
+
+- Perbaikan URL same-origin modal Detail/Assign Program (7.80) belum di-commit/deploy. Setelah deploy, pastikan atribut `data-lazy-modal-url` menjadi path relatif dan uji buka Detail, Assign, submit assignment, serta redirect kembali dengan HTTPS.
 
 - BA Bongkar terbaru mengikuti 7.64: **Warehouse sudah dihapus di kode dan MySQL lokal (batch 35)**. Produksi memerlukan commit/deployment, backup, audit ledger/akun, migration schema BA dan penghapusan role sesuai urutan ledger setelah izin database. Akun Warehouse yang masih ada harus ditangani eksplisit sebelum migration penghapusan; jangan membuat akun Warehouse baru. Jangan mengulang aktivasi/reset LOP 7.58 pada dataset yang sudah ditandai. PDF lama tetap arsip dengan layout saat dibuat; gunakan proses generate ulang yang sah bila memerlukan format terbaru.
 

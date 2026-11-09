@@ -7,13 +7,13 @@
 ])
 
 <x-modal :id="$id" title="Assign Teknisi" size="lg">
-    <form method="POST" action="{{ route('lop.assign', $lop) }}"
+    <form method="POST" action="{{ route('lop.assign', $lop, false) }}"
           x-data="{ query: '', selected: '', selectedName: '' }"
           class="space-y-5">
         @csrf
         <input type="hidden" name="technician_id" :value="selected">
         <input type="hidden" name="return_to" value="{{ $returnTo }}">
-        <input type="hidden" name="return_url" value="{{ $returnUrl ?? request()->fullUrl() }}">
+        <input type="hidden" name="return_url" value="{{ $returnUrl ?? request()->getRequestUri() }}">
 
         <div class="overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 to-ink-800 p-4 text-white dark:from-ink-800 dark:to-ink-900">
             <div class="flex items-start justify-between gap-4">
@@ -107,10 +107,10 @@
         </div>
     </form>
     @can('unassign', $lop)
-        <form id="unassign-{{ $lop->id_qe_lops }}" method="POST" action="{{ route('lop.unassign', $lop) }}" onsubmit="return confirm('Hapus assignment aktif dan kembalikan LOP ke Unassigned?')">
+        <form id="unassign-{{ $lop->id_qe_lops }}" method="POST" action="{{ route('lop.unassign', $lop, false) }}" onsubmit="return confirm('Hapus assignment aktif dan kembalikan LOP ke Unassigned?')">
             @csrf
             @method('DELETE')
-            <input type="hidden" name="return_url" value="{{ request()->fullUrl() }}">
+            <input type="hidden" name="return_url" value="{{ request()->getRequestUri() }}">
         </form>
     @endcan
 </x-modal>

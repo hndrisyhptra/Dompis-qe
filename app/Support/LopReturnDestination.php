@@ -65,9 +65,27 @@ class LopReturnDestination
 
         $query = isset($parts['query']) ? '?'.$parts['query'] : '';
         if ($request->user()?->hasRole(UserRole::SUPER_ADMIN) && in_array($route->getName(), ['lop.index', 'lop.history'], true)) {
-            return route('data-lops.index', $route->getName() === 'lop.history' ? ['status' => 'completed'] : []);
+            return self::absoluteDestination(
+                $request,
+                route('data-lops.index', $route->getName() === 'lop.history' ? ['status' => 'completed'] : [], false),
+            );
         }
 
-        return $request->getSchemeAndHttpHost().$path.$query;
+        return self::absoluteDestination($request, $path.$query);
+    }
+
+    private static function absoluteDestination(Request $request, string $path): string
+    {
+        $origin = parse_url($request->getSchemeAndHttpHost());
+        $configured = parse_url((string) config('app.url'));
+        $scheme = $origin['scheme'] ?? 'http';
+
+        if (($origin['scheme'] ?? null) !== 'https'
+            && ($configured['scheme'] ?? null) === 'https'
+            && strtolower((string) ($configured['host'] ?? '')) === strtolower((string) ($origin['host'] ?? ''))) {
+            $scheme = 'https';
+        }
+
+        return $scheme.'://'.$origin['host'].(isset($origin['port']) ? ':'.$origin['port'] : '').$path;
     }
 }
