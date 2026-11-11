@@ -162,6 +162,35 @@ class TicketLookupTest extends TestCase
             ->assertJson(['found' => true, 'segment' => 'gpon', 'warnings' => []]);
     }
 
+    public function test_lookup_resolves_segment_when_ticket_value_has_irregular_whitespace(): void
+    {
+        Branch::create(['code' => 'BEA', 'name' => 'BANGKALAN', 'region' => 'REGION JATIM']);
+        TicketSegmentMap::create(['source_value' => 'GAMAS GPON', 'segment' => 'gpon']);
+
+        // Nilai tiket: huruf kecil, spasi ganda, NBSP, dan spasi di ujung.
+        $this->seedExternalTicket('INC889', 'BEA', "  gamas\xC2\xA0\xC2\xA0gpon  ");
+        $this->seedExternalBranchChain('BEA', 'BANGKALAN');
+
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC889']))
+            ->assertOk()
+            ->assertJson(['found' => true, 'segment' => 'gpon', 'warnings' => []]);
+    }
+
+    public function test_lookup_resolves_segment_when_master_value_has_irregular_whitespace(): void
+    {
+        Branch::create(['code' => 'BEA', 'name' => 'BANGKALAN', 'region' => 'REGION JATIM']);
+        TicketSegmentMap::create(['source_value' => "gamas\xC2\xA0\xC2\xA0gpon", 'segment' => 'gpon']);
+
+        $this->seedExternalTicket('INC890', 'BEA', 'GAMAS GPON');
+        $this->seedExternalBranchChain('BEA', 'BANGKALAN');
+
+        $this->actingAs($this->admin())
+            ->getJson(route('lop.ticket-lookup', ['incident' => 'INC890']))
+            ->assertOk()
+            ->assertJson(['found' => true, 'segment' => 'gpon', 'warnings' => []]);
+    }
+
     public function test_lookup_extracts_datek_from_summary(): void
     {
         Branch::create(['code' => 'PME', 'name' => 'PAMEKASAN', 'region' => 'REGION JATIM']);

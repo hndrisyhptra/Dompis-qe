@@ -200,18 +200,44 @@ class TicketLookupService
 
     private function resolveSegment(string $jenisTiket2): ?string
     {
-        if ($jenisTiket2 === '') {
+        $normalized = $this->normalizeSourceValue($jenisTiket2);
+
+        if ($normalized === '') {
             return null;
         }
 
         $segment = TicketSegmentMap::query()
-            ->where('source_value', mb_strtoupper($jenisTiket2))
+            ->where('source_value', $normalized)
             ->value('segment');
+
+        if ($segment === null) {
+            // Fallback: data master bisa mengandung spasi ganda, non-breaking
+            // space, atau kapitalisasi lain sehingga exact match di atas gagal.
+            $segment = TicketSegmentMap::query()
+                ->get(['source_value', 'segment'])
+                ->first(fn (TicketSegmentMap $map) => $this->normalizeSourceValue((string) $map->source_value) === $normalized)
+                ?->segment;
+        }
 
         if ($segment instanceof LopSegment) {
             return $segment->value;
         }
 
         return $segment !== null && $segment !== '' ? (string) $segment : null;
+    }
+
+    /**
+     * Samakan bentuk nilai jenis tiket: buang karakter spasi tak terlihat
+     * (NBSP dan sejenisnya), rapatkan spasi berlebih, trim, lalu uppercase.
+     */
+    private function normalizeSourceValue(string $value): string
+    {
+        $normalized = preg_replace(
+            '/[\s\x{00A0}\x{2007}\x{202F}\x{200B}\x{FEFF}]+/u',
+            ' ',
+            $value,
+        );
+
+        return mb_strtoupper(trim($normalized ?? $value));
     }
 }

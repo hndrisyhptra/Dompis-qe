@@ -30,6 +30,7 @@ class TicketSegmentMapTest extends TestCase
         $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS DISTRIBUSI', 'segment' => 'distribusi']);
         $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS ODP', 'segment' => 'odp']);
         $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS GPON', 'segment' => 'gpon']);
+        $this->assertDatabaseHas('ticket_segment_maps', ['source_value' => 'GAMAS OLT', 'segment' => 'mini_olt']);
     }
 
     public function test_super_admin_can_manage_mappings(): void

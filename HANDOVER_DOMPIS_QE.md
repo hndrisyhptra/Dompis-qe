@@ -1115,6 +1115,13 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - URL lazy modal, action assign/unassign, dan return URL form kini menggunakan path relatif agar request tetap pada origin/protokol halaman. Redirect sesudah aksi tetap absolut dan memakai scheme HTTPS dari `APP_URL` bila host cocok dengan host request, untuk instalasi yang PHP-FPM-nya menerima request internal sebagai HTTP.
 - Tidak ada perubahan schema/database. PHP syntax dan `git diff --check` lulus; feature test belum dijalankan. Perlu deploy dan verifikasi browser produksi setelah cache view/config dibangun ulang.
 
+### 7.81 Normalisasi pemetaan segmen tiket — 11 November 2026
+
+- `TicketLookupService::resolveSegment()` mencocokkan `jenis_tiket_2` dengan `ticket_segment_maps.source_value` memakai nilai ternormalisasi: NBSP/zero-width/BOM diubah menjadi spasi, spasi berlebih dirapatkan, trim, lalu uppercase. Exact match tetap dicoba lebih dulu (memakai index unique); fallback membandingkan seluruh baris master yang ternormalisasi, sehingga data master dengan spasi ganda/NBSP/huruf kecil tetap terpetakan. Penyebab lapangan dicurigai karakter tak terlihat yang tidak dibuang `trim()` PHP, atau baris master yang belum ada di DB target.
+- Regression `TicketLookupTest` menambah dua test: nilai tiket berisi NBSP/spasi ganda/huruf kecil, dan nilai master berisi NBSP/spasi ganda/huruf kecil. `TicketSegmentMapTest` kini memastikan seeder memuat `GAMAS OLT => mini_olt`. `TicketLookupTest` + `TicketSegmentMapTest` **21 tests / 67 assertions** lulus, Pint dan `git diff --check` lulus.
+- DB lokal `dompis_qe` sebelumnya hanya memuat 4 baris pemetaan; `GAMAS OLT => mini_olt` yang sudah ada di seeder belum masuk. `TicketSegmentMapSeeder` dijalankan ulang di DB lokal (updateOrCreate) sehingga total menjadi **5 baris**. Ini data operasional, bukan migration: environment lain (staging/produksi) tetap perlu menjalankan seeder atau menambah baris lewat menu Pemetaan Segment Tiket.
+- Sumber Dompis saat audit memuat jenis `GAMAS ODP` (4.560), `GAMAS DISTRIBUSI` (4.283), `GAMAS GPON` (983), `GAMAS FEEDER` (940), dan `GAMAS` tanpa kategori (764). `GAMAS` polos sengaja belum dipetakan karena tidak ada segmen yang jelas; `GAMAS OLT` tidak muncul pada sumber saat ini.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
