@@ -13,6 +13,7 @@ use App\Http\Requests\UnexcludeTicketRequest;
 use App\Services\IncidentMonitoringService;
 use App\Services\TicketCoverageService;
 use App\Services\TicketExcludeMonitoringService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
@@ -45,12 +46,28 @@ class IncidentMonitoringController extends Controller
             'excluded' => 'excluded',
         ][$filters['usage']];
 
-        return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $filters));
+        return view('incident-monitoring.exclusions', $this->withRealtimeContent(
+            $exclusions->dashboard($request->user(), $filters)
+        ));
     }
 
     public function exclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
     {
-        return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $request->validated()));
+        return view('incident-monitoring.exclusions', $this->withRealtimeContent(
+            $exclusions->dashboard($request->user(), $request->validated())
+        ));
+    }
+
+    public function refreshExclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): JsonResponse
+    {
+        $data = $this->withRealtimeContent($exclusions->dashboard($request->user(), $request->validated()));
+
+        return response()->json([
+            'html' => $data['liveContentHtml'],
+            'revision' => $data['liveRevision'],
+            'updatedAt' => $data['checkedAt']?->toIso8601String(),
+            'sourceUnavailable' => $data['sourceUnavailable'],
+        ])->header('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
 
     public function exclusionDetail(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
@@ -153,5 +170,15 @@ class IncidentMonitoringController extends Controller
             report($exception);
             abort(503, 'Sumber tiket Dompis belum dapat dimuat. Coba kembali setelah koneksi tersedia.');
         }
+    }
+
+    /** @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function withRealtimeContent(array $data): array
+    {
+        $html = view('incident-monitoring._realtime-content', $data)->render();
+
+        return [...$data, 'liveContentHtml' => $html, 'liveRevision' => hash('sha256', $html)];
     }
 }

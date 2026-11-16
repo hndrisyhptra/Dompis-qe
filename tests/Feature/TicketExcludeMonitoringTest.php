@@ -618,6 +618,22 @@ class TicketExcludeMonitoringTest extends TestCase
                 && $rows['branch:'.$this->branches['DPS']->getKey()]['monitoring']['total']['manual'] === 0);
     }
 
+    public function test_monitoring_refresh_returns_updated_fragment_for_the_active_filters(): void
+    {
+        $this->ticket('INC-REALTIME', 'GAMAS ODP', 'SBY');
+
+        $response = $this->actingAs($this->super)->getJson(route('incident-monitoring.exclusions.refresh', [
+            'period' => 'month', 'month' => '2026-10', 'service_area' => $this->areas['SBY']->getKey(),
+        ]));
+
+        $response->assertOk()
+            ->assertJsonPath('sourceUnavailable', false)
+            ->assertJsonPath('updatedAt', fn ($value) => is_string($value))
+            ->assertJsonPath('revision', fn ($value) => is_string($value) && strlen($value) === 64)
+            ->assertJsonPath('html', fn ($html) => str_contains($html, 'INC-REALTIME')
+                && str_contains($html, 'Tabel Monitoring Tiket'));
+    }
+
     public function test_manual_create_lop_total_follows_period_and_location_filters(): void
     {
         $this->ticket('INC-MANUAL-TICKET', 'GAMAS ODP', 'SBY');

@@ -2143,6 +2143,96 @@ window.dashboardMatrixModal = (
     },
 });
 
+window.monitoringAutoRefresh = (endpoint, initialRevision, initialUpdatedAt) => ({
+    monitoringRefreshEndpoint: endpoint,
+    monitoringRevision: initialRevision,
+    monitoringUpdatedAt: initialUpdatedAt,
+    monitoringRefreshing: false,
+    monitoringRefreshMessage: "",
+    monitoringRefreshTimer: null,
+    monitoringVisibilityHandler: null,
+
+    init() {
+        this.setMonitoringRefreshMessage();
+        this.monitoringRefreshTimer = window.setInterval(() => {
+            if (!document.hidden) this.refreshMonitoring();
+        }, 30000);
+        this.monitoringVisibilityHandler = () => {
+            if (!document.hidden) this.refreshMonitoring();
+        };
+        document.addEventListener("visibilitychange", this.monitoringVisibilityHandler);
+    },
+
+    destroy() {
+        window.clearInterval(this.monitoringRefreshTimer);
+        document.removeEventListener("visibilitychange", this.monitoringVisibilityHandler);
+    },
+
+    setMonitoringRefreshMessage(message = "") {
+        if (message) {
+            this.monitoringRefreshMessage = message;
+            return;
+        }
+        const time = this.monitoringUpdatedAt
+            ? new Intl.DateTimeFormat("id-ID", {
+                  hour: "2-digit", minute: "2-digit", second: "2-digit",
+                  timeZone: "Asia/Jakarta",
+              }).format(new Date(this.monitoringUpdatedAt))
+            : "belum tersedia";
+        this.monitoringRefreshMessage = `Pembaruan otomatis setiap 30 detik · terakhir diperbarui ${time} WIB`;
+    },
+
+    async refreshMonitoring(manual = false) {
+        if (this.monitoringRefreshing || document.hidden) return;
+        const liveContent = this.$refs.monitoringLiveContent;
+        if (!liveContent || liveContent.querySelector("dialog[open]")) return;
+        const focused = document.activeElement;
+        if (!manual && focused && liveContent.contains(focused)
+            && focused.matches("input, select, textarea, button, a[href], [tabindex]:not([tabindex='-1'])")) return;
+
+        this.monitoringRefreshing = true;
+        try {
+            const url = new URL(this.monitoringRefreshEndpoint, window.location.origin);
+            url.search = window.location.search;
+            const response = await fetch(url, {
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) throw new Error(`Refresh gagal (${response.status}).`);
+            const data = await response.json();
+            if (data.sourceUnavailable) {
+                this.setMonitoringRefreshMessage("Sumber tiket belum tersedia; data terakhir tetap ditampilkan.");
+                return;
+            }
+            if (data.revision !== this.monitoringRevision) {
+                const groups = liveContent.querySelector('[data-monitoring-groups="ticket-groups"]');
+                const currentState = groups && window.Alpine?.$data(groups)?.openGroups;
+                const groupState = currentState ? { ...currentState } : null;
+                liveContent.innerHTML = data.html;
+                await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const refreshedGroups = liveContent.querySelector('[data-monitoring-groups="ticket-groups"]');
+                const refreshedState = refreshedGroups && window.Alpine?.$data(refreshedGroups);
+                if (groupState && refreshedState) {
+                    refreshedState.openGroups = Object.fromEntries(
+                        Object.keys(refreshedState.openGroups).map((key) => [key, groupState[key] ?? refreshedState.openGroups[key]]),
+                    );
+                }
+                this.monitoringRevision = data.revision;
+                liveContent.dataset.monitoringRevision = data.revision;
+            }
+            this.monitoringUpdatedAt = data.updatedAt;
+            this.setMonitoringRefreshMessage();
+        } catch {
+            this.setMonitoringRefreshMessage(manual
+                ? "Pembaruan gagal. Data terakhir tetap ditampilkan."
+                : "Koneksi refresh bermasalah; data terakhir tetap ditampilkan.");
+        } finally {
+            this.monitoringRefreshing = false;
+        }
+    },
+});
+
 window.ticketMonitoringModal = (endpoint) => ({
     endpoint,
     title: "Detail tiket",

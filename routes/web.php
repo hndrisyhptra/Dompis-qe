@@ -92,6 +92,9 @@ Route::get('/incident-monitoring/tickets', [IncidentMonitoringController::class,
 Route::get('/incident-monitoring/exclusions', [IncidentMonitoringController::class, 'exclusions'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.exclusions');
+Route::get('/incident-monitoring/exclusions/refresh', [IncidentMonitoringController::class, 'refreshExclusions'])
+    ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN', 'throttle:6,1'])
+    ->name('incident-monitoring.exclusions.refresh');
 Route::get('/incident-monitoring/exclusions/detail', [IncidentMonitoringController::class, 'exclusionDetail'])
     ->middleware(['auth', 'role:SUPER_ADMIN,ADMIN'])
     ->name('incident-monitoring.exclusions.detail');

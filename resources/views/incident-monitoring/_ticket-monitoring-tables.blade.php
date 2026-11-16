@@ -8,7 +8,7 @@
     $totalRow = 'bg-ink-50 font-bold dark:bg-ink-800';
 @endphp
 
-<section aria-labelledby="ticket-monitoring-title" x-data="{ ...ticketMonitoringModal(@js(route('incident-monitoring.exclusions.detail'))), openGroups: @js($groupOpenState) }" class="overflow-hidden rounded-md border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
+<section aria-labelledby="ticket-monitoring-title" data-monitoring-groups="ticket-groups" x-data="{ ...ticketMonitoringModal(@js(route('incident-monitoring.exclusions.detail'))), openGroups: @js($groupOpenState) }" class="overflow-hidden rounded-md border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
     <header class="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
         <div>
             <h2 id="ticket-monitoring-title" class="text-base font-semibold text-ink-900 dark:text-white">Tabel Monitoring Tiket</h2>
