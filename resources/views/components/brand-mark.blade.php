@@ -1,4 +1,4 @@
-@props(['variant' => 'dark'])
+@props(['variant' => 'dark', 'wordMark' => true])
 
 @php
     $isDark = $variant === 'dark';
@@ -13,12 +13,14 @@
             class="h-full w-full object-contain"
         >
     </div>
-    <div>
-        <p class="{{ $isDark ? 'text-white text-lg' : ($isAdaptive ? 'text-ink-900 dark:text-white text-lg' : 'text-ink-900 dark:text-ink-50') }} font-bold leading-none tracking-tight">
-            {{ config('app.name') }}
-        </p>
-        <p class="{{ $isDark ? 'text-ink-400 text-xs' : ($isAdaptive ? 'text-ink-500 dark:text-ink-400 text-xs' : 'text-ink-500 dark:text-ink-400 text-[11px]') }} mt-0.5">
-            Quality Enhancement Operations
-        </p>
-    </div>
+    @if ($wordMark)
+        <div x-show="!isSidebarMinimized">
+            <p class="{{ $isDark ? 'text-white text-lg' : ($isAdaptive ? 'text-ink-900 dark:text-white text-lg' : 'text-ink-900 dark:text-ink-50') }} font-bold leading-none tracking-tight">
+                {{ config('app.name') }}
+            </p>
+            <p class="{{ $isDark ? 'text-ink-400 text-xs' : ($isAdaptive ? 'text-ink-500 dark:text-ink-400 text-xs' : 'text-ink-500 dark:text-ink-400 text-[11px]') }} mt-0.5">
+                Quality Enhancement Operations
+            </p>
+        </div>
+    @endif
 </div>

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\TicketCoverageExport;
 use App\Enums\ExcludeReason;
+use App\Exports\TicketCoverageExport;
 use App\Http\Requests\ExcludeTicketRequest;
 use App\Http\Requests\IncidentMonitoringRequest;
 use App\Http\Requests\TicketCoverageDownloadRequest;
@@ -51,6 +51,13 @@ class IncidentMonitoringController extends Controller
     public function exclusions(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
     {
         return view('incident-monitoring.exclusions', $exclusions->dashboard($request->user(), $request->validated()));
+    }
+
+    public function exclusionDetail(TicketExcludeMonitoringRequest $request, TicketExcludeMonitoringService $exclusions): View
+    {
+        $data = $exclusions->cellDetail($request->user(), $request->validated());
+
+        return view($request->ajax() ? 'incident-monitoring._monitoring-detail' : 'incident-monitoring.monitoring-detail', $data);
     }
 
     public function bulkExclusions(): View

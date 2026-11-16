@@ -270,6 +270,9 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'sto:SBY']))->assertOk()
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 1 && $rows->first()['incident'] === 'INC-STO-SBY')
             ->assertViewHas('detailLabel', fn ($label) => str_starts_with($label, 'SBY ·'));
+        $this->get(route('incident-monitoring.exclusions', ['matrix_group' => 'SBY']))->assertOk()
+            ->assertViewHas('tickets', fn ($rows) => $rows->total() === 2
+                && $rows->pluck('workzone')->sort()->values()->all() === ['SBY', 'SBY2']);
         $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'jatim']))->assertOk()
             ->assertViewHas('tickets', fn ($rows) => $rows->total() === 0);
 
@@ -334,7 +337,7 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->ticket('INC-NO-STO', sto: null);
         $this->exclude('INC-UNKNOWN', 'legacy reason');
         $this->actingAs($this->super)->get(route('incident-monitoring.exclusions'))->assertOk()
-            ->assertSee('Wilayah belum terpetakan')->assertSee('Alasan lainnya')
+            ->assertSee('Belum terpetakan')->assertSee('Alasan lainnya')
             ->assertViewHas('totals', fn ($row) => $row['count'] === 2 && $row['cells']['gamas:other'] === 1)
             ->assertViewHas('matrixRows', fn ($rows) => $rows['unmapped']['count'] === 2);
         $this->get(route('incident-monitoring.exclusions', ['matrix_region' => 'unmapped', 'reason' => 'other']))->assertOk()
@@ -577,11 +580,143 @@ class TicketExcludeMonitoringTest extends TestCase
         $this->assertDatabaseMissing('incident_excludes', ['incident' => 'INC-OUTSIDE']);
     }
 
+    public function test_monitoring_tables_show_ticket_qe_pareto_and_create_lop_source(): void
+    {
+        $this->ticket('INC-MON-LOP', 'GAMAS ODP', 'SBY');
+        $this->ticket('INC-MON-MAT', 'GAMAS ODP', 'SBY');
+        $this->ticket('INC-MON-TMP', 'PREMAN', 'SBY');
+        $this->ticket('INC-MON-MGU', 'INFRACARE', 'SMG');
+        $this->ticket('INC-MON-FREE', 'GAMAS ODP', 'DPS');
+        $this->exclude('INC-MON-MAT', 'non_material');
+        $this->exclude('INC-MON-TMP', 'temporer');
+        $this->exclude('INC-MON-MGU', 'magu_ganti_pasif_odp');
+        QeLop::create(['incident' => 'INC-MON-LOP', 'nama_lop' => 'LOP Monitor',
+            'program_type' => 'recovery', 'status_lop' => 'progress', 'created_by' => $this->super->getKey()]);
+        QeLop::create(['incident' => 'INP-MON-1', 'nama_lop' => 'LOP Manual',
+            'program_type' => 'recovery', 'status_lop' => 'draft', 'created_by' => $this->super->getKey(),
+            'branch_id' => $this->branches['SBY']->getKey(), 'service_area_id' => $this->areas['SBY']->getKey()]);
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertSee('Tabel Monitoring Tiket')
+            ->assertSee('PARETO TIKET QE SDH MAPPING')
+            ->assertSee('MONITORING TIKET CREATE LOP')
+            ->assertSee('TIKET<br>INSERA', false)
+            ->assertSee('TIKET<br>MANUAL', false)
+            ->assertSee('ticketMonitoringModal', false)
+            ->assertSee('data-monitoring-detail', false)
+            ->assertSee('data-monitoring-title', false)
+            ->assertViewHas('totals', function ($row) {
+                $m = $row['monitoring'];
+
+                return $m['gamas']['ticket_qe'] === 3 && $m['gamas']['sudah_mapping'] === 2
+                    && $m['gamas']['belum_mapping'] === 1 && $m['gamas']['create_lop'] === 1
+                    && $m['gamas']['non_material'] === 1 && $m['preman']['temporer'] === 1
+                    && $m['infracare']['magu_pasif'] === 1 && $m['total']['insera'] === 1
+                    && $m['total']['manual'] === 1;
+            })
+            ->assertViewHas('matrixRows', fn ($rows) => $rows['branch:'.$this->branches['SBY']->getKey()]['monitoring']['total']['manual'] === 1
+                && $rows['branch:'.$this->branches['DPS']->getKey()]['monitoring']['total']['manual'] === 0);
+    }
+
+    public function test_manual_create_lop_total_follows_period_and_location_filters(): void
+    {
+        $this->ticket('INC-MANUAL-TICKET', 'GAMAS ODP', 'SBY');
+        foreach (['SBY', 'SMG'] as $sto) {
+            QeLop::create(['incident' => 'INP-'.$sto.'-1', 'nama_lop' => 'Manual '.$sto,
+                'program_type' => 'recovery', 'status_lop' => 'draft', 'created_by' => $this->super->getKey(),
+                'branch_id' => $this->branches[$sto]->getKey(), 'service_area_id' => $this->areas[$sto]->getKey()]);
+        }
+
+        $this->actingAs($this->super)->get(route('incident-monitoring.exclusions'))->assertOk()
+            ->assertViewHas('totals', fn ($row) => $row['monitoring']['total']['manual'] === 2);
+        $this->get(route('incident-monitoring.exclusions', ['service_area' => $this->areas['SMG']->getKey()]))->assertOk()
+            ->assertViewHas('totals', fn ($row) => $row['monitoring']['total']['manual'] === 1);
+        $this->get(route('incident-monitoring.exclusions', ['period' => 'month', 'month' => '2026-09']))->assertOk()
+            ->assertViewHas('totals', fn ($row) => $row['monitoring']['total']['manual'] === 0);
+    }
+
+    public function test_monitoring_cell_detail_lists_exact_tickets_and_manual_lops(): void
+    {
+        foreach (range(1, 27) as $index) {
+            $incident = 'INC-DTL-'.$index;
+            $this->ticket($incident, $index % 2 === 0 ? 'GAMAS ODP' : 'PREMAN', 'SBY');
+            if ($index <= 3) {
+                $this->exclude($incident, 'temporer');
+            }
+        }
+        $sby = $this->branches['SBY']->getKey();
+        QeLop::create(['incident' => 'INC-DTL-4', 'nama_lop' => 'LOP Detail', 'program_type' => 'recovery',
+            'status_lop' => 'progress', 'created_by' => $this->super->getKey()]);
+        QeLop::create(['incident' => 'INP-DTL-SBY', 'nama_lop' => 'Manual SBY', 'program_type' => 'recovery',
+            'status_lop' => 'draft', 'created_by' => $this->super->getKey(),
+            'branch_id' => $sby, 'service_area_id' => $this->areas['SBY']->getKey()]);
+        QeLop::create(['incident' => 'INP-DTL-DPS', 'nama_lop' => 'Manual DPS', 'program_type' => 'recovery',
+            'status_lop' => 'draft', 'created_by' => $this->super->getKey(),
+            'branch_id' => $this->branches['DPS']->getKey(), 'service_area_id' => $this->areas['DPS']->getKey()]);
+
+        $this->actingAs($this->super)->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'ticket_qe', 'matrix_region' => 'branch:'.$sby]))
+            ->assertOk()->assertViewIs('incident-monitoring._monitoring-detail')
+            ->assertViewHas('isLopList', false)
+            ->assertViewHas('tickets', fn ($tickets) => $tickets->total() === 27
+                && $tickets->count() === 25 && $tickets->url(2) !== '' && str_contains($tickets->url(2), 'cell=ticket_qe'))
+            ->assertViewHas('cellLabel', 'Tiket QE');
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'insera', 'matrix_region' => 'branch:'.$sby]))
+            ->assertOk()->assertViewHas('isLopList', true)
+            ->assertViewHas('tickets', fn ($tickets) => $tickets->total() === 1
+                && $tickets->first()['lop']?->nama_lop === 'LOP Detail')
+            ->assertSee('Nama LOP')->assertSee('LOP Detail')->assertSee('Detail LOP');
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'create_lop', 'matrix_region' => 'branch:'.$sby]))
+            ->assertOk()->assertViewHas('isLopList', true)
+            ->assertViewHas('tickets', fn ($tickets) => $tickets->total() === 1);
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', [
+                'cell' => 'temporer', 'matrix_region' => 'branch:'.$sby,
+            ]))->assertOk()->assertViewHas('tickets', fn ($tickets) => $tickets->total() === 3
+                && $tickets->every(fn (array $ticket) => $ticket['reason_label'] === 'Temporer'));
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'manual', 'matrix_region' => 'branch:'.$sby]))
+            ->assertOk()->assertViewHas('manualLops', fn ($lops) => $lops->total() === 1
+                && $lops->first()->incident === 'INP-DTL-SBY'
+                && str_contains($lops->url(1), 'cell=manual'))
+            ->assertViewHas('cellLabel', 'Tiket manual (LOP INP)');
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', [
+                'cell' => 'manual', 'matrix_region' => 'jatim', 'matrix_group' => 'JAWA TIMUR',
+            ]))->assertOk()->assertViewHas('manualLops', fn ($lops) => $lops->total() === 1
+                && $lops->first()->incident === 'INP-DTL-SBY');
+
+        $this->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('incident-monitoring.exclusions.detail', [
+                'cell' => 'ticket_qe', 'matrix_region' => 'jatim', 'matrix_group' => 'JAWA TIMUR',
+            ]))->assertOk()->assertViewHas('tickets', fn ($tickets) => $tickets->total() === 27);
+
+        $this->withHeader('X-Requested-With', '')
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'manual']))
+            ->assertOk()->assertViewIs('incident-monitoring.monitoring-detail');
+    }
+
+    public function test_monitoring_cell_detail_rejects_unknown_cell(): void
+    {
+        $this->actingAs($this->super)
+            ->get(route('incident-monitoring.exclusions.detail', ['cell' => 'unknown']))
+            ->assertSessionHasErrors('cell');
+    }
+
     public function test_access_is_limited_to_admin_and_super_admin(): void
     {
         $this->get(route('incident-monitoring.exclusions'))->assertRedirect(route('login'));
+        $this->get(route('incident-monitoring.exclusions.detail', ['cell' => 'ticket_qe']))->assertRedirect(route('login'));
         foreach (['TEKNISI', 'MANAGER', 'APPROVER'] as $role) {
             $this->actingAs(User::factory()->role($role)->create())->get(route('incident-monitoring.exclusions'))->assertForbidden();
+            $this->get(route('incident-monitoring.exclusions.detail', ['cell' => 'ticket_qe']))->assertForbidden();
         }
     }
 }

@@ -1122,6 +1122,16 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - DB lokal `dompis_qe` sebelumnya hanya memuat 4 baris pemetaan; `GAMAS OLT => mini_olt` yang sudah ada di seeder belum masuk. `TicketSegmentMapSeeder` dijalankan ulang di DB lokal (updateOrCreate) sehingga total menjadi **5 baris**. Ini data operasional, bukan migration: environment lain (staging/produksi) tetap perlu menjalankan seeder atau menambah baris lewat menu Pemetaan Segment Tiket.
 - Sumber Dompis saat audit memuat jenis `GAMAS ODP` (4.560), `GAMAS DISTRIBUSI` (4.283), `GAMAS GPON` (983), `GAMAS FEEDER` (940), dan `GAMAS` tanpa kategori (764). `GAMAS` polos sengaja belum dipetakan karena tidak ada segmen yang jelas; `GAMAS OLT` tidak muncul pada sumber saat ini.
 
+### 7.82 Sidebar Minimisasi (Rail Mode) dan Monitoring Exclude — 16 November 2026 (belum di-commit)
+
+- Sidebar desktop dapat diminimalkan menjadi rail ramping (80px) menggunakan state Alpine `isSidebarMinimized` yang disimpan di `localStorage` dan di-sync di tag `<html>` untuk mencegah flickering.
+- Tombol toggle ditambahkan di header bagian kiri untuk mengontrol minimisasi sidebar.
+- Saat minim, label navigasi, chevron, header seksi, dan footer copyright disembunyikan; ikon navigasi diselaraskan rata tengah (`justify-center`).
+- Lebar sidebar dan kontainer konten utama (`lg:pl-64` vs `lg:pl-20`) bergeser halus dengan transisi CSS `duration-200`.
+- Grup menu collapsible secara otomatis memperluas kembali sidebar sebelum membuka submenu jika diklik dalam keadaan minim.
+- Tampilan mobile tetap mempertahankan kontrol checkbox peer tanpa terpengaruh minimisasi desktop.
+- Halaman Monitoring Exclude (`/incident-monitoring/exclusions`) kini menyediakan tiga tabel agregasi dengan angka clickable yang membuka modal detail berisi kolom LOP spesifik (Incident, Nama LOP, Program, Branch/STO, Tanggal, Status, Aksi).
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi
@@ -1305,3 +1315,11 @@ permintaan saya berikutnya.
 ## 14. Revenue per Service Area
 
 8 November 2026 — Matrix Per Branch pada Revenue menampilkan ringkasan yang dikelompokkan menurut nama Service Area di dalam branch. Baris Service Area dapat dibuka untuk melihat STO, lalu STO dapat dibuka untuk melihat Total LOP, Plan, Realisasi, GAP, dan Rasio per program. Pemisah kolom dan baris ditambahkan di setiap tingkat tabel. Agregat revenue tetap memakai kalkulasi BOQ/reservasi yang sama dan satu agregat query; LOP legacy tanpa `service_area_id` dipetakan lewat `sto` bila cocok dengan master Service Area. Service Area yang tidak cocok ditampilkan sebagai belum terpetakan. Tidak ada perubahan schema atau data operasional.
+
+## 15. Tabel monitoring tiket pada halaman Monitoring Exclude
+
+16 November 2026 — Halaman `/incident-monitoring/exclusions` menampilkan tiga tabel sesuai `plans/plan-tabel-monitoring-tiket.jpeg` di atas matriks exclude existing: **Tiket QE**, **Pareto Tiket QE SDH MAPPING**, dan **Monitoring Tiket CREATE LOP**. Angka memakai agregasi matriks yang sama (`included`, `excluded`, `not_excluded`, total, dan empat alasan canonical) sehingga tidak ada query tambahan per sel. Sudah mapping berarti tiket sudah memiliki LOP atau sudah di-exclude; Create LOP berarti tiket sudah memiliki LOP. Baris mengikuti pengelompokan existing: Region → Branch untuk Super Admin/Admin Area, Service Area → STO untuk Admin Branch/Service Area, regional untuk Admin Region. Tabel baru memakai state buka/lipat sendiri dan tidak mengubah matrix lama maupun capture matrix.
+
+LOP manual berawalan `INP` tidak berasal dari sumber tiket Dompis dan tidak menyimpan jenis tiket, sehingga hanya dihitung pada pasangan kolom **TOTAL** di tabel Create LOP. Periode LOP manual memakai `qe_lops.reported_date`, fallback `DATE(created_at)` bila kosong, serta tetap mengikuti scope `LopVisibilityService` dan filter Service Area/Branch. Tabel dipisahkan jarak vertikal dan memakai `table-fixed` + `colgroup` agar lebar kolom seragam, dengan tinggi header tetap. Tidak ada schema, migration, perubahan data operasional, atau penulisan ke sumber Dompis. Regression baru di `TicketExcludeMonitoringTest` memverifikasi rincian tiga tabel, LOP manual per branch, filter periode/lokasi, dan teks tabel.
+
+Setiap angka pada tiga tabel dapat diklik. Anchor menyimpan URL endpoint `incident-monitoring.exclusions.detail` beserta filter periode/scope, `matrix_region` baris, `matrix_group` untuk baris agregat kelompok, `detail_kind`, dan `cell`; Alpine `ticketMonitoringModal` memuat fragmen `_monitoring-detail` ke `<dialog>` tanpa reload halaman. Sel tabel kedua memetakan ke `exclude_state`/`reason` yang sesuai, `insera`/`create_lop` memakai tiket yang sudah memiliki LOP, `sudah_mapping` menggabungkan tiket ber-LOP dan tiket exclude, dan `manual` memakai query LOP `INP` yang sama dengan hitungan kolom TOTAL. Pagination di dalam modal tetap mempertahankan `cell` dan semua filter. Tanpa JavaScript, tautan membuka halaman `monitoring-detail`; sel manual per jenis tiket tetap nonaktif karena LOP manual tidak memiliki jenis tiket. Detail untuk sel **Create LOP/Tiket Insera** memakai tabel yang sama dengan detail LOP manual: Incident, Nama LOP, Program, Branch/STO, Tanggal Laporan, Status, dan Aksi Detail LOP; detail sel lain tetap memakai tabel tiket lengkap dengan status exclude dan alasan. Regression `TicketExcludeMonitoringTest` juga memeriksa detail tiket, detail LOP manual, detail tiket ber-LOP, pagination, validasi `cell`, dan pembatasan akses endpoint detail.

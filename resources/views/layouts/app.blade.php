@@ -1,8 +1,14 @@
 <!doctype html>
 <html lang="id"
-      x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }"
-      x-init="$watch('darkMode', v => localStorage.setItem('darkMode', v))"
-      :class="{ dark: darkMode }">
+      x-data="{
+          darkMode: localStorage.getItem('darkMode') === 'true',
+          isSidebarMinimized: localStorage.getItem('sidebarMinimized') === 'true'
+      }"
+      x-init="
+          $watch('darkMode', v => localStorage.setItem('darkMode', v));
+          $watch('isSidebarMinimized', v => localStorage.setItem('sidebarMinimized', v));
+      "
+      :class="{ dark: darkMode, 'sidebar-minimized': isSidebarMinimized }">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,6 +24,9 @@
         if (localStorage.getItem('darkMode') === 'true') {
             document.documentElement.classList.add('dark');
         }
+        if (localStorage.getItem('sidebarMinimized') === 'true') {
+            document.documentElement.classList.add('sidebar-minimized');
+        }
     </script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -30,14 +39,18 @@
            class="hidden peer-checked:block lg:hidden fixed inset-0 bg-black/30 z-30"
            aria-hidden="true"></label>
 
-    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-100/70 bg-white shadow-[4px_0_24px_rgba(16,24,40,0.04)] dark:border-ink-800 dark:bg-ink-900 dark:shadow-none
+    <aside class="fixed inset-y-0 left-0 z-40 flex flex-col border-r border-ink-100/70 bg-white shadow-[4px_0_24px_rgba(16,24,40,0.04)] dark:border-ink-800 dark:bg-ink-900 dark:shadow-none
                   -translate-x-full peer-checked:translate-x-0 transition-transform duration-200
-                  lg:translate-x-0">
-        <div class="border-b border-ink-100/70 p-5 dark:border-ink-800">
-            <x-brand-mark variant="adaptive" />
+                  lg:translate-x-0"
+           :class="isSidebarMinimized ? 'w-20' : 'w-64'">
+        <div class="flex items-center justify-between border-b border-ink-100/70 p-5 dark:border-ink-800"
+             :class="isSidebarMinimized ? 'px-2.5' : 'px-5'">
+            <div :class="isSidebarMinimized ? 'w-full flex justify-center' : ''">
+                <x-brand-mark variant="adaptive" :word-mark="true" />
+            </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1.5">
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1.5" :class="isSidebarMinimized ? 'px-2' : 'px-3'">
             @php
                 $navDisabled = 'flex items-center justify-between rounded-lg px-3 py-2 text-sm text-ink-400 dark:text-ink-500 cursor-not-allowed';
                 $navGroupHeader = 'w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50 hover:text-ink-950 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-white transition';
@@ -55,7 +68,7 @@
             @endphp
 
             {{-- ========== OPERASIONAL ========== --}}
-            <p class="{{ $navLabel }}">Operasional</p>
+            <p class="{{ $navLabel }}" x-show="!isSidebarMinimized">Operasional</p>
 
             @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
             <a href="{{ route('dashboard') }}"
@@ -63,20 +76,20 @@
                 @if (request()->routeIs('dashboard'))
                     <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                 @endif
-                <span class="flex items-center gap-2.5">
+                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                     <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('dashboard') ? $navIconActive : $navIcon }}">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 012 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                     </svg>
                     </span>
-                    Dashboard
+                    <span x-show="!isSidebarMinimized">Dashboard</span>
                 </span>
             </a>
             @else
             <div class="{{ $navDisabled }}">
-                <span class="flex items-center gap-2.5">
+                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                     <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 0 1 2 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z"/></svg>
-                    Dashboard
+                    <span x-show="!isSidebarMinimized">Dashboard</span>
                 </span>
                 <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
             </div>
@@ -85,46 +98,48 @@
             @can('view-incident-monitoring')
             <a href="{{ route('incident-monitoring.exclusions') }}"
                @if(request()->routeIs('incident-monitoring.*')) aria-current="page" @endif
-               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200 font-semibold' : $navLinkInactive }}">
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200 font-semibold' : $navLinkInactive }}"
+               :class="isSidebarMinimized ? 'justify-center' : ''">
                 @if (request()->routeIs('incident-monitoring.*'))
                     <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                 @endif
                 <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('incident-monitoring.*') ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-200' : $navIcon }}">
                     <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M9 3h6v4H9zM8 12h5M8 16h8m1-13v8m-3-4 3 4 3-4"/></svg>
                 </span>
-                Monitoring Incident
+                <span x-show="!isSidebarMinimized">Monitoring Incident</span>
             </a>
             @endcan
 
             @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
             <a href="{{ route('revenue.index') }}"
-               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('revenue.*') ? $navLinkActive : $navLinkInactive }}">
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('revenue.*') ? $navLinkActive : $navLinkInactive }}"
+               :class="isSidebarMinimized ? 'justify-center' : ''">
                 @if (request()->routeIs('revenue.*'))
                     <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                 @endif
-                <span class="flex items-center gap-2.5">
+                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                     <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('revenue.*') ? $navIconActive : $navIcon }}">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 18.75h18M5.25 16.5V9.75m4.5 6.75V5.25m4.5 11.25v-4.5m4.5 4.5V7.5" />
                         </svg>
                     </span>
-                    Revenue Overview
+                    <span x-show="!isSidebarMinimized">Revenue Overview</span>
                 </span>
             </a>
             @endif
 
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN))
             <div x-data="{ open: {{ request()->routeIs(['lop.index', 'lop.history', 'lop.my-approvals']) ? 'true' : 'false' }} }">
-                <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                    <span class="flex items-center gap-2.5">
+                <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                    <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M2.25 13.838V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162a1.13 1.13 0 00-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a1.13 1.13 0 00-.1.661z" />
                         </svg>
-                        Inbox
+                        <span x-show="!isSidebarMinimized">Inbox</span>
                     </span>
-                    {!! $chevron !!}
+                    <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                 </button>
-                <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                     <a href="{{ route('lop.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('lop.index') ? $navSubLinkActive : $navSubLinkInactive }}">
                         @if (request()->routeIs('lop.index'))
                             <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -156,16 +171,16 @@
             @can('create', \App\Models\QeLop::class)
                 @php($importMenuOpen = request()->routeIs(['lop.create', 'bulk-import.*', 'imports.*']))
                 <div x-data="{ open: {{ $importMenuOpen ? 'true' : 'false' }} }">
-                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                        <span class="flex items-center gap-2.5">
+                    <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                        <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0-4.5 4.5M12 4.5l4.5 4.5M4.5 15.75v3A2.25 2.25 0 006.75 21h10.5a2.25 2.25 0 002.25-2.25v-3" />
                             </svg>
-                            Bulk Import Data
+                            <span x-show="!isSidebarMinimized">Bulk Import Data</span>
                         </span>
-                        {!! $chevron !!}
+                        <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         @foreach ([
                             'lop.create' => 'Input LOP Baru',
                             'bulk-import.lop.index' => 'Bulk Import LOP',
@@ -188,16 +203,16 @@
 
             @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
                 <div x-data="{ open: {{ request()->routeIs(['data-lops.*', 'data-boqs.*']) ? 'true' : 'false' }} }">
-                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                        <span class="flex items-center gap-2.5">
+                    <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                        <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
                             </svg>
-                            Master LOP
+                            <span x-show="!isSidebarMinimized">Master LOP</span>
                         </span>
-                        {!! $chevron !!}
+                        <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         @foreach (['data-lops.index' => 'Data LOP', 'data-boqs.index' => 'Data BOQ'] as $routeName => $label)
                             @php($group = \Illuminate\Support\Str::before($routeName, '.').'.*')
                             <a href="{{ route($routeName) }}" class="{{ $navSubLink }} {{ request()->routeIs($group) ? $navSubLinkActive : $navSubLinkInactive }}">
@@ -215,16 +230,16 @@
 
             @unless (auth()->user()?->hasRole(\App\Enums\UserRole::TEKNISI))
                 <div x-data="{ open: {{ request()->routeIs('program.*') ? 'true' : 'false' }} }">
-                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                        <span class="flex items-center gap-2.5">
+                    <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                        <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44Z" />
                             </svg>
-                            Program
+                            <span x-show="!isSidebarMinimized">Program</span>
                         </span>
-                        {!! $chevron !!}
+                        <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         <a href="{{ route('program.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('program.index') ? $navSubLinkActive : $navSubLinkInactive }}">
                             @if (request()->routeIs('program.index'))
                                 <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -248,9 +263,10 @@
 
             {{-- ========== VERIFIKASI ========== --}}
             @if (auth()->user()?->hasPermission('approve_evidence'))
-                <p class="{{ $navLabel }} mt-4">Verifikasi</p>
+                <p class="{{ $navLabel }} mt-4" x-show="!isSidebarMinimized">Verifikasi</p>
                 <a href="{{ route('evidence-approval.index') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('evidence-approval.*') ? $navLinkActive : $navLinkInactive }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('evidence-approval.*') ? $navLinkActive : $navLinkInactive }}"
+                   :class="isSidebarMinimized ? 'justify-center' : ''">
                     @if (request()->routeIs('evidence-approval.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
@@ -259,24 +275,24 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                         </svg>
                     </div>
-                    Approval Evidence
+                    <span x-show="!isSidebarMinimized">Approval Evidence</span>
                 </a>
             @endif
 
             {{-- ========== MASTER ========== --}}
             @if (auth()->user()?->hasPermission('manage_master_data'))
-                <p class="{{ $navLabel }} mt-4">Referensi</p>
+                <p class="{{ $navLabel }} mt-4" x-show="!isSidebarMinimized">Referensi</p>
                 <div x-data="{ open: {{ request()->routeIs(['designators.*', 'designator-prices.*', 'packages.*', 'ticket-segment-maps.*']) ? 'true' : 'false' }} }">
-                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                        <span class="flex items-center gap-2.5">
+                    <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                        <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9Z" />
                             </svg>
-                            Master Designator
+                            <span x-show="!isSidebarMinimized">Master Designator</span>
                         </span>
-                        {!! $chevron !!}
+                        <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         <a href="{{ route('designators.index') }}" class="{{ $navSubLink }} {{ request()->routeIs('designators.*') ? $navSubLinkActive : $navSubLinkInactive }}">
                             @if (request()->routeIs('designators.*'))
                                 <span class="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
@@ -309,16 +325,16 @@
                 </div>
 
                 <div x-data="{ open: {{ request()->routeIs(['master-data.*', 'areas.*', 'regions.*', 'branches.*', 'service-areas.*', 'designator-categories.*', 'designator-types.*']) ? 'true' : 'false' }} }">
-                    <button type="button" @click="open = !open" class="{{ $navGroupHeader }}">
-                        <span class="flex items-center gap-2.5">
+                    <button type="button" @click="isSidebarMinimized ? (isSidebarMinimized = false, open = true) : (open = !open)" class="{{ $navGroupHeader }}" :class="isSidebarMinimized ? 'justify-center' : ''">
+                        <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
                             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
                             </svg>
-                            Master Data
+                            <span x-show="!isSidebarMinimized">Master Data</span>
                         </span>
-                        {!! $chevron !!}
+                        <div x-show="!isSidebarMinimized">{!! $chevron !!}</div>
                     </button>
-                    <div x-show="open" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
+                    <div x-show="open && !isSidebarMinimized" x-transition class="mt-1 ml-4 space-y-1 border-l pl-3 {{ $navDivider }}">
                         @foreach ([
                             'master-data.index' => 'Ringkasan',
                             'areas.index' => 'Area',
@@ -343,9 +359,10 @@
 
             {{-- ========== PENGATURAN ========== --}}
             @can('manage-master-data')
-                <p class="{{ $navLabel }} mt-4">Pengaturan</p>
+                <p class="{{ $navLabel }} mt-4" x-show="!isSidebarMinimized">Pengaturan</p>
                 <a href="{{ route('lop-name-format.edit') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop-name-format.*') ? $navLinkActive : $navLinkInactive }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('lop-name-format.*') ? $navLinkActive : $navLinkInactive }}"
+                   :class="isSidebarMinimized ? 'justify-center' : ''">
                     @if (request()->routeIs('lop-name-format.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
@@ -355,15 +372,16 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                     </div>
-                    Format Nama LOP
+                    <span x-show="!isSidebarMinimized">Format Nama LOP</span>
                 </a>
             @endcan
 
             {{-- ========== SISTEM ========== --}}
             @if (auth()->user()?->hasPermission('manage_users'))
-                <p class="{{ $navLabel }} mt-4">Sistem</p>
+                <p class="{{ $navLabel }} mt-4" x-show="!isSidebarMinimized">Sistem</p>
                 <a href="{{ route('users.index') }}"
-                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('users.*') ? $navLinkActive : $navLinkInactive }}">
+                   class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('users.*') ? $navLinkActive : $navLinkInactive }}"
+                   :class="isSidebarMinimized ? 'justify-center' : ''">
                     @if (request()->routeIs('users.*'))
                         <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
                     @endif
@@ -372,24 +390,31 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                         </svg>
                     </div>
-                    User Management
+                    <span x-show="!isSidebarMinimized">User Management</span>
                 </a>
             @endif
         </nav>
 
-        <div class="border-t border-ink-100/70 p-4 text-xs text-ink-400 dark:border-ink-800 dark:text-ink-500">
+        <div class="border-t border-ink-100/70 p-4 text-xs text-ink-400 dark:border-ink-800 dark:text-ink-500" x-show="!isSidebarMinimized">
             &copy; {{ date('Y') }} {{ config('app.name') }}
         </div>
     </aside>
 
-    <div class="lg:pl-64">
+    <div :class="isSidebarMinimized ? 'lg:pl-20' : 'lg:pl-64'" class="transition-all duration-200">
         <header class="sticky top-0 z-20 bg-white dark:bg-ink-900 border-b border-ink-100 dark:border-ink-700">
             <div class="flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
-                <label for="nav-toggle" class="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer">
-                    <svg viewBox="0 0 24 24" class="w-5 h-5 text-ink-700 dark:text-ink-200" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
-                </label>
+                <div class="flex items-center gap-2">
+                    <label for="nav-toggle" class="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800 cursor-pointer">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5 text-ink-700 dark:text-ink-200" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </label>
+                    <button type="button" @click="isSidebarMinimized = !isSidebarMinimized" class="hidden lg:inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800 text-ink-700 dark:text-ink-200 transition" title="Toggle Sidebar">
+                        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+                </div>
 
                 <div class="flex-1"></div>
 

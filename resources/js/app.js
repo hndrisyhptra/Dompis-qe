@@ -1898,6 +1898,11 @@ window.dashboardRegionCapture = (regionName = "", targetSelector = "") => ({
             clone
                 .querySelectorAll?.("[data-capture-ignore]")
                 .forEach((element) => element.remove());
+            clone.querySelectorAll?.("[x-show]").forEach((element) => {
+                if (element.style.display === "none") {
+                    element.setAttribute("data-capture-expand", "");
+                }
+            });
             clone.querySelectorAll?.("[data-capture-expand]").forEach((row) => {
                 row.style.removeProperty("display");
                 row.removeAttribute("data-capture-expand");
@@ -2135,6 +2140,81 @@ window.dashboardMatrixModal = (
 
     close() {
         this.$refs.matrixModal.close();
+    },
+});
+
+window.ticketMonitoringModal = (endpoint) => ({
+    endpoint,
+    title: "Detail tiket",
+    url: "",
+    loading: false,
+    error: "",
+    html: "",
+    async openDetail(event) {
+        const trigger = event.currentTarget;
+        const url = trigger?.dataset?.monitoringDetail;
+        if (!url) {
+            return;
+        }
+
+        this.title = trigger.dataset.monitoringTitle || "Detail tiket";
+        this.url = url;
+        this.html = "";
+        this.error = "";
+        this.loading = true;
+        if (!this.$refs.detailDialog?.open) {
+            this.$refs.detailDialog?.showModal();
+        }
+        await this.load(url);
+    },
+
+    openDetailFromUrl() {
+        if (this.url !== "") {
+            this.error = "";
+            this.loading = true;
+            this.load(this.url);
+        }
+    },
+
+    async handleDetailClick(event) {
+        const link = event.target.closest(
+            "[data-monitoring-pagination] a[href]",
+        );
+        if (!link) {
+            return;
+        }
+        event.preventDefault();
+        this.url = link.href;
+        this.error = "";
+        this.loading = true;
+        this.$refs.detailBody?.scrollTo({ top: 0 });
+        await this.load(link.href);
+    },
+
+    async load(url) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: "text/html",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+            if (!response.ok) {
+                throw new Error(
+                    `Gagal memuat detail tiket (${response.status}).`,
+                );
+            }
+            this.html = await response.text();
+        } catch (error) {
+            this.error =
+                error?.message || "Detail tiket tidak dapat dimuat.";
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    closeDetail() {
+        this.$refs.detailDialog?.close();
     },
 });
 

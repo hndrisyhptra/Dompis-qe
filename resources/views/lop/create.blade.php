@@ -5,7 +5,7 @@
 @section('content')
 @php
     $initial = [
-        'incident' => old('incident', ''), 'sto' => old('sto', ''),
+        'incident' => old('incident', request('incident', '')), 'sto' => old('sto', ''),
         'branch' => old('branch', ''), 'area' => old('area', '3'),
         'segment' => old('segment', ''), 'segments' => old('segment', old('segments', [])),
         'program_type' => old('program_type', ''),

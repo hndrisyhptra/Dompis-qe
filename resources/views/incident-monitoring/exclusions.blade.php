@@ -7,7 +7,6 @@
     $baseQuery = array_filter($filters, fn ($value) => $value !== '');
     $detailReset = ['matrix_region' => '', 'detail_kind' => '', 'exclude_state' => 'all', 'reason' => ''];
     $detailUrl = fn (array $changes = []) => route('incident-monitoring.exclusions', array_filter(array_replace($baseQuery, $detailReset, $changes), fn ($value) => $value !== '')).'#ticket-details';
-    $columnCount = 7 + count($kinds) * count($reasons);
     $matrixGroupLabel = $groupBySto ? 'SERVICE AREA / STO' : ($groupByBranch ? 'REGIONAL / BRANCH' : 'REGIONAL');
     $matrixSummaryLabel = $groupBySto ? 'service area/STO' : ($groupByBranch ? 'regional/branch' : 'regional');
     $matrixUnit = $groupByBranch ? 'Branch' : 'STO';
@@ -16,19 +15,10 @@
     $groupOpenState = collect($matrixGroups)->mapWithKeys(fn (array $group, int $index) => [$index => $groupOpenDefault])->all();
     $visibleScopeLabel = $scopeLabel !== 'Seluruh wilayah' ? $scopeLabel : null;
     $captureName = implode('-', array_filter([
-        'monitoring-exclude-tiket',
+        'monitoring-tiket',
         $visibleScopeLabel,
         $filters['date_from'],
         $filters['date_to'],
-    ], fn ($value) => $value !== null && $value !== ''));
-    $captureContext = implode(' · ', array_filter([
-        $visibleScopeLabel,
-        $filters['region'],
-        $filters['branch'] !== '' ? ($branches->firstWhere('id_branch', (int) $filters['branch'])?->name ?? 'Branch di luar scope') : null,
-        $filters['service_area_name'] !== '' ? 'Service Area: '.$filters['service_area_name'] : null,
-        $filters['service_area'] !== '' ? ($serviceAreas->firstWhere('id_service_area', (int) $filters['service_area'])?->workzone ?? 'STO di luar scope') : null,
-        $filters['kind'] !== '' ? ($kinds[$filters['kind']] ?? null) : null,
-        $filters['q'] !== '' ? 'Pencarian: '.$filters['q'] : null,
     ], fn ($value) => $value !== null && $value !== ''));
 @endphp
 
@@ -113,110 +103,7 @@
         @endif
     </section>
 
-    <section aria-labelledby="exclude-matrix-title" x-data="dashboardRegionCapture(@js($captureName))" x-ref="captureArea" class="overflow-hidden rounded-md border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
-        <div class="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
-            <div class="min-w-0 space-y-2">
-                <h2 id="exclude-matrix-title" class="text-base font-semibold">Monitoring Exclude Tiket</h2>
-                <p class="text-sm text-ink-600 dark:text-ink-300">Periode {{ \Illuminate\Support\Carbon::parse($filters['date_from'])->format('d/m/Y') }} – {{ \Illuminate\Support\Carbon::parse($filters['date_to'])->format('d/m/Y') }}.<span data-capture-ignore> Klik angka untuk melihat detail tiket.</span></p>
-                <p class="text-xs text-ink-500 dark:text-ink-400">{{ $captureContext }}</p>
-            </div>
-            @if (! $sourceUnavailable)
-                <x-dashboard-capture-controls id="exclude-ticket-image-format" label="Monitoring Exclude Tiket" class="shrink-0" />
-            @endif
-        </div>
-        <div @if ($isGrouped) x-data="{ openGroups: @js($groupOpenState) }" @endif>
-            @if ($isGrouped)
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 bg-ink-50 px-4 py-2 text-xs dark:border-ink-700 dark:bg-ink-800">
-                    <span class="text-ink-600 dark:text-ink-300">{{ count($matrixGroups) }} kelompok {{ $groupByBranch ? 'regional' : 'service area' }} · {{ count($matrixRows) }} {{ $matrixUnit }}</span>
-                    <button type="button" @click="openGroups = Object.fromEntries(Object.keys(openGroups).map(k => [k, !Object.values(openGroups).every(Boolean)]))" data-capture-ignore
-                            class="rounded-md border border-ink-200 px-2 py-1 font-bold text-ink-600 transition hover:border-emerald-300 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 dark:border-ink-700 dark:text-ink-300 dark:hover:border-emerald-800 dark:hover:text-emerald-300">
-                        <span x-text="Object.values(openGroups).every(Boolean) ? 'Lipat semua' : 'Buka semua'">Buka semua</span>
-                    </button>
-                </div>
-            @endif
-            <div role="region" aria-label="Tabel {{ $matrixSummaryLabel }} tiket exclude, dapat digeser horizontal" tabindex="0" class="overflow-x-auto focus-visible:outline-2 focus-visible:outline-brand-500">
-            <table class="w-full min-w-[1900px] border-collapse text-center text-xs tabular-nums">
-                <caption class="sr-only">Jumlah tiket sudah dan belum exclude menurut {{ $matrixSummaryLabel }}, jenis tiket, dan alasan pengecualian.</caption>
-                <thead class="bg-ink-50 text-ink-700 dark:bg-ink-800 dark:text-ink-200">
-                    <tr>
-                        <th rowspan="3" scope="col" class="sticky left-0 z-10 border border-ink-200 bg-ink-50 px-3 py-3 text-center dark:border-ink-700 dark:bg-ink-800 {{ $groupByBranch ? 'min-w-64 whitespace-nowrap' : 'min-w-40' }}">{{ $matrixGroupLabel }}</th>
-                        <th colspan="{{ count($kinds) * 4 }}" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">JUMLAH TIKET</th>
-                        <th colspan="{{ count($kinds) * count($reasons) }}" scope="colgroup" class="border border-ink-200 bg-emerald-50 px-3 py-3 text-center text-emerald-800 dark:border-ink-700 dark:bg-emerald-950/50 dark:text-emerald-200">SUDAH EXCLUDE</th>
-                    </tr>
-                    <tr>
-                        @foreach ($kinds as $label)<th colspan="4" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
-                        @foreach ($kinds as $label)<th colspan="{{ count($reasons) }}" scope="colgroup" class="border border-ink-200 px-3 py-3 dark:border-ink-700">{{ $label }}</th>@endforeach
-                    </tr>
-                    <tr>
-                        @foreach ($kinds as $label)
-                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-blue-500 bg-blue-50 px-2 py-3 font-semibold text-blue-800 dark:border-ink-700 dark:border-b-blue-500 dark:bg-blue-950/30 dark:text-blue-200">Sudah<br>Include</th>
-                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-emerald-500 bg-emerald-50/70 px-2 py-3 font-semibold text-emerald-800 dark:border-ink-700 dark:border-b-emerald-500 dark:bg-emerald-950/30 dark:text-emerald-200">Sudah<br>Exclude</th>
-                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-brand-700 bg-brand-500 px-2 py-3 font-semibold text-white dark:border-ink-700 dark:border-b-brand-500 dark:bg-brand-600 dark:text-white">Belum<br>Exclude</th>
-                            <th scope="col" class="min-w-24 border border-ink-200 border-b-2 border-b-ink-500 bg-ink-100 px-2 py-3 font-semibold text-ink-800 dark:border-ink-700 dark:border-b-ink-500 dark:bg-ink-800 dark:text-ink-100">Total</th>
-                        @endforeach
-                        @foreach ($kinds as $label)
-                            @foreach ($reasons as $reason => $reasonLabel)
-                                <th scope="col" title="{{ $reasonLabel }}" class="min-w-24 border border-ink-200 px-2 py-3 dark:border-ink-700">{{ ['duplikat_open' => 'Duplikat Tiket', 'magu_ganti_pasif_odp' => 'MAGU'][$reason] ?? $reasonLabel }}</th>
-                            @endforeach
-                        @endforeach
-                    </tr>
-                </thead>
-                @if ($isGrouped)
-                    @foreach ($matrixGroups as $groupIndex => $group)
-                        <tbody id="exclude-group-{{ $groupIndex }}" class="divide-y divide-ink-200 dark:divide-ink-700">
-                            <tr class="bg-emerald-50/70 font-bold dark:bg-emerald-950/20">
-                                <th scope="rowgroup" class="sticky left-0 z-10 border border-ink-200 bg-emerald-50 px-3 py-2.5 text-left text-emerald-800 dark:border-ink-700 dark:bg-ink-900 dark:text-emerald-300">
-                                    <button type="button" @click="openGroups[{{ $groupIndex }}] = !openGroups[{{ $groupIndex }}]" :aria-expanded="!!openGroups[{{ $groupIndex }}]" aria-controls="exclude-group-{{ $groupIndex }}"
-                                            class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
-                                        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="openGroups[{{ $groupIndex }}] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                        <span class="{{ $groupByBranch ? 'shrink-0 whitespace-nowrap' : 'min-w-0 wrap-break-word' }}">{{ $group['name'] }}</span>
-                                        <span class="ml-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
-                                    </button>
-                                </th>
-                                @if ($groupByBranch)
-                                    @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $group, 'showRowLabel' => false])
-                                @else
-                                    @foreach ($kinds as $kind => $label)
-                                        @foreach (['included', 'excluded', 'not_excluded', 'total'] as $state)
-                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white {{ ['included' => 'bg-blue-50/70 dark:bg-blue-950/20', 'excluded' => 'bg-emerald-50/70 dark:bg-emerald-950/20', 'not_excluded' => 'bg-brand-100/70 dark:bg-brand-900/30', 'total' => 'bg-ink-50 dark:bg-ink-800/50'][$state] }}">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$state], 0, ',', '.') }}@endif</td>
-                                        @endforeach
-                                    @endforeach
-                                    @foreach ($kinds as $kind => $label)
-                                        @foreach ($reasons as $reason => $reasonLabel)
-                                            <td class="border border-ink-200 px-2 py-2.5 text-center tabular-nums text-ink-900 dark:border-ink-700 dark:text-white">@if ($sourceUnavailable)<span class="inline-flex min-h-11 items-center px-3 text-ink-400">—</span>@else{{ number_format($group['cells'][$kind.':'.$reason], 0, ',', '.') }}@endif</td>
-                                        @endforeach
-                                    @endforeach
-                                @endif
-                            </tr>
-                            @foreach ($group['rows'] as $matrixRow)
-                                <tr x-show="openGroups[{{ $groupIndex }}]" x-cloak class="bg-white dark:bg-ink-900">
-                                    @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $matrixRow])
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    @endforeach
-                    <tbody>
-                        <tr class="bg-ink-50 font-bold dark:bg-ink-800">
-                            @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $totals])
-                        </tr>
-                    </tbody>
-                @else
-                    <tbody class="divide-y divide-ink-200 dark:divide-ink-700">
-                        @foreach ([...array_values($matrixRows), $totals] as $matrixRow)
-                            <tr class="{{ $matrixRow['key'] === '' ? 'bg-ink-50 font-bold dark:bg-ink-800' : 'bg-white dark:bg-ink-900' }}">
-                                @include('incident-monitoring._exclude-matrix-row', ['matrixRow' => $matrixRow])
-                            </tr>
-                        @endforeach
-                        @if (count($matrixRows) === 0)
-                            <tr><td colspan="{{ $columnCount }}" class="p-4 text-ink-500 dark:text-ink-400">Tidak ada {{ $groupBySto ? 'STO' : ($groupByBranch ? 'branch' : 'wilayah') }} dalam filter dan scope akun.</td></tr>
-                        @endif
-                    </tbody>
-                @endif
-            </table>
-            </div>
-        </div>
-        @if ($checkedAt)<p class="p-4 text-xs text-ink-500 dark:text-ink-400">Dibaca {{ $checkedAt->format('d/m/Y H:i') }} WIB.</p>@endif
-    </section>
+    @include('incident-monitoring._ticket-monitoring-tables')
 
     <section id="ticket-details" aria-labelledby="ticket-details-title" class="scroll-mt-24 overflow-hidden rounded-md border border-ink-100 bg-white dark:border-ink-800 dark:bg-ink-900">
         <header class="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
