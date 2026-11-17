@@ -82,6 +82,12 @@
     }
 }
 
+@media (min-width: 1024px) {
+    html.sidebar-minimized main > :is(div, section, form)[class*="max-w-"] {
+        max-width: 100%;
+    }
+}
+
 /* Cetak laporan (halaman ?print=1) - sembunyikan chrome, ratakan warna,
    pakai border tabel tegas supaya hasil PDF browser terbaca. */
 @media print {
