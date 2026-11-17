@@ -604,6 +604,7 @@ class TicketExcludeMonitoringTest extends TestCase
             ->assertSee('TIKET<br>MANUAL', false)
             ->assertSee('ticketMonitoringModal', false)
             ->assertSee('data-monitoring-detail', false)
+            ->assertSee('data-monitoring-detail="/incident-monitoring/exclusions/detail?', false)
             ->assertSee('data-monitoring-title', false)
             ->assertViewHas('totals', function ($row) {
                 $m = $row['monitoring'];

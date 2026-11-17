@@ -10,7 +10,7 @@
             'matrix_group' => $isGroupRow ? ($matrixRow['group'] ?? '') : '',
             'detail_kind' => $kind === 'total' ? '' : $kind,
             'cell' => $cell,
-        ], fn ($value) => $value !== '' && $value !== null));
+        ], fn ($value) => $value !== '' && $value !== null), false);
     };
     $cellTitle = function (string $kind, string $title) use ($monitoringKinds, $rowLabel): string {
         return trim(($monitoringKinds[$kind] ?? 'Total').' · '.$title.($rowLabel !== '' ? ' · '.$rowLabel : ''));
