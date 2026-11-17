@@ -39,10 +39,18 @@
     }
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-6">
+<div class="mx-auto max-w-screen-2xl space-y-6">
     <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><a href="{{ $returnUrl }}" class="text-xs font-bold text-ink-500 hover:text-brand-600">← Kembali ke halaman asal</a><p class="mt-4 text-xs font-extrabold uppercase tracking-[.16em] text-brand-600">{{ $lop->incident }}</p><h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</h1><p class="mt-1 text-sm text-ink-500">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p></div>
-        <div class="min-w-72 rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900"><div class="flex items-center justify-between text-xs"><span class="font-bold text-ink-500">Progress Approval</span><strong class="text-lg text-ink-900 dark:text-white">{{ $approvalSummary['approval_percentage'] }}%</strong></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $approvalSummary['rejected'] ? 'bg-brand-600' : ($approvalSummary['approval_percentage'] === 100 ? 'bg-emerald-500' : 'bg-amber-400') }}" style="width: {{ $approvalSummary['approval_percentage'] }}%"></div></div><div class="mt-3 flex gap-1.5"><x-badge variant="warning">{{ $approvalSummary['pending'] }} pending</x-badge><x-badge variant="success">{{ $approvalSummary['approved'] }} approve</x-badge>@if($approvalSummary['rejected'])<x-badge variant="danger">{{ $approvalSummary['rejected'] }} reject</x-badge>@endif</div></div>
+        <div class="min-w-0 flex-1">
+            <a href="{{ $returnUrl }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-500 hover:text-brand-700 dark:hover:text-brand-300"><span aria-hidden="true">←</span> Kembali ke antrean</a>
+            <div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1"><p class="text-sm font-bold text-brand-800 dark:text-brand-300">{{ $lop->incident }}</p><span class="text-ink-300">·</span><p class="text-xs text-ink-500">{{ $lop->program_type->label() }}</p><span class="text-ink-300">·</span><p class="text-xs text-ink-500">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }}</p></div>
+            <h1 class="mt-1 truncate text-xl font-bold text-ink-900 dark:text-white sm:text-2xl" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</h1>
+        </div>
+        <section aria-label="Ringkasan approval" class="w-full rounded-lg border border-ink-200 bg-white p-3.5 dark:border-ink-700 dark:bg-ink-900 lg:w-80">
+            <div class="flex items-baseline justify-between gap-3"><span class="text-xs font-semibold text-ink-500">Progress persetujuan</span><strong class="text-lg font-bold tabular-nums text-ink-900 dark:text-white">{{ $approvalSummary['approval_percentage'] }}%</strong></div>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"><div class="h-full rounded-full {{ $approvalSummary['rejected'] ? 'bg-brand-700' : ($approvalSummary['approval_percentage'] === 100 ? 'bg-emerald-600' : 'bg-amber-500') }}" style="width: {{ $approvalSummary['approval_percentage'] }}%"></div></div>
+            <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-ink-600 dark:text-ink-300"><span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500"></span>{{ $approvalSummary['pending'] }} perlu review</span><span><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-600"></span>{{ $approvalSummary['approved'] }} disetujui</span>@if($approvalSummary['rejected'])<span class="text-brand-700 dark:text-brand-300"><span class="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-700"></span>{{ $approvalSummary['rejected'] }} ditolak</span>@endif</div>
+        </section>
     </header>
 
     @if (session('status'))
@@ -62,7 +70,7 @@
         </div>
     @endif
 
-    <nav class="rounded-2xl border border-ink-100 bg-white px-2 py-3 shadow-sm dark:border-ink-800 dark:bg-ink-900 sm:p-4">
+    <nav aria-label="Tahapan evidence" class="rounded-lg border border-ink-200 bg-white px-2 py-3 dark:border-ink-700 dark:bg-ink-900 sm:px-4 sm:py-4">
         <div class="grid grid-cols-6 items-start">
             @foreach ($stepLabels as $number => $label)
                 @php
@@ -73,11 +81,11 @@
                     $isAccessible = $stepIsApproved[$number] || $currentStep === $number;
                 @endphp
                 @if ($isAccessible)
-                <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
-                    <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm {{ $currentStep === $number ? 'border-brand-600 bg-brand-600 text-white shadow-lg shadow-brand-600/20' : ($complete ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-ink-200 bg-white text-ink-400 dark:border-ink-700 dark:bg-ink-900') }}">{{ $complete && $currentStep !== $number ? '✓' : $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block {{ $currentStep === $number ? 'text-brand-600 dark:text-brand-400' : 'text-ink-500' }}">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
+                <a href="{{ route('evidence-approval.lop.review', [$lop, 'step' => $number, 'return_url' => $returnUrl]) }}" aria-current="{{ $currentStep === $number ? 'step' : 'false' }}" class="relative flex min-w-0 flex-col items-center text-center before:absolute before:left-0 before:right-0 before:top-4 before:h-px sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-200 dark:before:bg-ink-700">
+                    <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border text-xs font-bold sm:h-10 sm:w-10 sm:text-sm {{ $currentStep === $number ? 'border-brand-700 bg-brand-700 text-white' : ($complete ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-ink-300 bg-white text-ink-500 dark:border-ink-600 dark:bg-ink-900 dark:text-ink-300') }}">{{ $complete && $currentStep !== $number ? '✓' : $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-semibold sm:hidden {{ $currentStep === $number ? 'text-brand-700 dark:text-brand-300' : 'text-ink-500' }}">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-semibold sm:block {{ $currentStep === $number ? 'text-brand-700 dark:text-brand-300' : 'text-ink-500' }}">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
                 </a>
                 @else
-                <span class="relative flex min-w-0 flex-col items-center text-center opacity-40 cursor-not-allowed before:absolute before:left-0 before:right-0 before:top-4 before:h-0.5 sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-100 dark:before:bg-ink-700">
+                <span aria-disabled="true" class="relative flex min-w-0 flex-col items-center text-center opacity-50 cursor-not-allowed before:absolute before:left-0 before:right-0 before:top-4 before:h-px sm:before:top-5 {{ $number === 1 ? 'before:left-1/2' : '' }} {{ $number === count($stepLabels) ? 'before:right-1/2' : '' }} before:bg-ink-200 dark:before:bg-ink-700">
                     <span class="relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-xs font-extrabold sm:h-10 sm:w-10 sm:text-sm border-ink-200 bg-white text-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-500">{{ $number }}</span><span class="mt-2 max-w-full truncate px-1 text-[10px] font-bold sm:hidden text-ink-400">{{ $stepShortLabels[$number] }}</span><span class="mt-2 hidden text-xs font-bold sm:block text-ink-400">{{ $label }}</span>@if($number > 1)<span class="mt-1 hidden text-[10px] text-ink-400 sm:block">{{ $evidenceItems->count() }} evidence</span>@endif
                 </span>
                 @endif
@@ -118,10 +126,10 @@
         </section>
     @else
         <section>
-            <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[.14em] text-brand-600">Step {{ $currentStep }}</p><h2 class="mt-1 text-xl font-extrabold">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Buka kelompok evidence untuk melihat seluruh foto, lalu approve, reject, atau reset review per foto.</p></div><p class="text-xs font-bold text-ink-500">{{ $currentGroups->count() }} kelompok · {{ $currentEvidence->count() }} file</p></div>
+            <div class="mb-4 flex flex-col gap-2 border-b border-ink-200 pb-3 sm:flex-row sm:items-end sm:justify-between dark:border-ink-700"><div><p class="text-xs font-semibold text-ink-500">Tahap {{ $currentStep }} dari {{ count($stepLabels) }}</p><h2 class="mt-0.5 text-lg font-bold text-ink-900 dark:text-white">{{ $stepLabels[$currentStep] }}</h2><p class="mt-1 text-xs text-ink-500">Buka kelompok evidence untuk memeriksa foto dan memberi keputusan.</p></div><p class="text-xs font-medium text-ink-500">{{ $currentGroups->count() }} kelompok <span class="px-1 text-ink-300">·</span> {{ $currentEvidence->count() }} file</p></div>
             <div class="space-y-3">
                 @if ($currentStep === 2 && $materialArrivalPerItem)
-                    <div class="rounded-md border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
+                    <div class="rounded-lg border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
                         <p class="text-sm font-bold">Checklist material BOQ Plan</p>
                         <p class="mt-1 text-xs text-ink-500">Setiap item material ber-volume wajib memiliki foto yang approved. Foto global lama tidak menggantikan foto per item.</p>
                         <div class="mt-3 space-y-2">
@@ -152,7 +160,7 @@
                     @endphp
                     <x-approval-evidence-group :items="$items" :lop="$lop" :title="$groupTitle" :description="$groupDescription" />
                 @empty
-                    <div class="rounded-2xl border border-dashed border-ink-200 bg-white px-6 py-12 text-center dark:border-ink-700 dark:bg-ink-900"><p class="text-sm font-bold">Belum ada evidence pada step ini</p><p class="mt-1 text-xs text-ink-400">Evidence akan muncul setelah teknisi menyelesaikan upload.</p></div>
+                    <div class="rounded-lg border border-dashed border-ink-300 bg-white px-6 py-12 text-center dark:border-ink-700 dark:bg-ink-900"><p class="text-sm font-semibold">Belum ada evidence pada tahap ini</p><p class="mt-1 text-xs text-ink-500">Evidence akan muncul setelah teknisi menyelesaikan upload.</p></div>
                 @endforelse
             </div>
         </section>
