@@ -16,15 +16,16 @@
     $classes = 'grid h-8 w-8 place-items-center rounded-lg border transition focus:outline-none focus:ring-2 focus:ring-brand-500/30 '.($tones[$tone] ?? $tones['neutral']);
 @endphp
 
-<span class="group relative inline-flex">
+<span x-data="{ tooltipOpen: false, tooltipPosition: { top: 0, left: 0 }, positionTooltip() { const rect = $refs.action.getBoundingClientRect(); this.tooltipPosition = { top: rect.top < 40 ? rect.bottom + 6 : rect.top - 32, left: Math.min(window.innerWidth - 12, Math.max(12, rect.left + rect.width / 2)) }; this.tooltipOpen = true; } }" @pointerenter="positionTooltip()" @pointerleave="tooltipOpen = false" @focusin="positionTooltip()" @focusout="tooltipOpen = false" class="relative inline-flex">
     @if ($href && ! $disabled)
-        <a href="{{ $href }}" aria-label="{{ $label }}" title="{{ $label }}" {{ $attributes->class($classes) }}>{{ $slot }}</a>
+        <a x-ref="action" href="{{ $href }}" aria-label="{{ $label }}" {{ $attributes->class($classes) }}>{{ $slot }}</a>
     @else
-        <button type="button" aria-label="{{ $label }}" title="{{ $label }}" @disabled($disabled)
-                {{ $attributes->class([$classes, 'cursor-not-allowed opacity-40' => $disabled]) }}>{{ $slot }}</button>
+        <button type="button" aria-label="{{ $label }}" @disabled($disabled)
+                x-ref="action" {{ $attributes->class([$classes, 'cursor-not-allowed opacity-40' => $disabled]) }}>{{ $slot }}</button>
     @endif
-    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-950 px-2.5 py-1.5 text-[10px] font-semibold text-white opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-within:opacity-100">
+    <template x-teleport="body">
+    <span x-show="tooltipOpen" x-cloak aria-hidden="true" :style="`top:${tooltipPosition.top}px;left:${tooltipPosition.left}px`" x-transition:enter="transition ease-out duration-75" x-transition:enter-start="translate-y-0.5 opacity-0" x-transition:enter-end="translate-y-0 opacity-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="translate-y-0.5 opacity-0" class="pointer-events-none fixed z-[200] max-w-[calc(100vw-1rem)] -translate-x-1/2 whitespace-nowrap rounded-md bg-ink-950 px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg">
         {{ $label }}
-        <span class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-ink-950"></span>
     </span>
+    </template>
 </span>
