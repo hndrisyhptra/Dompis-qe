@@ -427,21 +427,37 @@
         </div>
     </section>
 
-    <dialog x-ref="matrixModal" @click.self="close()" @keydown.escape.window="close()" class="m-auto max-h-[90vh] w-[min(960px,calc(100%-1.5rem))] overflow-hidden rounded-md border border-ink-200 bg-white p-0 text-ink-900 shadow-2xl backdrop:bg-ink-950/60 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
-        <div class="flex items-start justify-between gap-4 border-b border-ink-100 px-5 py-4 dark:border-ink-800">
-            <div class="min-w-0"><p class="text-[10px] font-extrabold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Matrix drill-down</p><h2 class="mt-1 truncate text-base font-extrabold" x-text="title"></h2><p class="mt-1 text-xs text-ink-500 dark:text-ink-400" x-text="subtitle"></p></div>
-            <button type="button" @click="close()" class="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-ink-200 text-ink-500 transition hover:bg-ink-50 hover:text-ink-900 dark:border-ink-700 dark:hover:bg-ink-800 dark:hover:text-white" aria-label="Tutup"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <dialog x-ref="matrixModal" @click.self="close()" @keydown.escape.window="close()" aria-label="Detail LOP dashboard" class="m-auto max-h-[90vh] w-[min(1120px,calc(100%_-_1.5rem))] overflow-hidden rounded-md border border-ink-200 bg-white p-0 text-ink-900 shadow-2xl backdrop:bg-ink-950/60 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
+        <div class="flex items-center justify-between gap-3 border-b border-ink-100 px-4 py-3 dark:border-ink-800 sm:px-5">
+            <div class="min-w-0">
+                <h2 class="truncate text-sm font-semibold" x-text="title">Detail LOP</h2>
+                <p class="mt-1 text-xs text-ink-500 dark:text-ink-400" x-text="subtitle"></p>
+            </div>
+            <button type="button" @click="close()" aria-label="Tutup detail" title="Tutup detail" class="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-ink-200 text-ink-600 hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M18 6 6 18"/></svg></button>
         </div>
-        <div class="max-h-[calc(90vh-90px)] overflow-auto">
-            <div x-show="loading" class="grid min-h-64 place-items-center"><div class="text-center"><svg class="mx-auto h-7 w-7 animate-spin text-brand-600" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"/><path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z"/></svg><p class="mt-3 text-xs font-semibold text-ink-500">Memuat daftar LOP…</p></div></div>
-            <div x-show="error && !loading" x-cloak class="m-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300" x-text="error"></div>
-            <div x-show="!loading && !error && rows.length === 0" x-cloak class="grid min-h-64 place-items-center p-6 text-center"><div><span class="mx-auto grid h-11 w-11 place-items-center rounded-md bg-ink-50 text-ink-400 dark:bg-ink-800"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5Zm0 4.5 9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg></span><p class="mt-3 text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Tidak ada data pada kombinasi matrix ini.</p></div></div>
-            <div x-show="!loading && rows.length" x-cloak>
-                <div class="divide-y divide-ink-100 md:hidden dark:divide-ink-800">
-                    <template x-for="row in rows" :key="row.detail_url"><a :href="row.detail_url" class="block p-4 transition hover:bg-ink-50 dark:hover:bg-ink-800/50"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="text-[10px] font-extrabold uppercase tracking-wide text-brand-600" x-text="row.incident"></p><p class="mt-1 line-clamp-2 text-xs font-bold" x-text="row.name"></p></div><span class="shrink-0 rounded-full bg-ink-100 px-2 py-1 text-[9px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300" x-text="row.status"></span></div><p class="mt-2 text-[10px] text-ink-400" x-text="`${row.branch} · ${row.service_area} · ${row.program}`"></p><p class="mt-1 text-[10px] font-semibold text-ink-500" x-text="row.technician"></p></a></template>
+        <div class="max-h-[calc(90vh_-_3.5rem)] overflow-y-auto p-4 sm:p-5">
+            <div x-show="loading" role="status" class="rounded-md border border-ink-200 bg-white p-8 text-center text-sm text-ink-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-400">Memuat daftar LOP…</div>
+            <div x-show="error" role="alert" x-cloak class="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300" x-text="error"></div>
+            <p x-show="!loading && !error && rows.length === 0" role="status" x-cloak class="rounded-md border border-dashed border-ink-200 p-6 text-center text-sm text-ink-500 dark:border-ink-700 dark:text-ink-400">Tidak ada LOP pada kombinasi matrix ini.</p>
+            <div x-show="!loading && !error && rows.length" x-cloak>
+                <div role="region" aria-label="Daftar LOP hasil matrix" tabindex="0" class="overflow-x-auto rounded-md border border-ink-100 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-800">
+                    <table class="w-full min-w-[900px] table-fixed text-left text-xs">
+                        <colgroup><col style="width: 17rem"><col style="width: 12rem"><col style="width: 11rem"><col style="width: 12rem"><col style="width: 9rem"><col style="width: 7rem"></colgroup>
+                        <thead class="sticky top-0 bg-ink-50 text-[11px] font-bold uppercase tracking-wide text-ink-500 dark:bg-ink-800 dark:text-ink-300"><tr>
+                            <th scope="col" class="px-3 py-3 text-center">LOP</th><th scope="col" class="px-3 py-3 text-center">Lokasi</th><th scope="col" class="px-3 py-3 text-center">Program</th><th scope="col" class="px-3 py-3 text-center">Teknisi</th><th scope="col" class="px-3 py-3 text-center">Status</th><th scope="col" class="px-3 py-3 text-center">Aksi</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
+                            <template x-for="row in rows" :key="row.detail_url"><tr class="align-middle hover:bg-brand-50/40 dark:hover:bg-ink-800/50">
+                                <td class="px-3 py-3"><span class="block truncate font-medium" :title="row.name" x-text="row.name"></span><span class="mt-1 block truncate font-mono text-[11px] text-ink-500 dark:text-ink-400" x-text="row.incident"></span></td>
+                                <td class="px-3 py-3"><span class="block truncate font-medium" x-text="row.branch"></span><span class="mt-0.5 block truncate text-[11px] text-ink-500 dark:text-ink-400" x-text="row.service_area"></span></td>
+                                <td class="px-3 py-3" x-text="row.program"></td><td class="px-3 py-3" x-text="row.technician"></td>
+                                <td class="px-3 py-3 text-center"><span class="inline-flex whitespace-nowrap rounded-md bg-ink-100 px-2 py-1 text-[11px] font-semibold text-ink-700 dark:bg-ink-800 dark:text-ink-200" x-text="row.status"></span></td>
+                                <td class="px-3 py-3 text-center"><a :href="row.detail_url" class="inline-flex min-h-9 items-center font-semibold text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300">Detail LOP</a></td>
+                            </tr></template>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="hidden overflow-x-auto md:block"><table class="w-full min-w-200 text-left text-xs"><thead class="sticky top-0 bg-ink-50 text-[9px] font-extrabold uppercase tracking-wider text-ink-400 dark:bg-ink-800"><tr><th class="px-5 py-3">LOP</th><th class="px-4 py-3">Lokasi</th><th class="px-4 py-3">Program</th><th class="px-4 py-3">Teknisi</th><th class="px-4 py-3">Status</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead><tbody class="divide-y divide-ink-100 dark:divide-ink-800"><template x-for="row in rows" :key="row.detail_url"><tr class="hover:bg-ink-50/70 dark:hover:bg-ink-800/40"><td class="px-5 py-3"><p class="text-[10px] font-extrabold text-brand-600" x-text="row.incident"></p><p class="mt-1 max-w-64 truncate font-bold" x-text="row.name"></p></td><td class="px-4 py-3"><p class="font-semibold" x-text="row.branch"></p><p class="mt-1 text-[10px] text-ink-400" x-text="row.service_area"></p></td><td class="px-4 py-3" x-text="row.program"></td><td class="px-4 py-3" x-text="row.technician"></td><td class="px-4 py-3"><span class="rounded-full bg-ink-100 px-2 py-1 text-[9px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300" x-text="row.status"></span></td><td class="px-5 py-3 text-right"><a :href="row.detail_url" class="text-[10px] font-extrabold text-brand-600 hover:underline">Detail</a></td></tr></template></tbody></table></div>
-                <p x-show="total > rows.length" class="border-t border-ink-100 px-5 py-3 text-center text-[10px] text-ink-400 dark:border-ink-800">Menampilkan 100 data terbaru dari <span x-text="total"></span> LOP.</p>
+                <p x-show="total > rows.length" class="mt-3 text-center text-xs text-ink-500 dark:text-ink-400">Menampilkan 100 data terbaru dari <span class="font-semibold tabular-nums" x-text="total"></span> LOP.</p>
             </div>
         </div>
     </dialog>
