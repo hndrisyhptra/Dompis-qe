@@ -64,6 +64,8 @@
             @forelse ($lops as $lop)
                 @php($approval = $lop->approval_summary)
                 @php($reuploaded = (int) ($lop->reuploaded_pending_count ?? 0))
+                @php($technicianName = $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan')
+                @php($assignmentLabel = $isSuperAdmin ? 'Assigned oleh '.($lop->activeAssignment?->assigner?->name ?? '—') : 'Assignment Anda')
                 <tr class="transition-colors hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                     <td class="px-5 py-4">
                         <div class="flex min-w-0 items-center gap-2">
@@ -79,7 +81,15 @@
                         <p class="mt-1 max-w-xs truncate text-sm font-semibold text-ink-900 dark:text-white" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p>
                         <p class="mt-1 truncate text-xs text-ink-400" title="{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p>
                     </td>
-                    <td class="px-5 py-4"><div class="flex items-center gap-2.5"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-ink-200 bg-ink-50 text-xs font-bold text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span><div><p class="whitespace-nowrap text-sm font-medium">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $isSuperAdmin ? 'Assigned oleh '.($lop->activeAssignment?->assigner?->name ?? '—') : 'Assignment Anda' }}</p></div></div></td>
+                    <td class="min-w-0 px-5 py-4">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-ink-200 bg-ink-50 text-xs font-bold text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">{{ strtoupper(substr($technicianName === 'Belum ditugaskan' ? '?' : $technicianName, 0, 1)) }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium text-ink-900 dark:text-white" title="{{ $technicianName }}">{{ $technicianName }}</p>
+                                <p class="mt-1 truncate text-[10px] text-ink-400" title="{{ $assignmentLabel }}">{{ $assignmentLabel }}</p>
+                            </div>
+                        </div>
+                    </td>
                     <td class="px-5 py-4">
                         <div class="flex items-baseline justify-between gap-2 border-b border-ink-100 pb-2 dark:border-ink-800">
                             <span class="text-xs font-medium text-ink-500 dark:text-ink-400">Total evidence</span>
