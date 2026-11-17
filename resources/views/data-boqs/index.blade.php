@@ -14,35 +14,44 @@
     ])->values();
 @endphp
 
-<div class="mx-auto max-w-7xl space-y-5" data-boq-options="{{ base64_encode($designatorOptions->toJson()) }}">
+<div class="mx-auto max-w-7xl space-y-6" data-boq-options="{{ base64_encode($designatorOptions->toJson()) }}">
+    <style>
+        .data-boq-table { border-collapse: separate; border-spacing: 0; }
+        .data-boq-table th + th, .data-boq-table td + td { border-left: 1px solid rgb(226 232 240 / .72); }
+        .dark .data-boq-table th + th, .dark .data-boq-table td + td { border-left-color: rgb(51 65 85 / .72); }
+        .data-boq-table thead th { vertical-align: middle; }
+    </style>
     @if ($errors->any())
         <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{{ $errors->first() }}</div>
     @endif
 
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="flex flex-col gap-4 border-b border-ink-200 pb-5 dark:border-ink-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600">Master Data</p>
-            <h1 class="mt-1 text-2xl font-extrabold text-ink-900 dark:text-white">Data BOQ</h1>
-            <p class="mt-2 text-sm text-ink-500">Kelola item designator dan sinkronkan kebutuhan material ke reservasi teknisi.</p>
+            <p class="text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-300">Master Data <span class="px-1 text-red-300 dark:text-red-700">/</span> BOQ</p>
+            <h1 class="mt-1 text-2xl font-bold tracking-tight text-ink-900 dark:text-white">Data BOQ</h1>
+            <p class="mt-1.5 max-w-2xl text-sm text-ink-500 dark:text-ink-400">Kelola rincian BOQ Plan dan nilai aktual dari reservasi teknisi.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <a href="{{ route('bulk-import.boq.index') }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:150px;background-color:#b91c1c;color:#fff;visibility:visible;opacity:1" class="order-first shrink-0 gap-2 rounded-lg border border-red-700 px-5 text-sm font-semibold shadow-sm transition hover:border-red-800 hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 sm:order-last">
+                <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4.5 14.25v4.5A1.5 1.5 0 006 20.25h12a1.5 1.5 0 001.5-1.5v-4.5"/></svg>
+                Import BOQ
+            </a>
             @can('export-data-boqs')
-                <a href="{{ route('data-boqs.export', array_filter(['date_from' => $dateFrom, 'date_to' => $dateTo], fn ($value) => $value !== '')) }}" title="{{ ($dateFrom !== '' || $dateTo !== '') ? 'Download Data BOQ sesuai filter tanggal laporan dan scope akses' : 'Download seluruh Data BOQ sesuai scope akses' }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-ink-200 bg-white px-4 text-sm font-extrabold text-ink-700 transition hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800">Download Excel</a>
+                <a href="{{ route('data-boqs.export', array_filter(['date_from' => $dateFrom, 'date_to' => $dateTo], fn ($value) => $value !== '')) }}" title="{{ ($dateFrom !== '' || $dateTo !== '') ? 'Download Data BOQ sesuai filter tanggal laporan dan scope akses' : 'Download seluruh Data BOQ sesuai scope akses' }}" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-ink-300 bg-white px-4 text-sm font-semibold text-ink-700 transition hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-200 dark:hover:bg-ink-800">Download Excel</a>
             @endcan
-            <a href="{{ route('bulk-import.boq.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-extrabold text-white">Import BOQ</a>
         </div>
     </div>
 
-    <form method="GET" action="{{ route('data-boqs.index') }}" x-data="{ dateFrom: @js($dateFrom) }" class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm dark:border-ink-700 dark:bg-ink-900">
-        <div class="mb-4 flex items-center justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800">
-            <div><p class="text-sm font-extrabold text-ink-900 dark:text-white">Pencarian BOQ</p><p class="mt-0.5 text-xs text-ink-500">Cari berdasarkan incident, nama LOP, atau tanggal laporan incident.</p></div>
-            @if ($search !== '' || $dateFrom !== '' || $dateTo !== '')<a href="{{ route('data-boqs.index') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Reset pencarian</a>@endif
+    <form method="GET" action="{{ route('data-boqs.index') }}" x-data="{ dateFrom: @js($dateFrom) }" class="rounded-lg border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
+        <div class="mb-4 flex items-start justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800">
+            <div><p class="text-sm font-semibold text-ink-900 dark:text-white">Filter data</p><p class="mt-0.5 text-xs text-ink-500">Cari berdasarkan incident, nama LOP, atau tanggal laporan incident.</p></div>
+            @if ($search !== '' || $dateFrom !== '' || $dateTo !== '')<a href="{{ route('data-boqs.index') }}" class="shrink-0 text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300">Reset filter</a>@endif
         </div>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_11rem_11rem_auto]">
-            <label><span class="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Incident / Nama LOP</span><input name="q" value="{{ $search }}" placeholder="Contoh: INP3124092601" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></label>
-            <label><span class="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Laporan dari</span><input name="date_from" type="date" value="{{ $dateFrom }}" x-model="dateFrom" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></label>
-            <label><span class="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-ink-500">Laporan sampai</span><input name="date_to" type="date" value="{{ $dateTo }}" :min="dateFrom || undefined" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></label>
-            <div class="flex items-end"><button class="min-h-11 w-full rounded-xl bg-ink-900 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-ink-800 dark:bg-white dark:text-ink-900 dark:hover:bg-ink-100">Cari Data BOQ</button></div>
+            <label><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Incident / Nama LOP</span><input name="q" value="{{ $search }}" placeholder="Contoh: INP3124092601" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none transition placeholder:text-ink-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 dark:border-ink-700 dark:bg-ink-950"></label>
+            <label><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Laporan dari</span><input name="date_from" type="date" value="{{ $dateFrom }}" x-model="dateFrom" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 dark:border-ink-700 dark:bg-ink-950"></label>
+            <label><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Laporan sampai</span><input name="date_to" type="date" value="{{ $dateTo }}" :min="dateFrom || undefined" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 dark:border-ink-700 dark:bg-ink-950"></label>
+            <div class="flex items-end"><button type="submit" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;min-width:120px;background-color:#334155;color:#fff;visibility:visible;opacity:1" class="w-full rounded-md border border-slate-700 px-5 text-sm font-semibold transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2">Terapkan</button></div>
         </div>
         <p class="mt-3 text-xs text-ink-500 dark:text-ink-400">Rentang tanggal mengikuti reported date tiket Dompis yang tersimpan pada LOP, bukan tanggal pembuatan LOP. Kosongkan keduanya untuk seluruh periode.</p>
         @if ($dateFrom !== '' || $dateTo !== '')
@@ -51,15 +60,15 @@
     </form>
 
     @if ($reservationBoqs->total() > 0)
-        <section class="overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-900/60 dark:bg-ink-900">
-            <div class="flex flex-col gap-2 border-b border-blue-100 bg-blue-50/70 px-5 py-4 dark:border-blue-900/50 dark:bg-blue-950/20 sm:flex-row sm:items-center sm:justify-between">
-                <div><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">BOQ Aktual dari Reservasi Teknisi</h2><p class="mt-1 text-xs text-ink-500">LOP tanpa BOQ Plan ditampilkan berdasarkan item dan quantity aktual reservasi teknisi.</p></div>
-                <span class="w-fit rounded-full bg-white px-3 py-1 text-[10px] font-bold text-blue-700 shadow-sm dark:bg-ink-900 dark:text-blue-300">JATIM/JATENG: Paket-5 · BALNUS: Paket-10</span>
+        <section class="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
+            <div class="flex flex-col gap-2 border-b border-ink-200 px-5 py-4 dark:border-ink-700 sm:flex-row sm:items-center sm:justify-between">
+                <div><div class="flex items-center gap-2"><h2 class="text-base font-semibold text-ink-900 dark:text-white">BOQ Aktual dari Reservasi Teknisi</h2><span class="rounded-md bg-ink-100 px-2 py-0.5 text-xs font-medium tabular-nums text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $reservationBoqs->total() }}</span></div><p class="mt-1 text-xs text-ink-500">LOP tanpa BOQ Plan menggunakan item dan kuantitas aktual reservasi teknisi.</p></div>
+                <span class="text-xs text-ink-500 dark:text-ink-400">JATIM/JATENG = Paket-5 <span class="px-1 text-ink-300">·</span> BALI = Paket-10 <span class="px-1 text-ink-300">·</span> NUSRA = Paket-12</span>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800">
-                    <thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50"><tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Paket</th><th class="px-5 py-3 text-right">Nilai Jasa</th><th class="px-5 py-3 text-right">Nilai Material</th><th class="px-5 py-3 text-right">Nilai BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr></thead>
-                    <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
+                <table class="data-boq-table min-w-full divide-y divide-ink-200 text-sm dark:divide-ink-700">
+                    <thead class="border-b border-sky-200 bg-sky-50 text-[11px] font-semibold uppercase tracking-wide text-sky-900 dark:border-sky-900/70 dark:bg-sky-950/50 dark:text-sky-200"><tr><th class="px-5 py-3 text-left">LOP</th><th class="px-5 py-3 text-center">Paket</th><th class="px-5 py-3 text-center">Nilai Jasa</th><th class="px-5 py-3 text-center">Nilai Material</th><th class="px-5 py-3 text-center">Nilai BOQ</th><th class="px-5 py-3 text-center">Aksi</th></tr></thead>
+                    <tbody class="divide-y divide-ink-200 dark:divide-ink-700">
                         @foreach($reservationBoqs as $lop)
                             @php
                                 $summary = $lop->effective_boq;
@@ -68,11 +77,11 @@
                             @endphp
                             <tr x-data="boqEditor('{{ base64_encode($reservationItems->toJson()) }}', null, { materialOnly: true, maxItems: 100 })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                                 <td class="px-5 py-4"><p class="flex flex-wrap items-baseline gap-2"><span class="font-bold">{{ $lop->incident }}</span><span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $lop->reported_date ?: '—' }}</span></p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
-                                <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $summary['package_label'] }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $summary['item_count'] }} item aktual</p></td>
-                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
-                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format($summary['material_total'], 0, ',', '.') }}</td>
-                                <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($summary['grand_total'], 0, ',', '.') }}@if($summary['missing_price_count'])<span class="mt-1 block text-[9px] font-bold text-amber-600">{{ $summary['missing_price_count'] }} harga belum tersedia</span>@endif</td>
-                                <td class="px-5 py-4 text-right">
+                                <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $summary['package']?->code ?? '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $summary['item_count'] }} item aktual</p></td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format($summary['material_total'], 0, ',', '.') }}</td>
+                                <td class="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold tabular-nums text-ink-900 dark:text-white">Rp {{ number_format($summary['grand_total'], 0, ',', '.') }}@if($summary['missing_price_count'])<span class="mt-1 block text-[10px] font-medium text-amber-700 dark:text-amber-300">{{ $summary['missing_price_count'] }} harga belum tersedia</span>@endif</td>
+                                <td class="px-5 py-4 text-center">
                                     <x-table-action label="Detail BOQ aktual" @click="detail = true"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg></x-table-action>
                                     @if ($reservationEditable)
                                         <x-table-action label="Edit BOQ Aktual" tone="primary" @click="openEdit()"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m16.5 3.75 3.75 3.75M4.5 19.5l4.5-1.125L20.25 7.125a2.652 2.652 0 0 0-3.75-3.75L5.25 14.625 4.5 19.5Z"/></svg></x-table-action>
@@ -98,14 +107,14 @@
         </section>
     @endif
 
-    <div class="overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <div class="border-b border-ink-100 px-5 py-4 dark:border-ink-800"><h2 class="text-sm font-extrabold text-ink-900 dark:text-white">BOQ Plan</h2><p class="mt-1 text-xs text-ink-500">BOQ hasil import atau pengelolaan manual.</p></div>
+    <section class="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
+        <div class="flex items-center gap-2 border-b border-ink-200 px-5 py-4 dark:border-ink-700"><div><h2 class="text-base font-semibold text-ink-900 dark:text-white">BOQ Plan</h2><p class="mt-1 text-xs text-ink-500">BOQ hasil import atau pengelolaan manual.</p></div><span class="ml-auto rounded-md bg-ink-100 px-2 py-0.5 text-xs font-medium tabular-nums text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $boqs->total() }}</span></div>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-ink-100 text-sm dark:divide-ink-800">
-                <thead class="bg-ink-50 text-left text-[11px] uppercase text-ink-500 dark:bg-ink-950/50">
-                    <tr><th class="px-5 py-3">LOP</th><th class="px-5 py-3">Paket</th><th class="px-5 py-3 text-right">Nilai Jasa</th><th class="px-5 py-3 text-right">Nilai Material</th><th class="px-5 py-3 text-right">Nilai BOQ</th><th class="px-5 py-3 text-right">Aksi</th></tr>
+            <table class="data-boq-table min-w-full divide-y divide-ink-200 text-sm dark:divide-ink-700">
+                <thead class="border-b border-rose-200 bg-rose-50 text-[11px] font-semibold uppercase tracking-wide text-rose-900 dark:border-rose-900/70 dark:bg-rose-950/50 dark:text-rose-200">
+                    <tr><th class="px-5 py-3 text-left">LOP</th><th class="px-5 py-3 text-center">Paket</th><th class="px-5 py-3 text-center">Nilai Jasa</th><th class="px-5 py-3 text-center">Nilai Material</th><th class="px-5 py-3 text-center">Nilai BOQ</th><th class="px-5 py-3 text-center">Aksi</th></tr>
                 </thead>
-                <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
+                <tbody class="divide-y divide-ink-200 dark:divide-ink-700">
                     @forelse ($boqs as $boq)
                         @php
                             $status = $boq->lop->status_lop->value;
@@ -129,12 +138,12 @@
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
                                 <span class="mt-2 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[9px] font-bold text-ink-500 dark:bg-ink-800">{{ $boq->lop->status_lop->label() }}</span>
                             </td>
-                            <td class="px-5 py-4"><p class="text-xs font-bold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[10px] text-ink-400">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material + jasa khusus jika ada' }}</p></td>
-                            <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>
-                            <td class="whitespace-nowrap px-5 py-4 text-right text-xs font-semibold">Rp {{ number_format((float) $materialTotal, 0, ',', '.') }}</td>
-                            <td class="whitespace-nowrap px-5 py-4 text-right font-extrabold text-ink-900 dark:text-white">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</td>
+                            <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material + jasa khusus jika ada' }}</p></td>
+                            <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>
+                            <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format((float) $materialTotal, 0, ',', '.') }}</td>
+                            <td class="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold tabular-nums text-ink-900 dark:text-white">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</td>
                             <td class="px-5 py-4">
-                                <div class="flex justify-end gap-1.5">
+                                <div class="flex justify-center gap-1.5">
                                     <x-table-action label="Lihat detail BOQ" @click="detail=true">
                                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.25"/></svg>
                                     </x-table-action>
@@ -289,12 +298,12 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-5 py-14 text-center text-ink-400">Belum ada LOP yang memiliki BOQ.</td></tr>
+                        <tr><td colspan="6" class="px-5 py-14 text-center text-sm text-ink-500">Belum ada LOP yang memiliki BOQ.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 
     {{ $boqs->links() }}
 </div>
