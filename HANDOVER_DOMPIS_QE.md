@@ -1132,6 +1132,25 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 - Tampilan mobile tetap mempertahankan kontrol checkbox peer tanpa terpengaruh minimisasi desktop.
 - Halaman Monitoring Exclude (`/incident-monitoring/exclusions`) kini menyediakan tiga tabel agregasi dengan angka clickable yang membuka modal detail berisi kolom LOP spesifik (Incident, Nama LOP, Program, Branch/STO, Tanggal, Status, Aksi).
 
+### 7.83 Header Monitoring Status LOP: BLM MAPPING, SDH MAPPING, BLM CLOSE — 16 November 2026 (belum di-commit)
+
+- Header tabel **Monitoring Status LOP** pada dashboard mengikuti `plans/plan-tabel-monitoring-lop.jpeg`: kolom `BLM MAPPING` (pengganti label `Belum Exclude`, sumber data tetap `TicketCoverageService::withoutExcludeCountsByLocation()`), grup `SDH MAPPING` berisi `SDH CLOSE` dan `BLM CLOSE`, lalu grup `BLM CLOSE` berisi 8 status workflow + `Total` + `Persentase`.
+- Definisi close memakai status LOP, bukan status tiket Dompis: `SDH CLOSE` = jumlah LOP `completed`, `BLM CLOSE` = `total - completed`. Keduanya ditambahkan di `DashboardMatrixMetrics` sehingga tersedia konsisten untuk Region, Branch, Program, dan grup Service Area/STO.
+- Berlaku pada dashboard regional (tabel Branch/Program) dan tabel Admin Branch (Service Area/STO). Baris Program tidak memiliki nilai `BLM MAPPING` (tetap `—`) karena incident tanpa LOP belum dapat dipetakan ke program, tetapi tetap menampilkan `SDH CLOSE`/`BLM CLOSE`.
+- Angka `SDH CLOSE` dan `BLM CLOSE` clickable memakai `metric=complete` dan metric baru `metric=not_complete` pada `dashboard.matrix-lops`; scope admin tetap diterapkan ulang di server. Kolom `BLM CLOSE` sengaja tetap memuat semua status, termasuk `Completed`, `Total`, dan `Persentase`, bukan hanya status belum selesai.
+- Regression `AdminDashboardTest`: header dan nilai `sdh_close`/`blm_close` branch+program, grup Service Area, serta drill-down `metric=not_complete`. Tidak ada migration, schema, query baru ke sumber Dompis, atau perubahan data operasional.
+- Kolom pertama `Branch / Program` pada tabel Monitoring Status LOP dibekukan (`sticky left-0 z-10`) termasuk sel header, sehingga tetap terlihat saat tabel digeser horizontal; kelas yang sama sudah dipakai tabel Monitoring Wilayah dan tabel Admin Branch.
+- Urutan kolom status pada tabel Monitoring Status LOP menempatkan **Rejected sebelum Completed** (khusus kolom matrix; dropdown filter status tetap memakai urutan lifecycle `LopStatus::cases()`). Logika transisi, data, dan enum tidak berubah.
+- Pengelompokan header disesuaikan lagi: grup **BLM CLOSE** hanya berisi 7 status belum selesai (Unassigned, Assigned, Picked Up, Survey, Progress, Waiting Approval, Rejected), **Completed** berada di grup **CLOSE** sendiri, dan **Total/Persentase** berada di grup **TOTAL**. Data view dipisah menjadi `blmCloseStatuses` dan `closeStatus` agar tabel utama dan tabel Admin Branch memakai sumber yang sama.
+- Pewarnaan header mengikuti palet semantik tanpa latar pastel: label grup **BLM MAPPING** amber, **SDH MAPPING** blue, **BLM CLOSE** violet, **CLOSE/Completed** emerald, **TOTAL** slate, dengan aksen `border-t-4` (amber-500/blue-500/violet-500/emerald-500) dan divider kanan grup `border-r-2` senada. Sub-header seragam: latar `slate-50`, teks `slate-600`, `font-semibold`, sentence case (`SDH Close`/`BLM Close`) agar hierarki grup vs sub-kolom terbaca tanpa semua teks berteriak.
+- Latar pastel per grup sengaja dihapus karena sebelumnya satu batas grup ditandai empat sinyal sekaligus (fill + aksen atas + divider + warna teks). BLM CLOSE tidak lagi memakai amber agar terpisah dari BLM MAPPING. Garis 1px netral di dalam grup tetap dipertahankan untuk membantu pelacakan kolom angka, bukan sebagai penanda grup.
+- Sel data tidak diwarnai per kolom: latar putih, hover baris slate-50, angka 0 diredupkan (`text-slate-400`) dan angka > 0 tegas (`text-slate-900`), semua angka `tabular-nums`. Angka 0 pada tabel status dirender sebagai `<span>` non-interaktif (drill-down kosong tidak berguna) dengan tooltip "Tidak ada LOP"; zero-muting hanya aktif lewat prop `mute-zero` pada `x-matrix-number` sehingga komponen lain tidak berubah.
+
+### 7.84 Urutan menu sidebar: Monitoring Incident sebelum Dashboard — 17 November 2026 (belum di-commit)
+
+- Pada grup **Operasional**, menu **Monitoring Incident** kini tampil sebelum menu dashboard yang berganti label menjadi **Operational Overview**. Isi menu, ikon, badge, state aktif, dan aturan `@can`/role tidak berubah; hanya teks label dan urutan blok markup di `resources/views/layouts/app.blade.php`. Judul halaman dashboard tetap "Dashboard Operasional".
+- Regression `IncidentMonitoringTest::test_sidebar_lists_monitoring_incident_before_operational_overview` memastikan urutan dan label tersebut. Tidak ada perubahan route, controller, schema, atau data.
+
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
 ### Prioritas tinggi

@@ -10,6 +10,7 @@ use App\Models\QeLop;
 use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithIncidentTickets;
 use Tests\TestCase;
@@ -172,12 +173,16 @@ class AdminDashboardTest extends TestCase
                 && $sidoarjo['summary']['assigned'] === 1
                 && $sidoarjo['summary']['in_review'] === 1
                 && $sidoarjo['summary']['complete'] === 1
+                && $sidoarjo['summary']['sdh_close'] === 1
+                && $sidoarjo['summary']['blm_close'] === 3
                 && $sidoarjo['summary']['percentage'] === 25
                 && $sidoarjo['summary']['pipeline']['draft'] === 1
                 && $sidoarjo['summary']['pipeline']['assigned'] === 1
                 && $recovery['total'] === 2
                 && $recovery['assigned'] === 1
                 && $recovery['in_review'] === 1
+                && $recovery['sdh_close'] === 0
+                && $recovery['blm_close'] === 2
                 && $includeSurabaya === collect($jatim['branches'])->contains('name', 'SURABAYA');
         };
 
@@ -187,6 +192,27 @@ class AdminDashboardTest extends TestCase
             ->assertSee('Monitoring Wilayah')
             ->assertSee('Ringkasan performa', false)
             ->assertSee('Branch / Program', false)
+            ->assertSee('BLM MAPPING', false)
+            ->assertSee('SDH MAPPING', false)
+            ->assertSee('SDH Close', false)
+            ->assertSee('BLM Close', false)
+            ->assertSee('bg-sky-50 px-2 py-2', false)
+            ->assertSee('bg-ink-100 px-2 py-2', false)
+            ->assertSee('rowspan="2" class="sticky left-0 z-10 whitespace-nowrap', false)
+            ->assertSee('>CLOSE</th>', false)
+            ->assertSee('>TOTAL</th>', false)
+            ->assertDontSee('border-t-4 border-t-amber-500 border-r-2 border-r-amber-200')
+            ->assertDontSee('border-t-4 border-t-blue-500 border-r-2 border-r-blue-200')
+            ->assertDontSee('border-t-4 border-t-violet-500 border-r-2 border-r-violet-200')
+            ->assertDontSee('border-t-4 border-t-emerald-500 border-r-2 border-r-emerald-200')
+            ->assertViewHas('pipelineStatuses', function ($statuses): bool {
+                $labels = collect($statuses)->pluck('label')->all();
+
+                return array_search('Rejected', $labels, true) === array_search('Completed', $labels, true) - 1;
+            })
+            ->assertViewHas('blmCloseStatuses', fn ($statuses) => collect($statuses)->count() === 7
+                && collect($statuses)->doesntContain('value', 'completed'))
+            ->assertViewHas('closeStatus', fn (array $status) => $status['value'] === 'completed')
             ->assertSee('branchOpen', false)
             ->assertViewHas('matrixRegions', fn (array $regions) => $assertMatrix($regions, true));
 
@@ -275,6 +301,51 @@ class AdminDashboardTest extends TestCase
             ->assertSee('Project DRILL-SDA')->assertDontSee('Project DRILL-SBY');
     }
 
+    public function test_matrix_drill_down_not_complete_metric_returns_only_unclosed_lops(): void
+    {
+        $sidoarjo = Branch::create(['code' => 'SDA', 'name' => 'SIDOARJO', 'region' => 'REGION JATIM']);
+        $admin = User::factory()->role(UserRole::ADMIN->value)->create(['branch_id' => $sidoarjo->id_branch]);
+
+        $this->makeLop($admin, 'DRILL-CLOSED', 'SIDOARJO', 'preventive', 'completed');
+        $this->makeLop($admin, 'DRILL-OPEN-DRAFT', 'SIDOARJO', 'preventive', 'draft');
+        $this->makeLop($admin, 'DRILL-OPEN-REVIEW', 'SIDOARJO', 'preventive', 'waiting_approval');
+
+        $this->actingAs($admin)
+            ->getJson(route('dashboard.matrix-lops', [
+                'branch' => 'SIDOARJO',
+                'program' => 'preventive',
+                'metric' => 'not_complete',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('total', 2)
+            ->assertJsonMissing(['incident' => 'DRILL-CLOSED']);
+
+        $this->getJson(route('dashboard.matrix-lops', [
+            'branch' => 'SIDOARJO',
+            'program' => 'preventive',
+            'metric' => 'complete',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.incident', 'DRILL-CLOSED');
+    }
+
+    public function test_matrix_number_mutes_zero_only_when_requested(): void
+    {
+        $zero = Blade::render('<x-matrix-number :value="0" title="Zero" mute-zero />');
+        $positive = Blade::render('<x-matrix-number :value="3" title="Three" mute-zero />');
+        $plain = Blade::render('<x-matrix-number :value="0" title="Plain" />');
+
+        $this->assertStringContainsString('text-slate-400', $zero);
+        $this->assertStringNotContainsString('<button', $zero);
+        $this->assertStringContainsString('Tidak ada LOP', $zero);
+        $this->assertStringContainsString('text-slate-900', $positive);
+        $this->assertStringContainsString('<button', $positive);
+        $this->assertStringNotContainsString('text-slate-400', $plain);
+        $this->assertStringContainsString('<button', $plain);
+        $this->assertStringContainsString('tabular-nums', $zero);
+    }
+
     public function test_super_admin_dashboard_exposes_region_image_capture(): void
     {
         Branch::create(['code' => 'DPS', 'name' => 'DENPASAR', 'region' => 'REGION BALNUS']);
@@ -288,7 +359,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee("dashboardRegionCapture('REGION BALNUS')", false)
             ->assertSee('data-capture-ignore', false)
             ->assertSee('data-capture-full-label', false)
-            ->assertSee('whitespace-nowrap text-[9px] font-semibold text-blue-500', false)
+            ->assertSee('whitespace-nowrap text-[9px] font-semibold text-ink-500', false)
             ->assertSeeInOrder(['Ringkasan performa', 'region-image-format-0'], false)
             ->assertSee('Capture', false)
             ->assertSee('JPG / JPEG', false);
@@ -331,13 +402,25 @@ class AdminDashboardTest extends TestCase
 
         $this->actingAs($admin)->get(route('dashboard', ['tab' => 'status']))
             ->assertOk()
-            ->assertSee('Belum Exclude')
+            ->assertSee('BLM MAPPING', false)
+            ->assertSee('SDH MAPPING', false)
+            ->assertSee('SDH Close', false)
+            ->assertSee('BLM Close', false)
+            ->assertSee('>CLOSE</th>', false)
+            ->assertSee('>TOTAL</th>', false)
+            ->assertDontSee('border-t-4 border-t-amber-500 border-r-2 border-r-amber-200')
+            ->assertDontSee('border-t-4 border-t-blue-500 border-r-2 border-r-blue-200')
+            ->assertDontSee('border-t-4 border-t-violet-500 border-r-2 border-r-violet-200')
+            ->assertDontSee('border-t-4 border-t-emerald-500 border-r-2 border-r-emerald-200')
             ->assertSee('href="'.str_replace('&', '&amp;', route('incident-monitoring.tickets', ['branch' => $branch->id_branch, 'service_area' => $serviceArea->id_service_area, 'usage' => 'without_lop'])).'"', false)
             ->assertViewHas('incidentCountsAvailable', true)
             ->assertViewHas('serviceAreaStatusGroups', function (array $groups): bool {
                 $unmapped = collect($groups)->firstWhere('name', 'STO BELUM TERDATA');
+                $sdaArea = collect($groups)->firstWhere('name', 'SDA-AREA');
 
-                return collect($groups)->firstWhere('name', 'SDA-AREA')['without_exclude'] === 1
+                return $sdaArea['without_exclude'] === 1
+                    && $sdaArea['summary']['sdh_close'] === 0
+                    && $sdaArea['summary']['blm_close'] === 0
                     && $unmapped['count'] === 0
                     && $unmapped['unmapped_lops'] === 1;
             })

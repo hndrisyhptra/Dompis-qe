@@ -69,8 +69,10 @@
                                     <button type="button" @click="openGroups[{{ $groupIndex }}] = !openGroups[{{ $groupIndex }}]" :aria-expanded="!!openGroups[{{ $groupIndex }}]" aria-controls="monitoring-ticket-group-{{ $groupIndex }} monitoring-pareto-group-{{ $groupIndex }} monitoring-create-group-{{ $groupIndex }}"
                                             class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="openGroups[{{ $groupIndex }}] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                        <span class="{{ $groupByBranch ? 'shrink-0 whitespace-nowrap' : 'min-w-0 wrap-break-word' }}">{{ $group['name'] }}</span>
-                                        <span class="ml-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block {{ $groupByBranch ? 'whitespace-nowrap' : 'wrap-break-word' }}">{{ $group['name'] }}</span>
+                                            <span class="mt-0.5 block text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        </span>
                                     </button>
                                 </th>
                                 @include('incident-monitoring._monitoring-cells', ['matrixRow' => $group, 'monitoringMode' => 'ticket', 'showLabel' => false])
@@ -138,8 +140,10 @@
                                     <button type="button" @click="openGroups[{{ $groupIndex }}] = !openGroups[{{ $groupIndex }}]" :aria-expanded="!!openGroups[{{ $groupIndex }}]" aria-controls="monitoring-ticket-group-{{ $groupIndex }} monitoring-pareto-group-{{ $groupIndex }} monitoring-create-group-{{ $groupIndex }}"
                                             class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="openGroups[{{ $groupIndex }}] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                        <span class="{{ $groupByBranch ? 'shrink-0 whitespace-nowrap' : 'min-w-0 wrap-break-word' }}">{{ $group['name'] }}</span>
-                                        <span class="ml-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block {{ $groupByBranch ? 'whitespace-nowrap' : 'wrap-break-word' }}">{{ $group['name'] }}</span>
+                                            <span class="mt-0.5 block text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        </span>
                                     </button>
                                 </th>
                                 @include('incident-monitoring._monitoring-cells', ['matrixRow' => $group, 'monitoringMode' => 'pareto', 'showLabel' => false])
@@ -204,8 +208,10 @@
                                     <button type="button" @click="openGroups[{{ $groupIndex }}] = !openGroups[{{ $groupIndex }}]" :aria-expanded="!!openGroups[{{ $groupIndex }}]" aria-controls="monitoring-ticket-group-{{ $groupIndex }} monitoring-pareto-group-{{ $groupIndex }} monitoring-create-group-{{ $groupIndex }}"
                                             class="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-emerald-100 dark:bg-emerald-900/50"><svg class="h-3 w-3 transition-transform" :class="openGroups[{{ $groupIndex }}] ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5.25 6.75 6.75L9 18.75"/></svg></span>
-                                        <span class="{{ $groupByBranch ? 'shrink-0 whitespace-nowrap' : 'min-w-0 wrap-break-word' }}">{{ $group['name'] }}</span>
-                                        <span class="ml-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block {{ $groupByBranch ? 'whitespace-nowrap' : 'wrap-break-word' }}">{{ $group['name'] }}</span>
+                                            <span class="mt-0.5 block text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{{ $group['row_count'] }} {{ $matrixUnit }}</span>
+                                        </span>
                                     </button>
                                 </th>
                                 @include('incident-monitoring._monitoring-cells', ['matrixRow' => $group, 'monitoringMode' => 'create', 'showLabel' => false])

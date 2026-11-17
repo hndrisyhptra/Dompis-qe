@@ -76,6 +76,14 @@ class IncidentMonitoringTest extends TestCase
             ->assertViewHas('scopeWarning', true)->assertViewHas('stats', fn ($stats) => $stats['total'] === 0);
     }
 
+    public function test_sidebar_lists_monitoring_incident_before_operational_overview(): void
+    {
+        $this->actingAs($this->super)
+            ->get(route('incident-monitoring.index'))
+            ->assertOk()
+            ->assertSeeInOrder(['Monitoring Incident', 'Operational Overview'], false);
+    }
+
     public function test_totals_chart_and_rows_distinguish_manual_unknown_empty_and_missing_tickets(): void
     {
         foreach (['INC1' => ' gamas ', 'INC2' => 'GAMAS', 'INC3' => 'unknown', 'INC4' => 'INFRACARE', 'INC5' => 'NON   NUMBERING', 'INC6' => null] as $incident => $type) {

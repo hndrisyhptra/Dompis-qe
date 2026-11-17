@@ -18,6 +18,9 @@ class DashboardMatrixMetrics
             'unassigned' => $pipeline[LopStatus::DRAFT->value],
             'in_review' => $pipeline[LopStatus::WAITING_APPROVAL->value],
             'complete' => $complete,
+            // Monitoring Status LOP: tiket/LOP sudah close (completed) vs belum close.
+            'sdh_close' => $complete,
+            'blm_close' => $total - $complete,
             'percentage' => $total > 0 ? (int) round(($complete / $total) * 100) : 0,
             'pipeline' => $pipeline,
         ];

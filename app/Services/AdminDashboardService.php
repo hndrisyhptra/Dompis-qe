@@ -93,6 +93,15 @@ class AdminDashboardService
             ? $this->monitoringSummary($user, [...$filterState, 'date' => $dashboardDate])
             : [];
 
+        $pipelineStatuses = collect($this->pipelineColumnStatuses())->map(fn (LopStatus $status) => [
+            'value' => $status->value,
+            'label' => $status->label(),
+        ])->values();
+        $blmCloseStatuses = $pipelineStatuses
+            ->reject(fn (array $status) => $status['value'] === LopStatus::COMPLETED->value)
+            ->values();
+        $closeStatus = $pipelineStatuses->firstWhere('value', LopStatus::COMPLETED->value);
+
         return [
             'isSuperAdmin' => $isSuperAdmin,
             'scopeLabel' => $isSuperAdmin ? 'Seluruh wilayah operasional' : $this->visibility->label($user),
@@ -107,10 +116,9 @@ class AdminDashboardService
             'dashboardDate' => $dashboardDate,
             'dashboardTab' => $dashboardTab,
             ...$summaryData,
-            'pipelineStatuses' => collect(LopStatus::cases())->map(fn (LopStatus $status) => [
-                'value' => $status->value,
-                'label' => $status->label(),
-            ]),
+            'pipelineStatuses' => $pipelineStatuses,
+            'blmCloseStatuses' => $blmCloseStatuses,
+            'closeStatus' => $closeStatus,
             'filters' => $filterState,
             'regions' => Branch::query()->whereNotNull('region')->distinct()->orderBy('region')->pluck('region'),
             'branches' => Branch::query()->orderBy('region')->orderBy('name')->get(),
@@ -142,7 +150,7 @@ class AdminDashboardService
             'branch' => trim((string) ($filters['branch'] ?? '')),
             'program' => ProgramType::tryFrom((string) ($filters['program'] ?? ''))?->value ?? '',
             'status' => LopStatus::tryFrom((string) ($filters['status'] ?? ''))?->value ?? '',
-            'metric' => in_array(($filters['metric'] ?? ''), ['assigned', 'unassigned', 'in_review', 'complete'], true)
+            'metric' => in_array(($filters['metric'] ?? ''), ['assigned', 'unassigned', 'in_review', 'complete', 'not_complete'], true)
                 ? (string) $filters['metric']
                 : '',
         ];
@@ -155,6 +163,7 @@ class AdminDashboardService
             'unassigned' => $query->where('status_lop', LopStatus::DRAFT),
             'in_review' => $query->where('status_lop', LopStatus::WAITING_APPROVAL),
             'complete' => $query->where('status_lop', LopStatus::COMPLETED),
+            'not_complete' => $query->where('status_lop', '!=', LopStatus::COMPLETED),
             default => null,
         };
 
@@ -377,5 +386,24 @@ class AdminDashboardService
         if ($filters['status'] !== '') {
             $query->where('qe_lops.status_lop', $filters['status']);
         }
+    }
+
+    /**
+     * Urutan kolom Monitoring Status LOP: Rejected tampil sebelum Completed.
+     *
+     * @return array<int, LopStatus>
+     */
+    private function pipelineColumnStatuses(): array
+    {
+        $statuses = collect(LopStatus::cases())
+            ->reject(fn (LopStatus $status) => $status === LopStatus::REJECTED)
+            ->values();
+        $completedIndex = $statuses->search(fn (LopStatus $status) => $status === LopStatus::COMPLETED);
+
+        if ($completedIndex !== false) {
+            $statuses->splice($completedIndex, 0, [LopStatus::REJECTED]);
+        }
+
+        return $statuses->all();
     }
 }

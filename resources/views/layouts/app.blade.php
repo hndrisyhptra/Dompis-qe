@@ -70,31 +70,6 @@
             {{-- ========== OPERASIONAL ========== --}}
             <p class="{{ $navLabel }}" x-show="!isSidebarMinimized">Operasional</p>
 
-            @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
-            <a href="{{ route('dashboard') }}"
-               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('dashboard') ? $navLinkActive : $navLinkInactive }}">
-                @if (request()->routeIs('dashboard'))
-                    <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
-                @endif
-                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
-                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('dashboard') ? $navIconActive : $navIcon }}">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 012 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                    </svg>
-                    </span>
-                    <span x-show="!isSidebarMinimized">Dashboard</span>
-                </span>
-            </a>
-            @else
-            <div class="{{ $navDisabled }}">
-                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
-                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 0 1 2 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z"/></svg>
-                    <span x-show="!isSidebarMinimized">Dashboard</span>
-                </span>
-                <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
-            </div>
-            @endif
-
             @can('view-incident-monitoring')
             <a href="{{ route('incident-monitoring.exclusions') }}"
                @if(request()->routeIs('incident-monitoring.*')) aria-current="page" @endif
@@ -109,6 +84,31 @@
                 <span x-show="!isSidebarMinimized">Monitoring Incident</span>
             </a>
             @endcan
+
+            @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
+            <a href="{{ route('dashboard') }}"
+               class="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ request()->routeIs('dashboard') ? $navLinkActive : $navLinkInactive }}">
+                @if (request()->routeIs('dashboard'))
+                    <span class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-brand-400"></span>
+                @endif
+                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
+                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg {{ request()->routeIs('dashboard') ? $navIconActive : $navIcon }}">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 012 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                    </span>
+                    <span x-show="!isSidebarMinimized">Operational Overview</span>
+                </span>
+            </a>
+            @else
+            <div class="{{ $navDisabled }}">
+                <span class="flex items-center gap-2.5" :class="isSidebarMinimized ? 'w-full justify-center' : ''">
+                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C6.5 20.496 5.996 21 5.375 21h-2.25A1.125 1.125 0 0 1 2 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125z"/></svg>
+                    <span x-show="!isSidebarMinimized">Operational Overview</span>
+                </span>
+                <x-badge variant="neutral" class="{{ $navBadge }}">Segera</x-badge>
+            </div>
+            @endif
 
             @if (auth()->user()?->hasRole(\App\Enums\UserRole::SUPER_ADMIN, \App\Enums\UserRole::ADMIN))
             <a href="{{ route('revenue.index') }}"
