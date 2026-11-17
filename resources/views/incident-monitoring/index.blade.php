@@ -169,7 +169,7 @@
                     <article class="space-y-3 p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <x-copyable-value :value="$lop->incident" label="Incident" class="text-sm" />
-                            <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
+                            <x-lop-status-badge :status="$lop->status_lop" />
                         </div>
                         <p class="wrap-break-word text-sm font-medium">{{ $lop->nama_lop }}</p>
                         <div class="flex flex-wrap items-center gap-2">
@@ -198,7 +198,7 @@
                                 <td class="px-3 py-4"><p class="line-clamp-2 wrap-break-word font-medium" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->program_type->label() }}</p></td>
                                 <td class="px-3 py-3">@if (filled($lop->ihld_id))<x-copyable-value :value="$lop->ihld_id" label="ID IHLD" />@else<span class="inline-block py-1.5 text-ink-500 dark:text-ink-400">Belum diisi</span>@endif</td>
                                 <td class="wrap-break-word px-3 py-4"><p>{{ $lop->locationBranchName() }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() }}</p></td>
-                                <td class="px-3 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
+                                <td class="px-3 py-4"><x-lop-status-badge :status="$lop->status_lop" /></td>
                                 <td class="px-3 py-4"><a href="{{ route('lop.show', $lop) }}" class="inline-flex min-h-8 items-center font-medium text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 dark:text-brand-300" aria-label="Detail LOP {{ $lop->incident }}">Detail</a></td>
                             </tr>
                         @endforeach

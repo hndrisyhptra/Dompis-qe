@@ -25,8 +25,8 @@
                     </td>
                     <td class="whitespace-nowrap px-3 py-3 text-center">{{ $row['reported_date'] }}</td>
                     <td class="whitespace-nowrap px-3 py-3 text-center">
-                        @if ($row['status_label'])
-                            <x-badge :variant="$row['status_variant']">{{ $row['status_label'] }}</x-badge>
+                        @if ($row['status_value'])
+                            <x-lop-status-badge :status="\App\Enums\LopStatus::from($row['status_value'])" />
                         @else
                             <span class="text-ink-400 dark:text-ink-500">—</span>
                         @endif

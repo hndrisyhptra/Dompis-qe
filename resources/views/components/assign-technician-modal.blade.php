@@ -23,7 +23,7 @@
                     <h4 class="mt-1 truncate text-base font-bold">{{ $lop->nama_lop }}</h4>
                     <p class="mt-2 text-xs text-ink-300">{{ $lop->sto ?: 'STO —' }} · {{ $lop->branch ?: 'Branch —' }} · {{ $lop->program_type->label() }}</p>
                 </div>
-                <span class="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold">{{ $lop->status_lop->label() }}</span>
+                <x-lop-status-badge :status="$lop->status_lop" class="!border-white/25 !bg-white/10 !text-white" />
             </div>
         </div>
 

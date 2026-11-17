@@ -24,8 +24,7 @@
                     'branch' => $lop->branchRef?->name ?? ($lop->branch ?: 'Belum terpetakan'),
                     'workzone' => $lop->serviceArea?->workzone ?? ($lop->sto ?: '—'),
                     'reported_date' => $lop->reported_date ? \Illuminate\Support\Carbon::parse($lop->reported_date)->format('d/m/Y') : '—',
-                    'status_label' => $lop->status_lop->label(),
-                    'status_variant' => $lop->status_lop->badgeVariant(),
+                    'status_value' => $lop->status_lop->value,
                     'detail_url' => route('lop.detail', $lop, false),
                 ]);
             @endphp
@@ -48,8 +47,7 @@
                         'branch' => $ticket['branch'] ?? 'Belum terpetakan',
                         'workzone' => $ticket['workzone'],
                         'reported_date' => $ticket['reported_date'] ?? '—',
-                        'status_label' => $lop?->status_lop?->label(),
-                        'status_variant' => $lop?->status_lop?->badgeVariant(),
+                        'status_value' => $lop?->status_lop?->value,
                         'detail_url' => $lop ? route('lop.detail', $lop, false) : null,
                     ];
                 });
@@ -88,7 +86,7 @@
                                     <span class="mt-1 block text-[11px] leading-4 text-ink-500 dark:text-ink-400">{{ $ticket['branch'] ?? 'Belum terpetakan' }}</span>
                                 </td>
                                 <td class="px-3 py-3">@if ($ticket['lop'])<a href="{{ route('lop.detail', $ticket['lop'], false) }}" title="{{ $ticket['lop']->nama_lop }}" class="block max-w-full truncate font-medium text-brand-600 hover:underline dark:text-brand-300">{{ $ticket['lop']->nama_lop }}</a>@elseif ($ticket['is_included'])<span class="text-[11px] text-ink-500 dark:text-ink-400">LOP terarsip atau detail di luar scope</span>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
-                                <td class="whitespace-nowrap px-3 py-3 text-center">@if ($ticket['lop'])<x-badge :variant="$ticket['lop']->status_lop->badgeVariant()">{{ $ticket['lop']->status_lop->label() }}</x-badge>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
+                                <td class="whitespace-nowrap px-3 py-3 text-center">@if ($ticket['lop'])<x-lop-status-badge :status="$ticket['lop']->status_lop" />@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex min-w-28 justify-center whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-semibold {{ $ticket['is_included'] ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : ($ticket['is_excluded'] ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200' : 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200') }}">{{ $ticket['is_included'] ? 'Sudah include' : ($ticket['is_excluded'] ? 'Sudah exclude' : 'Belum exclude') }}</span></td>
                                 <td class="px-3 py-3 text-center">@if ($ticket['is_excluded'])<span class="inline-flex min-w-24 justify-center whitespace-nowrap rounded-md bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ $ticket['reason_label'] }}</span>@else<span class="text-ink-400 dark:text-ink-500">—</span>@endif</td>
                                 <td class="px-3 py-3">

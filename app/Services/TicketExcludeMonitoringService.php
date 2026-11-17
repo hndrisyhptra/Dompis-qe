@@ -354,7 +354,10 @@ class TicketExcludeMonitoringService
             $input['reason'] = $cell;
         }
         $data = $this->dashboard($user, $input);
-        $data['tickets']->setPath(route('incident-monitoring.exclusions.detail'))
+        // Keep pagination on the browser's current origin. Absolute route URLs can
+        // point at APP_URL or an internal proxy host in production, causing the
+        // modal's fetch for page 2+ to fail with a cross-origin/network error.
+        $data['tickets']->setPath(route('incident-monitoring.exclusions.detail', [], false))
             ->appends(['cell' => $cell]);
 
         return [
@@ -424,7 +427,7 @@ class TicketExcludeMonitoringService
             25,
             $page,
             [
-                'path' => route('incident-monitoring.exclusions.detail'),
+                'path' => route('incident-monitoring.exclusions.detail', [], false),
                 'query' => array_filter([...$filters, 'cell' => 'manual'], fn ($value) => $value !== '' && $value !== null),
             ],
         );

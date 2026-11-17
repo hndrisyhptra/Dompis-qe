@@ -38,7 +38,7 @@
                     <p class="text-[11px] font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">{{ $lop->incident }}</p>
                     <h3 class="mt-1 text-[15px] font-extrabold leading-snug text-ink-900 dark:text-white md:text-lg">{{ $lop->nama_lop }}</h3>
                 </div>
-                <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
+                <x-lop-status-badge :status="$lop->status_lop" />
             </div>
 
             @if (count($chips))

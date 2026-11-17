@@ -136,7 +136,7 @@
                                     <span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $boq->lop->reported_date ?: '—' }}</span>
                                 </p>
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
-                                <span class="mt-2 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[9px] font-bold text-ink-500 dark:bg-ink-800">{{ $boq->lop->status_lop->label() }}</span>
+                                <span class="mt-2 block"><x-lop-status-badge :status="$boq->lop->status_lop" /></span>
                             </td>
                             <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material + jasa khusus jika ada' }}</p></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>

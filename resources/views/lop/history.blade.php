@@ -31,7 +31,7 @@
                         <x-badge variant="neutral">{{ $lop->program_type->label() }}</x-badge>
                     </td>
                     <td class="px-4 py-3">
-                        <x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge>
+                        <x-lop-status-badge :status="$lop->status_lop" />
                     </td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end gap-1.5">

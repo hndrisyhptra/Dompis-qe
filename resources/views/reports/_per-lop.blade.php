@@ -39,7 +39,7 @@
                 <span class="text-xs text-ink-400">{{ $group['lop']['incident'] }}</span>
                 <span class="hidden sm:inline"><x-badge variant="neutral">{{ $group['lop']['branch'] ?: 'Branch —' }}</x-badge></span>
                 @if ($group['lop']['status_raw'])
-                    <span class="hidden sm:inline"><x-badge :variant="\App\Enums\LopStatus::from($group['lop']['status_raw'])->badgeVariant()">{{ $group['lop']['status'] }}</x-badge></span>
+                    <span class="hidden sm:inline"><x-lop-status-badge :status="\App\Enums\LopStatus::from($group['lop']['status_raw'])" /></span>
                 @endif
                 <span class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-ink-500 dark:text-ink-400">
                     @if ($report !== 'plan')<span>Actual <strong class="tabular-nums text-ink-800 dark:text-ink-100">{{ (float) $sub['qty_actual'] }}</strong></span>@endif

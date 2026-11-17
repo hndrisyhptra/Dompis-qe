@@ -19,54 +19,72 @@
             Scope lokasi akun Anda belum diatur, jadi data Program belum dapat ditampilkan. Hubungi Super Admin untuk mengatur Area, Region, Branch, atau Service Area akun Anda.
         </div>
     @endif
-    <header>
-        <div>
-            <p class="text-xs font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Pemetaan Program · {{ $scopeLabel }}</p>
-            <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">{{ $programType->label() }}</h1>
-            <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">{{ $total }} LOP · dikelompokkan per bucket status.</p>
+    <header class="overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
+        <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex min-w-0 items-start gap-3">
+                <a href="{{ route('program.index', $carry) }}" aria-label="Kembali ke ringkasan program" title="Kembali ke ringkasan program" class="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-md border border-ink-200 text-ink-600 transition hover:bg-ink-50 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15m0 0 6 6m-6-6 6-6"/></svg>
+                </a>
+                <div class="min-w-0">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider opacity-80">Pemetaan Program <span class="px-1 opacity-50">/</span> {{ $scopeLabel }}</p>
+                    <h1 class="mt-1 text-xl font-bold tracking-tight text-red-700 dark:text-red-300 sm:text-2xl">{{ $programType->label() }}</h1>
+                    <p class="mt-1 text-sm text-ink-600 dark:text-ink-300">{{ number_format($total) }} LOP pada pilihan status dan lokasi ini.</p>
+                </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2 self-end rounded-md border border-ink-200 bg-white px-3 py-2 dark:border-ink-700 dark:bg-ink-950 sm:self-auto">
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Total LOP</span>
+                <span class="text-lg font-bold tabular-nums text-ink-900 dark:text-white">{{ number_format($total) }}</span>
+            </div>
+        </div>
 
-            @if ($programType->usesProjectStatus())
-                <nav class="mt-3 inline-flex rounded-lg border border-ink-200 bg-ink-50 p-0.5 dark:border-ink-700 dark:bg-ink-900" aria-label="Status project">
+        @if ($programType->usesProjectStatus())
+            <nav class="flex flex-col gap-2 border-t border-ink-100 bg-ink-50/70 px-5 py-3 dark:border-ink-800 dark:bg-ink-950/30 sm:flex-row sm:items-center" aria-label="Status project">
+                <span class="shrink-0 text-xs font-semibold text-ink-500 dark:text-ink-400">Tahap project</span>
+                <div class="flex flex-wrap gap-2">
                     @foreach ($projectStatuses as $projectStatus)
                         <a href="{{ route('program.show', [$programType->value, ...array_merge($carry, ['project_status' => $projectStatus->value])]) }}"
-                           class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition
-                                  {{ $projectStatusFilter === $projectStatus
-                                      ? 'bg-white text-ink-900 shadow-sm ring-1 ring-ink-200 dark:bg-ink-800 dark:text-white dark:ring-ink-700'
-                                      : 'text-ink-500 hover:text-ink-900 dark:hover:text-white' }}">
+                           @class([
+                               'inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition',
+                               'border-brand-300 bg-white text-brand-800 shadow-sm dark:border-brand-800 dark:bg-ink-900 dark:text-brand-300' => $projectStatusFilter === $projectStatus,
+                               'border-ink-200 bg-white/60 text-ink-600 hover:bg-white dark:border-ink-700 dark:bg-ink-900/50 dark:text-ink-300 dark:hover:bg-ink-900' => $projectStatusFilter !== $projectStatus,
+                           ])>
                             {{ $projectStatus->label() }}
-                            <span class="rounded px-1.5 py-0.5 text-[10px] tabular-nums {{ $projectStatusFilter === $projectStatus ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300' : 'bg-ink-200/70 dark:bg-ink-700' }}">
-                                {{ $projectStatusCounts[$projectStatus->value] ?? 0 }}
-                            </span>
+                            <span class="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] tabular-nums text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ number_format($projectStatusCounts[$projectStatus->value] ?? 0) }}</span>
                         </a>
                     @endforeach
-                </nav>
-            @endif
-        </div>
+                </div>
+            </nav>
+        @endif
     </header>
 
     {{-- Bucket status --}}
-    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+    <section aria-label="Filter status LOP" class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
         <a href="{{ route('program.show', [$programType->value, ...$carry]) }}"
-           class="rounded-2xl border p-4 shadow-sm transition
+           class="group rounded-lg border p-4 transition hover:-translate-y-0.5 hover:shadow-sm
                   {{ $bucketFilter === ''
-                      ? 'border-ink-900 bg-ink-900 text-white dark:border-white dark:bg-ink-800'
-                      : 'border-ink-100 bg-white text-ink-900 hover:border-ink-300 dark:border-ink-800 dark:bg-ink-900 dark:text-white' }}">
-            <p class="text-xs font-semibold {{ $bucketFilter === '' ? 'text-white/70' : 'text-ink-500' }}">Semua</p>
-            <p class="mt-1 text-2xl font-extrabold">{{ $total }}</p>
+                      ? 'border-ink-800 bg-ink-800 text-white dark:border-ink-200 dark:bg-ink-100 dark:text-ink-900'
+                      : 'border-ink-200 bg-white text-ink-900 hover:border-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:text-white' }}">
+            <p class="text-xs font-semibold {{ $bucketFilter === '' ? 'text-white/70 dark:text-ink-500' : 'text-ink-500' }}">Semua status</p>
+            <p class="mt-1 text-2xl font-bold tabular-nums">{{ number_format($total) }}</p>
         </a>
         @foreach ($buckets as $bucket)
             <a href="{{ route('program.show', [$programType->value, 'bucket' => $bucket['key'], ...$carry]) }}"
-               class="rounded-2xl border bg-white p-4 shadow-sm transition dark:bg-ink-900
-                      {{ $bucket['active'] ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-ink-100 hover:border-ink-300 dark:border-ink-800' }}">
-                <span class="inline-flex"><x-badge :variant="$bucket['variant']">{{ $bucket['label'] }}</x-badge></span>
-                <p class="mt-2 text-2xl font-extrabold text-ink-900 dark:text-white">{{ $bucket['count'] }}</p>
+               @class([
+                   'group rounded-lg border bg-white p-4 transition hover:border-ink-300 hover:shadow-sm dark:bg-ink-900',
+                   'border-brand-400 ring-1 ring-brand-400/30' => $bucket['active'],
+                   'border-ink-200 dark:border-ink-700' => ! $bucket['active'],
+               ])>
+                <div class="flex items-center justify-between gap-2"><span class="text-xs font-semibold text-ink-600 dark:text-ink-300">{{ $bucket['label'] }}</span>@if ($bucket['active'])<span class="h-1.5 w-1.5 rounded-full bg-brand-500"></span>@endif</div>
+                <p class="mt-2 text-2xl font-bold tabular-nums text-ink-900 dark:text-white">{{ number_format($bucket['count']) }}</p>
             </a>
         @endforeach
     </section>
 
     {{-- Rincian per branch --}}
-    <details class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">
-        <summary class="cursor-pointer text-sm font-bold text-ink-700 dark:text-ink-200">Sebaran per branch ({{ $branchBreakdown->count() }})</summary>
+    <details class="rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900">
+        <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold text-ink-700 marker:hidden dark:text-ink-200">
+            <span>Sebaran per branch</span><span class="rounded-md bg-ink-100 px-2 py-1 text-xs tabular-nums text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $branchBreakdown->count() }} branch</span>
+        </summary>
         <div class="mt-3 flex flex-wrap gap-2">
             @forelse ($branchBreakdown as $row)
                 <span class="inline-flex items-center gap-1.5 rounded-lg bg-ink-50 px-2.5 py-1 text-xs font-semibold text-ink-700 dark:bg-ink-800 dark:text-ink-200">
@@ -80,120 +98,148 @@
     </details>
 
     {{-- Filter: region / branch (hanya SUPER_ADMIN) + pencarian --}}
-    <section class="rounded-2xl border border-ink-100 bg-white p-4 shadow-sm dark:border-ink-800 dark:bg-ink-900">
+    <section class="rounded-lg border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
+        <div class="mb-4 flex items-start justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800">
+            <div><h2 class="text-sm font-semibold text-ink-900 dark:text-white">Cari dan saring LOP</h2><p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">Filter berlaku pada daftar di bawah.</p></div>
+            @if ($search || $bucketFilter || $regionFilter || $branchFilter)
+                <a href="{{ route('program.show', $programType->value) }}" class="shrink-0 text-xs font-semibold text-brand-700 hover:underline dark:text-brand-300">Reset filter</a>
+            @endif
+        </div>
         <form method="GET" action="{{ route('program.show', $programType->value) }}"
-              class="grid gap-3 {{ $canFilterLocation ? 'lg:grid-cols-[190px_190px_minmax(200px,1fr)_auto]' : 'sm:grid-cols-[minmax(200px,1fr)_auto]' }}">
+              class="grid gap-3 {{ $canFilterLocation ? 'lg:grid-cols-[minmax(10rem,0.8fr)_minmax(10rem,0.8fr)_minmax(16rem,1.6fr)_auto]' : 'sm:grid-cols-[minmax(200px,1fr)_auto]' }}">
             <input type="hidden" name="bucket" value="{{ $bucketFilter }}">
             @if ($projectStatusFilter)
                 <input type="hidden" name="project_status" value="{{ $projectStatusFilter->value }}">
             @endif
 
             @if ($canFilterLocation)
-                <select name="region" onchange="this.form.branch.value=''; this.form.submit()"
-                        class="min-h-10 rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm dark:border-ink-700 dark:bg-ink-800">
-                    <option value="">Semua region</option>
-                    @foreach ($regions as $region)
-                        <option value="{{ $region }}" @selected($regionFilter === $region)>{{ $region }}</option>
-                    @endforeach
-                </select>
+                <label class="block"><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Region</span>
+                    <select name="region" onchange="this.form.branch.value=''; this.form.submit()" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+                        <option value="">Semua region</option>
+                        @foreach ($regions as $region)
+                            <option value="{{ $region }}" @selected($regionFilter === $region)>{{ $region }}</option>
+                        @endforeach
+                    </select>
+                </label>
 
-                <select name="branch" onchange="this.form.submit()"
-                        class="min-h-10 rounded-xl border border-ink-200 bg-ink-50 px-3 text-sm dark:border-ink-700 dark:bg-ink-800">
-                    <option value="">Semua branch</option>
-                    @foreach ($branches->when($regionFilter, fn ($items) => $items->where('region', $regionFilter)) as $branch)
-                        <option value="{{ $branch->name }}" @selected($branchFilter === $branch->name)>{{ $branch->name }}</option>
-                    @endforeach
-                </select>
+                <label class="block"><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Branch</span>
+                    <select name="branch" onchange="this.form.submit()" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+                        <option value="">Semua branch</option>
+                        @foreach ($branches->when($regionFilter, fn ($items) => $items->where('region', $regionFilter)) as $branch)
+                            <option value="{{ $branch->name }}" @selected($branchFilter === $branch->name)>{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
+                </label>
             @endif
 
-            <input name="q" value="{{ $search }}" placeholder="Cari incident, project, STO, atau branch..."
-                   class="min-h-10 rounded-xl border border-ink-200 bg-ink-50 px-3.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-800">
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Pencarian</span>
+                <input name="q" value="{{ $search }}" placeholder="Incident, nama project, STO, atau branch" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3.5 text-sm outline-none placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+            </label>
 
-            <div class="flex gap-2">
-                <button class="min-h-10 rounded-xl bg-ink-900 px-4 text-sm font-bold text-white dark:bg-brand-600">Terapkan</button>
-                @if ($search || $bucketFilter || $regionFilter || $branchFilter)
-                    <a href="{{ route('program.show', $programType->value) }}" class="grid min-h-10 place-items-center rounded-xl border border-ink-200 px-3 text-sm font-bold text-ink-500 dark:border-ink-700">Reset</a>
-                @endif
+            <div class="flex items-end">
+                <button class="min-h-10 w-full rounded-md bg-ink-800 px-4 text-sm font-semibold text-white transition hover:bg-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-ink-100 dark:text-ink-900 dark:hover:bg-white">Terapkan</button>
             </div>
         </form>
     </section>
 
     {{-- Tabel LOP (monitoring) --}}
-    <x-table class="!rounded-2xl shadow-sm">
-        <thead class="bg-ink-50/80 dark:bg-ink-800"><tr>
+    <header class="flex flex-wrap items-center justify-between gap-3 px-1 md:hidden">
+        <div><h2 class="text-sm font-semibold text-ink-900 dark:text-white">Daftar LOP</h2><p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">Status pekerjaan dan aktivitas terbaru.</p></div>
+        <p class="text-xs tabular-nums text-ink-500 dark:text-ink-400">{{ $lops->firstItem() ?? 0 }}–{{ $lops->lastItem() ?? 0 }} dari {{ number_format($lops->total()) }}</p>
+    </header>
+    <div class="divide-y divide-ink-200 overflow-hidden rounded-lg border border-ink-200 bg-white dark:divide-ink-700 dark:border-ink-700 dark:bg-ink-900 md:hidden">
+        @forelse ($lops as $lop)
+            @php($summary = $lop->progress_summary)
+            @php($baDocument = \App\Support\BaBongkarRules::document($lop))
+            <article class="p-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="flex min-w-0 items-center gap-2"><p class="truncate text-[11px] font-bold uppercase tracking-wide text-brand-700 dark:text-brand-300">{{ $lop->incident }}</p>@if ($lop->status_project)<span class="shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9px] font-semibold text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $lop->status_project->label() }}</span>@endif</div>
+                        <h3 class="mt-1 truncate text-sm font-semibold leading-5 text-ink-900 dark:text-white" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</h3>
+                        <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->locationServiceAreaName() ?: 'STO —' }} · {{ $lop->locationBranchName() ?: 'Branch —' }}</p>
+                    </div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-ink-100 pt-3 dark:border-ink-800">
+                    <div><p class="text-[10px] font-medium text-ink-500 dark:text-ink-400">Teknisi</p><p class="mt-0.5 text-xs font-semibold text-ink-800 dark:text-ink-200">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p></div>
+                    <div><p class="text-[10px] font-medium text-ink-500 dark:text-ink-400">Status Dompis</p><div class="mt-1"><x-lop-status-badge :status="$lop->status_lop" /></div></div>
+                    <div><p class="text-[10px] font-medium text-ink-500 dark:text-ink-400">Status AISS</p><div class="mt-1"><x-aiss-status :status="$lop->status_aiss" /></div></div>
+                    <div><p class="text-[10px] font-medium text-ink-500 dark:text-ink-400">Pembaruan</p><p class="mt-0.5 text-xs text-ink-700 dark:text-ink-300" title="{{ $lop->updated_at->format('d/m/Y H:i') }}">{{ $lop->updated_at->diffForHumans() }}</p></div>
+                </div>
+                <div class="mt-4 rounded-md bg-ink-50 p-3 dark:bg-ink-950/50">
+                    <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500 dark:text-ink-400">Progress · {{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step · {{ $summary['evidence_count'] }} evidence</span><strong class="tabular-nums text-ink-800 dark:text-ink-200">{{ $summary['percentage'] }}%</strong></div>
+                    <div class="h-1.5 overflow-hidden rounded-full bg-ink-200 dark:bg-ink-800"><div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-rose-500' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-sky-500')) }}" style="width: {{ $summary['percentage'] }}%"></div></div>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3 dark:border-ink-800">
+                    <span class="text-[10px] font-semibold uppercase tracking-wide text-ink-400">Aksi LOP</span>
+                    @include('program.partials.lop-actions', ['presentation' => 'mobile'])
+                </div>
+            </article>
+        @empty
+            <div class="px-6 py-12 text-center"><p class="text-sm font-semibold text-ink-800 dark:text-ink-200">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-500">Belum ada LOP untuk program dan filter yang dipilih.</p></div>
+        @endforelse
+    </div>
+    <div class="border-t border-ink-100 px-4 py-3 dark:border-ink-800 md:hidden">{{ $lops->links() }}</div>
+
+    <section class="hidden overflow-hidden rounded-lg border border-ink-200 bg-white dark:border-ink-700 dark:bg-ink-900 md:block">
+        <style>
+            .program-lop-table table { width: 100%; min-width: 68rem; table-layout: fixed; }
+            .program-lop-table th + th, .program-lop-table td + td { border-left: 1px solid rgb(226 232 240 / .72); }
+            .dark .program-lop-table th + th, .dark .program-lop-table td + td { border-left-color: rgb(51 65 85 / .72); }
+        </style>
+        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-4 py-3 dark:border-ink-700 sm:px-5">
+            <div><h2 class="text-sm font-semibold text-ink-900 dark:text-white">Daftar LOP</h2><p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">Status pekerjaan dan aktivitas terbaru.</p></div>
+            <p class="text-xs tabular-nums text-ink-500 dark:text-ink-400">{{ $lops->firstItem() ?? 0 }}–{{ $lops->lastItem() ?? 0 }} dari {{ number_format($lops->total()) }}</p>
+        </header>
+    <x-table class="program-lop-table !rounded-none !border-0">
+        <colgroup>
+            <col style="width: 28%">
+            @for ($column = 0; $column < 6; $column++)
+                <col style="width: 12%">
+            @endfor
+        </colgroup>
+        <thead class="bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300"><tr>
             @foreach (['Project', 'Teknisi', 'Progress', 'Status Dompis', 'Status AISS', 'Update'] as $heading)
-                <th class="whitespace-nowrap px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-ink-500">{{ $heading }}</th>
+                <th class="whitespace-nowrap px-2 py-3 text-center text-[10px] font-bold uppercase tracking-wide">{{ $heading }}</th>
             @endforeach
-            <th class="whitespace-nowrap px-5 py-3.5 text-right text-[11px] font-bold uppercase tracking-wider text-ink-500">Aksi</th>
+            <th class="whitespace-nowrap px-2 py-3 text-center text-[10px] font-bold uppercase tracking-wide">Aksi</th>
         </tr></thead>
         <tbody class="divide-y divide-ink-100 dark:divide-ink-800">
             @forelse ($lops as $lop)
                 @php($summary = $lop->progress_summary)
                 @php($baDocument = \App\Support\BaBongkarRules::document($lop))
-                <tr class="align-top transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
-                    <td class="px-5 py-4">
-                        <p class="text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>
-                        <p class="mt-1 max-w-xs text-sm font-bold text-ink-900 dark:text-white">{{ $lop->nama_lop }}</p>
+                <tr class="align-middle transition hover:bg-brand-50/40 dark:hover:bg-ink-800/40">
+                    <td class="px-4 py-4">
+                        <div class="flex min-w-0 items-center gap-2"><p class="truncate text-xs font-extrabold uppercase tracking-wide text-brand-600">{{ $lop->incident }}</p>@if ($lop->status_project)<span class="shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $lop->status_project->label() }}</span>@endif</div>
+                        <p class="mt-1 max-w-full truncate text-sm font-bold text-ink-900 dark:text-white" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p>
                         <p class="mt-1 text-xs text-ink-400">{{ $lop->locationServiceAreaName() ?: 'STO —' }} · {{ $lop->locationBranchName() ?: 'Branch —' }}</p>
-                        @if ($lop->status_project)
-                            <span class="mt-2 inline-flex rounded-md bg-ink-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-600 dark:bg-ink-800 dark:text-ink-300">{{ $lop->status_project->label() }}</span>
-                        @endif
                     </td>
-                    <td class="px-5 py-4">
-                        <div class="flex items-center gap-2">
-                            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink-100 text-xs font-bold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span>
-                            <span class="text-sm font-semibold">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</span>
+                    <td class="px-2 py-4">
+                        <div class="flex min-w-0 items-center gap-2">
+                            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink-100 text-[10px] font-bold dark:bg-ink-800">{{ strtoupper(substr($lop->activeAssignment?->technician?->name ?? '?', 0, 1)) }}</span>
+                            <span class="min-w-0 truncate text-xs font-semibold" title="{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</span>
                         </div>
                     </td>
-                    <td class="min-w-52 px-5 py-4">
-                        <div class="mb-2 flex justify-between text-xs"><span class="text-ink-500">{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step</span><strong class="tabular-nums">{{ $summary['percentage'] }}%</strong></div>
+                    <td class="px-2 py-4">
+                        <div class="mb-2 flex items-center justify-between gap-1 text-[10px]"><span class="whitespace-nowrap text-ink-500">{{ $summary['completed_steps'] }}/{{ $summary['total_steps'] }} step</span><strong class="tabular-nums">{{ $summary['percentage'] }}%</strong></div>
                         <div class="h-2 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
                             <div class="h-full rounded-full {{ $summary['review_key'] === 'rejected' ? 'bg-brand-600' : ($summary['review_key'] === 'approved' ? 'bg-emerald-500' : ($summary['review_key'] === 'waiting_review' ? 'bg-amber-400' : 'bg-blue-500')) }}" style="width: {{ $summary['percentage'] }}%"></div>
                         </div>
                         <p class="mt-1.5 text-[10px] text-ink-400">{{ $summary['evidence_count'] }} evidence</p>
                     </td>
-                    <td class="px-5 py-4"><x-badge :variant="$lop->status_lop->badgeVariant()">{{ $lop->status_lop->label() }}</x-badge></td>
-                    <td class="px-5 py-4"><x-aiss-status :status="$lop->status_aiss" /></td>
-                    <td class="whitespace-nowrap px-5 py-4 text-xs text-ink-500">{{ $lop->updated_at->diffForHumans() }}</td>
-                    <td class="px-5 py-4">
-                        <div class="flex flex-wrap items-center justify-end gap-1.5">
-                            @if ($baDocument)
-                                <x-table-action label="Download BA Bongkar" tone="info" :href="route('lop.ba-bongkar.download', $lop)">
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25v6m-3-3 3 3 3-3"/></svg>
-                                </x-table-action>
-                            @endif
-                            @if ($lop->status_lop === \App\Enums\LopStatus::COMPLETED)
-                                <x-table-action label="Download evidence (.zip)" tone="success" :href="route('lop.evidence-archive', $lop)">
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                                </x-table-action>
-                            @endif
-                            <x-table-action label="Detail LOP" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'detail', ...$modalCarry], false)" :data-lazy-modal-target="'program-detail-'.$lop->id_qe_lops">
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><circle cx="12" cy="12" r="2.25" /></svg>
-                            </x-table-action>
-                            @can('assign', $lop)
-                                <x-table-action :label="$lop->activeAssignment ? 'Reassign Teknisi' : 'Assign Teknisi'" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'assign', ...$modalCarry], false)" :data-lazy-modal-target="'program-assign-'.$lop->id_qe_lops">
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-6.75-3.75A3.75 3.75 0 1 1 6.75 6.75a3.75 3.75 0 0 1 7.5 0ZM3 20.25a6.75 6.75 0 0 1 13.5 0v.75H3v-.75Z" /></svg>
-                                </x-table-action>
-                            @endcan
-                            <x-table-action label="Tracking Riwayat" tone="info" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'tracking', ...$modalCarry], false)" :data-lazy-modal-target="'program-tracking-'.$lop->id_qe_lops">
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                            </x-table-action>
-                            @if ($lop->program_type->usesProjectStatus())
-                                @can('uploadEvidence', $lop)
-                                    <x-table-action label="Kelola Surat Permintaan" tone="primary" :data-lazy-modal-url="route('program.modal', ['program' => $programType->value, 'qe_lop' => $lop, 'kind' => 'request-letter', ...$modalCarry], false)" :data-lazy-modal-target="'program-request-letter-'.$lop->id_qe_lops">
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25h-4.5A1.125 1.125 0 0 0 4.5 3.375v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-6.375Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75h6.75m-3.375-3.375v6.75"/></svg>
-                                    </x-table-action>
-                                @endcan
-                            @endif
-                        </div>
+                    <td class="px-2 py-4 text-center"><x-lop-status-badge :status="$lop->status_lop" compact /></td>
+                    <td class="px-2 py-4 text-center"><x-aiss-status :status="$lop->status_aiss" class="max-w-full truncate" /></td>
+                    <td class="whitespace-nowrap px-2 py-4 text-center text-xs text-ink-500" title="{{ $lop->updated_at->format('d/m/Y H:i') }}">{{ $lop->updated_at->diffForHumans() }}</td>
+                    <td class="px-2 py-4 text-center">
+                        @include('program.partials.lop-actions', ['presentation' => 'desktop'])
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-6 py-14 text-center"><p class="text-sm font-bold">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-400">Belum ada LOP untuk Program / bucket ini.</p></td></tr>
+                <tr><td colspan="7" class="px-6 py-14 text-center"><p class="text-sm font-semibold text-ink-800 dark:text-ink-200">Tidak ada LOP</p><p class="mt-1 text-xs text-ink-500">Belum ada LOP untuk program dan filter yang dipilih.</p></td></tr>
             @endforelse
         </tbody>
     </x-table>
 
-    <div>{{ $lops->links() }}</div>
+    <div class="border-t border-ink-100 px-4 py-3 dark:border-ink-800">{{ $lops->links() }}</div>
+    </section>
 </div>
 @endsection

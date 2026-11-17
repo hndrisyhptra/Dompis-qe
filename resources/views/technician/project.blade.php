@@ -37,7 +37,7 @@
 <section id="technician-project-summary" class="mt-4 rounded-3xl bg-ink-900 p-4 text-white shadow-xl shadow-ink-900/10">
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1"><p class="text-[10px] font-bold uppercase tracking-[.12em] text-brand-300">Nama LOP</p><h1 class="mt-1 wrap-break-word text-sm font-extrabold leading-6">{{ $lop->nama_lop }}</h1></div>
-        <x-badge :variant="$lop->status_lop->badgeVariant()" class="shrink-0">{{ $lop->status_lop->label() }}</x-badge>
+        <x-lop-status-badge :status="$lop->status_lop" />
     </div>
     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-white/8 px-3 py-2 text-xs">
         <p><span class="text-ink-300">Branch</span> <span class="ml-1 font-bold">{{ $lop->locationBranchName() }}</span></p>
