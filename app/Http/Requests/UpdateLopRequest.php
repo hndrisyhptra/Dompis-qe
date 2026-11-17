@@ -28,7 +28,7 @@ class UpdateLopRequest extends FormRequest
             'incident' => [
                 'required', 'string', 'max:100',
                 'regex:/^(?:INP\d+|INC[\w-]+)$/',
-                Rule::unique('qe_lops', 'incident')->ignore($lopId, 'id_qe_lops'),
+                Rule::unique('qe_lops', 'incident')->withoutTrashed()->ignore($lopId, 'id_qe_lops'),
             ],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],

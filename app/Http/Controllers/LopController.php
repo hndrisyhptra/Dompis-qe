@@ -219,9 +219,8 @@ class LopController extends Controller
     /**
      * Lookup data tiket dari DB operasional eksternal untuk auto-fill form
      * Input LOP Baru (STO, Branch, Segmen). Dipanggil via fetch dari Alpine.
-     * Sekaligus mengecek apakah nomor incident sudah dipakai LOP lain di
-     * `dompis_qe` (termasuk yang sudah di-soft-delete, karena aturan unik
-     * pada qe_lops.incident juga mencakupnya).
+     * Sekaligus mengecek apakah nomor incident sudah dipakai LOP aktif lain di
+     * `dompis_qe`; incident pada LOP arsip telah dipindahkan ke kolom arsip.
      */
     public function ticketLookup(Request $request, IncidentTicketValidationService $validation): JsonResponse
     {
@@ -238,7 +237,7 @@ class LopController extends Controller
             $result['incident_validation'] = $validation->inspect($incident, ProgramType::from($data['program_type']), $result);
         }
 
-        $existing = QeLop::withTrashed()->where('incident', $incident)->first();
+        $existing = QeLop::query()->where('incident', $incident)->first();
 
         if ($existing !== null) {
             $result['existing_lop'] = [

@@ -24,7 +24,7 @@ class StoreLopRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'incident' => ['nullable', 'string', 'max:100', 'unique:qe_lops,incident'],
+            'incident' => ['nullable', 'string', 'max:100', Rule::unique('qe_lops', 'incident')->withoutTrashed()],
             'nama_lop' => ['nullable', 'string', 'max:255'],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
             'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],

@@ -37,16 +37,12 @@ class ManualIncidentService
         return $prefix.str_pad((string) $next, 2, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Urut terakhir yang sudah dipakai untuk prefix ini. Menghitung juga LOP
-     * yang sudah di-soft-delete karena unique index qe_lops.incident tetap
-     * mencakup baris tersebut.
-     */
+    /** Urut terakhir yang sedang dipakai oleh LOP aktif untuk prefix ini. */
     private function lastSequence(string $prefix): int
     {
         $prefixLength = strlen($prefix);
 
-        return QeLop::withTrashed()
+        return QeLop::query()
             ->where('incident', 'like', $prefix.'%')
             ->pluck('incident')
             ->map(fn (string $incident) => (int) substr($incident, $prefixLength))

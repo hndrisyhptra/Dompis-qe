@@ -661,7 +661,7 @@ class BoqImportService
     {
         for ($i = 0; $i < 3; $i++) {
             $incident = $this->incidentService->generate($branch, $programType);
-            if (! QeLop::withTrashed()->where('incident', $incident)->exists()) {
+            if (! QeLop::query()->where('incident', $incident)->exists()) {
                 return $incident;
             }
         }

@@ -105,8 +105,8 @@ class AissImportService
             foreach (array_keys($indexes) as $key) {
                 $wanted[$key] = array_fill_keys(array_filter(array_map(fn ($row) => $this->normalize($row['data'][$key]), $parsed['rows']), fn ($value) => $value !== ''), true);
             }
-            // Keep only file keys and at most two candidates: a second match is already ambiguous.
-            QeLop::withTrashed()->select(['id_qe_lops', 'ihld_id', 'nama_lop', 'incident'])->toBase()->chunkById(500, function (Collection $lops) use (&$indexes, $wanted): void {
+            // Hanya LOP aktif yang dapat menerima pembaruan AISS; arsip tidak menjadi kandidat pencocokan.
+            QeLop::query()->select(['id_qe_lops', 'ihld_id', 'nama_lop', 'incident'])->toBase()->chunkById(500, function (Collection $lops) use (&$indexes, $wanted): void {
                 foreach ($lops as $lop) {
                     foreach (array_keys($indexes) as $key) {
                         $value = $this->normalize($lop->$key);

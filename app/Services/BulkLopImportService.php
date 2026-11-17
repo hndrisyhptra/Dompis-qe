@@ -74,7 +74,7 @@ class BulkLopImportService
             ->whereIn('code', collect($rows)->pluck('payload.package_code')->filter()->unique())
             ->get()
             ->keyBy(fn (Package $package): string => mb_strtoupper($package->code));
-        $incidentQuery = QeLop::withTrashed()
+        $incidentQuery = QeLop::query()
             ->whereIn('incident', collect($rows)->pluck('payload.incident')->filter()->unique());
         $visibleIds = $actor->hasRole(UserRole::ADMIN)
             ? array_fill_keys($this->visibility->apply(clone $incidentQuery, $actor)->pluck('id_qe_lops')->all(), true)
@@ -276,9 +276,9 @@ class BulkLopImportService
             ], $actor, $branch, $serviceArea);
         } catch (UniqueConstraintViolationException $e) {
             // Batch lain dapat membuat INCIDENT setelah prefetch; jangan tampilkan SQL.
-            $existing = QeLop::withTrashed()->where('incident', $incident)->first();
+            $existing = QeLop::query()->where('incident', $incident)->first();
             if ($existing !== null) {
-                $visible = $this->visibility->apply(QeLop::withTrashed()->whereKey($existing->getKey()), $actor)->exists();
+                $visible = $this->visibility->apply(QeLop::query()->whereKey($existing->getKey()), $actor)->exists();
                 throw new \InvalidArgumentException($this->duplicateMessage($incident, [
                     'name' => $visible ? $existing->nama_lop : null,
                     'deleted' => $existing->trashed(),
@@ -292,10 +292,6 @@ class BulkLopImportService
     {
         $lop = $existing['name'] !== null ? 'LOP "'.$existing['name'].'"' : 'LOP di luar scope Anda';
         $note = isset($existing['row_number']) ? ' (dibuat pada baris '.$existing['row_number'].' file ini)' : '';
-        if ($existing['deleted']) {
-            $note .= ' (LOP sudah dihapus/arsip; INCIDENT tetap tidak boleh digunakan ulang)';
-        }
-
         return "INCIDENT {$incident} sudah digunakan pada {$lop}{$note}.";
     }
 

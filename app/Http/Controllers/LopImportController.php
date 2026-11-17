@@ -86,7 +86,7 @@ class LopImportController extends Controller
         ]);
         $data = $request->validate([
             'nama_lop' => ['required', 'string', 'max:255'],
-            'incident' => ['nullable', 'string', 'max:100', 'regex:/^INP\d+$/', Rule::unique('qe_lops', 'incident')],
+            'incident' => ['nullable', 'string', 'max:100', 'regex:/^INP\d+$/', Rule::unique('qe_lops', 'incident')->withoutTrashed()],
             'program_type' => ['required', Rule::enum(ProgramType::class)],
             'sto' => ['required', 'string', 'max:20', Rule::exists('service_areas', 'workzone')],
             'branch' => ['required', 'string', 'max:100', Rule::exists('branches', 'name')],

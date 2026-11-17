@@ -257,6 +257,7 @@ class LopService
         DB::transaction(function () use ($lop, $actor, $reason) {
             $lop = QeLop::query()->lockForUpdate()->findOrFail($lop->getKey());
             Gate::forUser($actor)->authorize('delete', $lop);
+            $deletedIncident = $lop->incident;
             $lop->assignments()->where('status', AssignmentStatus::ACTIVE->value)->update([
                 'status' => AssignmentStatus::REPLACED->value,
                 'unassigned_at' => now(),
@@ -269,6 +270,9 @@ class LopService
                 'deleted',
                 'LOP dibatalkan dan diarsipkan: '.$reason
             );
+            $lop->deleted_incident = $deletedIncident;
+            $lop->incident = null;
+            $lop->save();
             $lop->delete();
         });
     }

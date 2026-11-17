@@ -81,6 +81,8 @@ Status ini hanya berlaku untuk database lokal `dompis_qe`. Jangan menganggap ser
 
 20 Oktober 2026 — Migration `2026_10_20_000002_add_reported_date_to_qe_lops_table.php` menambah kolom `qe_lops.reported_date` (DATE nullable + index) sebagai salinan `ticket.reported_date` agar filter tanggal Master Data → BOQ berjalan lokal (7.56). **Sudah dijalankan pada MySQL lokal**, dilanjutkan `php artisan dompis:sync-reported-date` (12 LOP: 1 terisi, sisanya `INP*`/fixture yang memang tidak punya tiket). Murni kolom tambahan — tidak ada data lama yang diubah; rollback hanya drop index + kolom. **Status produksi belum diverifikasi dan wajib dijalankan sebelum deploy**, urutannya: migrasi dulu, lalu command sync. PENTING: tanpa kolom ini, pembuatan/edit LOP gagal pada INSERT (`unknown column reported_date`) dan filter tanggal di Data BOQ error — jadi keduanya tidak boleh dipisah.
 
+17 November 2026 — Migration `2026_11_17_000001_archive_incident_on_lop_soft_delete.php` menambah `qe_lops.deleted_incident`, membuat `qe_lops.incident` nullable, dan memindahkan incident LOP yang sudah soft-deleted ke kolom arsip sebelum mengosongkan `incident`. **Belum dijalankan**; audit `migrate:status` dan `db:table qe_lops` sesi ini terhalang izin koneksi MySQL lokal. Migration wajib diterapkan sebelum kode delete baru dipakai. Nilai incident lama tetap disimpan; unique index incident tetap berlaku untuk LOP aktif, sedangkan beberapa `NULL` pada record arsip diperbolehkan. Rollback menolak berjalan bila nilai arsip sudah dipakai ulang atau ada LOP aktif tanpa incident.
+
 ## 3. Arsitektur Aplikasi
 
 ### 3.1 Alur request
@@ -1150,6 +1152,12 @@ Implementasi awal berbasis file di bagian ini telah diganti dengan workbook dari
 
 - Pada grup **Operasional**, menu **Monitoring Incident** kini tampil sebelum menu dashboard yang berganti label menjadi **Operational Overview**. Isi menu, ikon, badge, state aktif, dan aturan `@can`/role tidak berubah; hanya teks label dan urutan blok markup di `resources/views/layouts/app.blade.php`. Judul halaman dashboard tetap "Dashboard Operasional".
 - Regression `IncidentMonitoringTest::test_sidebar_lists_monitoring_incident_before_operational_overview` memastikan urutan dan label tersebut. Tidak ada perubahan route, controller, schema, atau data.
+
+### 7.85 Penggunaan ulang incident setelah soft delete LOP — 17 November 2026 (belum di-commit)
+
+- `LopService::delete()` kini menyalin incident ke `qe_lops.deleted_incident`, mengosongkan `qe_lops.incident`, lalu melakukan soft delete dalam transaksi yang sama. Migration `2026_11_17_000001_archive_incident_on_lop_soft_delete.php` mengarsipkan nilai pada LOP yang sudah terhapus dan mengizinkan kolom incident bernilai NULL; migration belum dijalankan.
+- Validasi input/edit/import, lookup tiket, generator nomor manual, Bulk Import LOP, Import AISS, dan pembuat nomor BOQ hanya menganggap incident milik LOP aktif sebagai terpakai. Monitoring yang membaca `withTrashed()` tetap aman karena incident pada record arsip sudah NULL. Incident lama tersedia di `deleted_incident` untuk audit.
+- Tidak ada operasi database yang dijalankan. Sebelum deploy, siapkan backup sesuai prosedur dan jalankan migration setelah perubahan siap; rollback akan berhenti jika incident arsip sudah dipakai ulang atau LOP aktif memiliki incident NULL.
 
 ## 8. Status Masalah dan Pekerjaan Belum Selesai
 
