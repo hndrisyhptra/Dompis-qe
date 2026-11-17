@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\QeLop;
+use Carbon\Carbon;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -11,7 +12,7 @@ class AissBoqExportService
 {
     private const HEADERS = [
         'ID IHLD', 'DESIGNATOR', 'URAIAN PEKERJAAN', 'SATUAN', 'QTY', 'HARGA',
-        'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH',
+        'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH', 'BULAN PEKERJAAN',
     ];
 
     // Layout captured from the original AISS workbook; no runtime template needed.
@@ -35,6 +36,9 @@ class AissBoqExportService
             : $packageCode;
         $sto = $lop->serviceArea?->workzone ?? $lop->sto;
         $branch = $lop->branchRef?->name ?? $lop->serviceArea?->branch?->name ?? $lop->branch;
+        $workMonth = $lop->reported_date
+            ? mb_strtoupper(Carbon::parse($lop->reported_date)->locale('id')->translatedFormat('F'))
+            : null;
 
         $book = new Spreadsheet;
         $book->getDefaultStyle()->getFont()->setName('Aptos Narrow')->setSize(11);
@@ -61,6 +65,7 @@ class AissBoqExportService
                 $branch,
                 $lop->nama_lop,
                 $branch,
+                $workMonth,
             ];
             foreach ($row as $columnIndex => $value) {
                 $column = Coordinate::stringFromColumnIndex($columnIndex + 1);

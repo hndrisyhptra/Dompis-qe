@@ -37,6 +37,7 @@ class AissBoqExportTest extends TestCase
             $this->assertSame('PELIMPAHAN', $sheet->getTitle());
             $this->assertSame('ID IHLD', $sheet->getCell('A1')->getValue());
             $this->assertSame('BRANCH', $sheet->getCell('L1')->getValue());
+            $this->assertSame('BULAN PEKERJAAN', $sheet->getCell('M1')->getValue());
             $this->assertSame(2, $sheet->getHighestDataRow());
             $this->assertSame('0010513828', $sheet->getCell('A2')->getValue());
             $this->assertSame('M-AISS', $sheet->getCell('B2')->getValue());
@@ -57,15 +58,15 @@ class AissBoqExportTest extends TestCase
         $this->assertSame('PELIMPAHAN', $sheet->getTitle());
         $this->assertSame([[
             'ID IHLD', 'DESIGNATOR', 'URAIAN PEKERJAAN', 'SATUAN', 'QTY', 'HARGA',
-            'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH',
-        ]], $sheet->rangeToArray('A1:L1'));
-        $this->assertSame('L', $sheet->getHighestDataColumn());
+            'TOTAL', 'PAKET', 'STO', 'WITEL', 'NAMA_PROYEK', 'BRANCH', 'BULAN PEKERJAAN',
+        ]], $sheet->rangeToArray('A1:M1'));
+        $this->assertSame('M', $sheet->getHighestDataColumn());
         $this->assertSame(3, $sheet->getHighestDataRow());
-        $rows = collect($sheet->rangeToArray('A2:L3', null, false, false));
+        $rows = collect($sheet->rangeToArray('A2:M3', null, false, false));
         $materialRow = $rows->first(fn ($row) => $row[1] === 'M-AISS');
         $serviceRow = $rows->first(fn ($row) => $row[1] === 'J-AISS');
-        $this->assertEquals(['0010513828', 'M-AISS', 'Snapshot material', 'meter', 3, 100, 300, 5, 'ICX', 'AISS Branch', 'LOP AISS', 'AISS Branch'], $materialRow);
-        $this->assertEquals(['0010513828', 'J-AISS', 'Snapshot jasa', 'meter', 3, 40, 120, 5, 'ICX', 'AISS Branch', 'LOP AISS', 'AISS Branch'], $serviceRow);
+        $this->assertEquals(['0010513828', 'M-AISS', 'Snapshot material', 'meter', 3, 100, 300, 5, 'ICX', 'AISS Branch', 'LOP AISS', 'AISS Branch', 'OKTOBER'], $materialRow);
+        $this->assertEquals(['0010513828', 'J-AISS', 'Snapshot jasa', 'meter', 3, 40, 120, 5, 'ICX', 'AISS Branch', 'LOP AISS', 'AISS Branch', 'OKTOBER'], $serviceRow);
         $this->assertSame(DataType::TYPE_STRING, $sheet->getCell('A2')->getDataType());
         foreach (['E', 'F', 'G', 'H'] as $column) {
             $this->assertSame(DataType::TYPE_NUMERIC, $sheet->getCell($column.'2')->getDataType());
@@ -211,7 +212,7 @@ class AissBoqExportTest extends TestCase
             DesignatorPackagePrice::create(['designator_id' => $item->getKey(), 'package_id' => $package->getKey(), 'price' => $price]);
             $items[] = $item;
         }
-        $lop = QeLop::create(['incident' => 'INC-AISS', 'nama_lop' => 'LOP AISS', 'ihld_id' => '0010513828', 'program_type' => $program, 'status_lop' => 'completed', 'branch_id' => $branch->getKey(), 'service_area_id' => $sto->getKey(), 'branch' => $branch->name, 'sto' => $sto->workzone, 'created_by' => $owner->getKey()]);
+        $lop = QeLop::create(['incident' => 'INC-AISS', 'reported_date' => '2026-10-14', 'nama_lop' => 'LOP AISS', 'ihld_id' => '0010513828', 'program_type' => $program, 'status_lop' => 'completed', 'branch_id' => $branch->getKey(), 'service_area_id' => $sto->getKey(), 'branch' => $branch->name, 'sto' => $sto->workzone, 'created_by' => $owner->getKey()]);
         $reservation = $lop->materialReservation()->create(['technician_id' => $owner->getKey(), 'status' => 'submitted']);
         $reservation->items()->create(['designator_id' => $items[0]->getKey(), 'qty' => 10, 'qty_actual' => 3]);
 
