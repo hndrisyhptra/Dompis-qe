@@ -58,10 +58,12 @@ class EvidenceApprovalController extends Controller
 
     public function approveLink(QeEvidence $evidence): RedirectResponse
     {
-        $this->authorize('view', $evidence);
+        $lop = $evidence->lop;
+        abort_if($lop === null, 404);
+        $this->authorize('reviewEvidence', $lop);
 
         return redirect()
-            ->route('evidence-approval.show', $evidence)
+            ->route('evidence-approval.lop.review', $lop)
             ->with('warning', 'Keputusan tidak dijalankan dari tautan ini. Periksa evidence lalu gunakan tombol review untuk mengonfirmasi.');
     }
 

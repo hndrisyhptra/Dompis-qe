@@ -53,6 +53,9 @@
         </section>
     </header>
 
+    @if (session('warning'))
+        <div role="status" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">{{ session('warning') }}</div>
+    @endif
     @if (session('status'))
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">{{ session('status') }}</div>
     @endif
