@@ -338,6 +338,7 @@ Route::middleware(['auth'])->prefix('evidence-approval')->name('evidence-approva
     Route::post('/lop/{qe_lop}/approve-group', [EvidenceApprovalController::class, 'approveGroup'])->name('lop.approve-group');
     Route::post('/lop/{qe_lop}/complete', [EvidenceApprovalController::class, 'completeReview'])->name('lop.complete');
     Route::get('/{evidence}', [EvidenceApprovalController::class, 'show'])->name('show');
+    Route::get('/{evidence}/approve', [EvidenceApprovalController::class, 'approveLink'])->name('approve-link');
     Route::post('/{evidence}/approve', [EvidenceApprovalController::class, 'approve'])->name('approve');
     Route::post('/{evidence}/reject', [EvidenceApprovalController::class, 'reject'])->name('reject');
     Route::post('/{evidence}/reset', [EvidenceApprovalController::class, 'resetReview'])->name('reset');

@@ -17,6 +17,13 @@
         <x-badge :variant="$evidence->status->badgeVariant()" class="!px-3 !py-1">{{ $evidence->status->label() }}</x-badge>
     </header>
 
+    @if (session('warning'))
+        <div role="status" class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{{ session('warning') }}</div>
+    @endif
+    @if (session('status'))
+        <div role="status" class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">{{ session('status') }}</div>
+    @endif
+
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)]">
         <section class="overflow-hidden rounded-3xl border border-ink-100 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900">
             <div class="flex items-center justify-between gap-3 border-b border-ink-100 px-5 py-4 dark:border-ink-800"><div><h2 class="text-sm font-extrabold">Preview file</h2><p class="mt-1 max-w-md truncate text-xs text-ink-400">{{ $fileName }}</p></div><a href="{{ $fileUrl }}" target="_blank" class="rounded-xl border border-ink-200 px-3 py-2 text-xs font-bold dark:border-ink-700">Buka asli</a></div>

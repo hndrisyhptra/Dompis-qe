@@ -56,6 +56,15 @@ class EvidenceApprovalController extends Controller
         return view('evidence-approval.show', ['evidence' => $evidence]);
     }
 
+    public function approveLink(QeEvidence $evidence): RedirectResponse
+    {
+        $this->authorize('view', $evidence);
+
+        return redirect()
+            ->route('evidence-approval.show', $evidence)
+            ->with('warning', 'Keputusan tidak dijalankan dari tautan ini. Periksa evidence lalu gunakan tombol review untuk mengonfirmasi.');
+    }
+
     public function approve(QeEvidence $evidence): RedirectResponse
     {
         $this->authorize('approve', $evidence);
