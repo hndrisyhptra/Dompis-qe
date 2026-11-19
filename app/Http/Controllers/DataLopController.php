@@ -55,6 +55,9 @@ class DataLopController extends Controller
             'programs' => ProgramType::cases(),
             'statuses' => LopStatus::cases(),
             'branches' => $branchQuery->with('serviceAreas')->get(),
+            'serviceAreaNames' => ServiceArea::query()
+                ->whereIn('id_service_area', $this->visibility->accessibleServiceAreaIds($request->user()))
+                ->select('name')->distinct()->orderBy('name')->pluck('name'),
             'filters' => $filters,
         ]);
     }

@@ -24,12 +24,13 @@ class DataLopFilterRequest extends FormRequest
             'program' => ['nullable', Rule::enum(ProgramType::class)],
             'status' => ['nullable', Rule::enum(LopStatus::class)],
             'branch' => ['nullable', 'string', 'max:255'],
+            'service_area_name' => ['nullable', 'string', 'max:255'],
             'page' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
     public function attributes(): array
     {
-        return ['q' => 'pencarian', 'program' => 'program', 'status' => 'status Dompis', 'branch' => 'branch'];
+        return ['q' => 'pencarian', 'program' => 'program', 'status' => 'status Dompis', 'branch' => 'branch', 'service_area_name' => 'nama Service Area'];
     }
 }

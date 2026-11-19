@@ -35,12 +35,30 @@
                 <a href="{{ route('data-lops.index') }}" class="shrink-0 text-xs font-bold text-brand-600 hover:text-brand-700">Reset filter</a>
             @endif
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
             <label class="lg:col-span-2"><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Cari LOP</span><input name="q" value="{{ $filters['search'] }}" placeholder="Incident, nama LOP, atau STO" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></label>
             <label><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Program</span><select name="program" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"><option value="">Semua program</option>@foreach($programs as $item)<option value="{{ $item->value }}" @selected($filters['program'] === $item->value)>{{ $item->label() }}</option>@endforeach</select></label>
             <label><span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Status</span><select name="status" class="min-h-10 w-full rounded-md border border-ink-300 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"><option value="">Semua status</option>@foreach($statuses as $item)<option value="{{ $item->value }}" @selected($filters['status'] === $item->value)>{{ $item->label() }}</option>@endforeach</select></label>
+            <label class="relative block" x-data="{ open: false, query: '', selected: @js($filters['service_area_name']) }" @click.outside="open = false" @keydown.escape.stop="open = false">
+                <span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">Service Area</span>
+                <input type="hidden" name="service_area_name" :value="selected">
+                <button type="button" @click="open = !open; if (open) $nextTick(() => $refs.serviceAreaSearch.focus())" :aria-expanded="open" aria-haspopup="listbox" aria-controls="service-area-name-options" class="flex min-h-10 w-full items-center justify-between gap-2 rounded-md border border-ink-300 bg-white px-3 text-left text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+                    <span class="truncate" :class="selected ? 'text-ink-900 dark:text-white' : 'text-ink-500 dark:text-ink-400'" x-text="selected || 'Semua Service Area'"></span>
+                    <svg aria-hidden="true" class="h-4 w-4 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div x-show="open" x-cloak class="absolute right-0 z-50 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-ink-200 bg-white p-2 shadow-lg dark:border-ink-700 dark:bg-ink-900">
+                    <input x-ref="serviceAreaSearch" type="search" x-model="query" placeholder="Cari nama Service Area..." aria-label="Cari nama Service Area" class="min-h-9 w-full rounded-md border border-ink-300 bg-white px-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+                    <div id="service-area-name-options" role="listbox" aria-label="Pilihan nama Service Area" class="mt-1 max-h-52 overflow-y-auto">
+                        <button type="button" role="option" :aria-selected="selected === ''" @click="selected = ''; open = false; query = ''" class="block min-h-9 w-full rounded px-2.5 text-left text-sm text-ink-700 hover:bg-ink-50 focus:bg-ink-50 focus:outline-none dark:text-ink-200 dark:hover:bg-ink-800 dark:focus:bg-ink-800">Semua Service Area</button>
+                        @foreach($serviceAreaNames as $name)
+                            <button type="button" role="option" :aria-selected="selected === @js($name)" x-show="$el.textContent.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())" @click="selected = @js($name); open = false; query = ''" class="block min-h-9 w-full rounded px-2.5 text-left text-sm text-ink-700 hover:bg-ink-50 focus:bg-ink-50 focus:outline-none dark:text-ink-200 dark:hover:bg-ink-800 dark:focus:bg-ink-800">{{ $name }}</button>
+                        @endforeach
+                        <p x-show="query && !Array.from($el.parentElement.querySelectorAll('[role=option]')).slice(1).some(option => option.textContent.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))" class="px-2.5 py-3 text-xs text-ink-500 dark:text-ink-400">Tidak ada Service Area yang cocok.</p>
+                    </div>
+                </div>
+            </label>
             <label>
-                <span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">STO / Service Area</span>
+                <span class="mb-1.5 block text-xs font-medium text-ink-600 dark:text-ink-300">STO</span>
                 <x-sto-filter :branches="$branches" :selected="request('sto_filter', [])" />
             </label>
             <div class="flex items-end"><button class="min-h-10 w-full rounded-md bg-ink-900 px-4 text-sm font-semibold text-white transition hover:bg-ink-800 dark:bg-white dark:text-ink-900 dark:hover:bg-ink-100">Terapkan Filter</button></div>

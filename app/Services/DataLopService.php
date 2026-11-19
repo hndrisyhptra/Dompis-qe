@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\QeLop;
+use App\Models\ServiceArea;
 use App\Models\User;
 use Generator;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +20,7 @@ class DataLopService
             'status' => trim((string) ($input['status'] ?? '')),
             'program' => trim((string) ($input['program'] ?? '')),
             'branch' => trim((string) ($input['branch'] ?? '')),
+            'service_area_name' => trim((string) ($input['service_area_name'] ?? '')),
             'sto_filter' => (array) ($input['sto_filter'] ?? []),
         ];
     }
@@ -33,6 +35,20 @@ class DataLopService
         }
         if (!empty($filters['sto_filter'])) {
             $query->whereIn('sto', $filters['sto_filter']);
+        }
+        if ($filters['service_area_name'] !== '') {
+            $serviceAreas = ServiceArea::query()
+                ->where('name', $filters['service_area_name'])
+                ->get(['id_service_area', 'workzone']);
+
+            $query->where(function (Builder $location) use ($serviceAreas) {
+                $location->whereIn('service_area_id', $serviceAreas->pluck('id_service_area'));
+                if ($serviceAreas->isNotEmpty()) {
+                    $location->orWhere(fn (Builder $legacy) => $legacy
+                        ->whereNull('service_area_id')
+                        ->whereIn('sto', $serviceAreas->pluck('workzone')));
+                }
+            });
         }
         foreach (['status' => 'status_lop', 'program' => 'program_type', 'branch' => 'branch'] as $filter => $column) {
             if ($filters[$filter] !== '') {

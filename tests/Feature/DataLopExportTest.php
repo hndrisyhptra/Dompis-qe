@@ -128,6 +128,31 @@ class DataLopExportTest extends TestCase
         }
     }
 
+    public function test_service_area_name_filter_matches_all_stos_with_that_name_including_legacy_lops(): void
+    {
+        $this->locations['areas']['SBY-A']->update(['name' => 'SURABAYA KOTA']);
+        $this->locations['areas']['SBY-B']->update(['name' => 'SURABAYA KOTA']);
+        $this->locations['areas']['SDA-A']->update(['name' => 'SIDOARJO KOTA']);
+
+        $this->lop('NAME-SBY-A', 'SBY-A');
+        $this->lop('NAME-SBY-B', 'SBY-B');
+        $this->lop('NAME-LEGACY', 'SBY-B', ['service_area_id' => null]);
+        $this->lop('NAME-SDA', 'SDA-A');
+
+        $this->actingAs($this->super)->get(route('data-lops.index', ['service_area_name' => 'SURABAYA KOTA']))
+            ->assertOk()
+            ->assertViewHas('lops', fn ($rows) => $rows->total() === 3)
+            ->assertSee('NAME-SBY-A')
+            ->assertSee('NAME-SBY-B')
+            ->assertSee('NAME-LEGACY')
+            ->assertDontSee('NAME-SDA');
+
+        $this->assertEqualsCanonicalizing(
+            ['NAME-SBY-A', 'NAME-SBY-B', 'NAME-LEGACY'],
+            $this->incidents($this->download($this->super, ['service_area_name' => 'SURABAYA KOTA'])),
+        );
+    }
+
     public function test_reservation_boq_counts_and_foreign_key_location_fallback_do_not_mutate_data(): void
     {
         $lop = $this->lop('RESERVATION', attributes: ['program_type' => 'recovery', 'sto' => null, 'branch' => null]);
@@ -196,7 +221,7 @@ class DataLopExportTest extends TestCase
             $this->actingAs(User::factory()->role($role)->create())->get(route('data-lops.export'))->assertForbidden();
         }
         $this->actingAs($this->super);
-        foreach ([['q' => ['bad']], ['q' => str_repeat('x', 256)], ['program' => 'bad'], ['status' => 'bad'], ['branch' => ['bad']], ['page' => -1]] as $filters) {
+        foreach ([['q' => ['bad']], ['q' => str_repeat('x', 256)], ['program' => 'bad'], ['status' => 'bad'], ['branch' => ['bad']], ['service_area_name' => ['bad']], ['page' => -1]] as $filters) {
             foreach (['data-lops.index', 'data-lops.export'] as $route) {
                 $this->getJson(route($route, $filters))->assertUnprocessable();
             }
@@ -208,7 +233,7 @@ class DataLopExportTest extends TestCase
         URL::forceRootUrl('http://internal.example');
         URL::forceScheme('http');
         try {
-            $html = $this->actingAs($this->super)->get('/master-data/lops?q=chosen&program=preventive&status=progress&branch=Branch+SBY&page=2')->assertOk()->getContent();
+            $html = $this->actingAs($this->super)->get('/master-data/lops?q=chosen&program=preventive&status=progress&branch=Branch+SBY&service_area_name=SBY-A&page=2')->assertOk()->getContent();
             $document = new DOMDocument;
             $document->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
             $xpath = new DOMXPath($document);
@@ -218,7 +243,7 @@ class DataLopExportTest extends TestCase
             $this->assertSame('GET', $button->getAttribute('formmethod'));
             $form = $xpath->query('//form[@id="data-lop-filters"]')->item(0);
             $this->assertSame('/master-data/lops', $form->getAttribute('action'));
-            $this->assertSame(4, $xpath->query('.//*[@name="q" or @name="program" or @name="status" or @name="branch"]', $form)->length);
+            $this->assertSame(5, $xpath->query('.//*[@name="q" or @name="program" or @name="status" or @name="branch" or @name="service_area_name"]', $form)->length);
             $this->assertSame(0, $xpath->query('.//*[@name="page"]', $form)->length);
         } finally {
             URL::forceRootUrl(null);
