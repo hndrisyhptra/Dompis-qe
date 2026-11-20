@@ -10,7 +10,7 @@
         <div x-ref="reservationItemsScroll" class="overflow-y-auto bg-ink-50/50 p-5 dark:bg-ink-950/30">
             <div class="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
                 <p class="font-bold">{{ $summary['package_label'] }} · Reservasi teknisi</p>
-                <p class="mt-1">Tambah atau hapus material dan ubah qty reservasi. Rekap aktual tetap diisi teknisi. Item dengan evidence atau rekap tidak dapat dihapus; qty tidak boleh di bawah pemakaian. Untuk QE Recovery, jasa pasangan dihitung otomatis. BOQ Plan tidak dibuat dari perubahan ini.</p>
+                <p class="mt-1">Tambah atau hapus material dan ubah qty reservasi. Jasa baru hanya tersedia untuk LOP CAPEX. Jasa lama pada LOP OPEX dipertahankan sebagai data baca saja. Rekap aktual tetap diisi teknisi. BOQ Plan tidak dibuat dari perubahan ini.</p>
                 @if ($lop->status_lop === \App\Enums\LopStatus::WAITING_APPROVAL)<p class="mt-2 font-semibold">Jika menambahkan material baru, LOP kembali ke Progress agar teknisi melengkapi evidence dan rekap sebelum diajukan ulang.</p>@endif
             </div>
             <div class="mb-3 flex items-center justify-between text-xs"><span class="font-semibold text-ink-500" x-text="items.length + '/100 item material'"></span><span class="text-ink-400">Perubahan belum berlaku sebelum disimpan</span></div>
@@ -19,7 +19,7 @@
                     <div class="rounded-md border border-ink-200 bg-white p-4 dark:border-ink-700 dark:bg-ink-900">
                         <div class="mb-3 flex items-center justify-between gap-3">
                             <p class="text-xs font-bold text-ink-700 dark:text-ink-200">Item <span x-text="index + 1"></span><span x-show="item.can_delete === false" class="ml-2 text-[10px] font-medium text-amber-600">Evidence / aktual tercatat</span></p>
-                            <button type="button" @click="requestDrop(index)" :disabled="items.length <= 1 || item.can_delete === false" :title="item.can_delete === false ? 'Tidak dapat dihapus karena evidence atau rekap aktual sudah tercatat' : 'Hapus item material'" aria-label="Hapus item material" class="rounded-md border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900">Hapus</button>
+                            <button type="button" @click="requestDrop(index)" :disabled="items.length <= 1 || item.can_delete === false || item.legacy_service" :title="item.legacy_service ? 'Jasa lama LOP OPEX dipertahankan sebagai data baca saja' : (item.can_delete === false ? 'Tidak dapat dihapus karena evidence atau rekap aktual sudah tercatat' : 'Hapus item material')" aria-label="Hapus item reservasi" class="rounded-md border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900">Hapus</button>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
                             <div>
@@ -28,12 +28,13 @@
                                         <input type="hidden" :name="'items[' + index + '][designator_id]'" :value="item.designator_id">
                                         <p class="text-xs font-extrabold" x-text="item.code || selectedCode(item.designator_id)"></p>
                                         <p class="mt-1 text-xs leading-5 text-ink-500" x-text="item.name"></p>
+                                        <p x-show="item.legacy_service" class="mt-1 text-[10px] font-semibold text-amber-700">Jasa lama · read-only</p>
                                     </div>
                                 </template>
                                 <template x-if="!item.existing"><div>@include('data-boqs._designator-picker')</div></template>
                             </div>
                             <label class="text-[10px] font-bold uppercase text-ink-500">Qty reservasi
-                                <input x-model.number="item.qty" :name="'items[' + index + '][qty]'" type="number" :min="item.qty_actual == null ? 1 : Math.max(1, Math.ceil(item.qty_actual))" step="1" max="999999999999" inputmode="numeric" required class="mt-1.5 min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-950">
+                                <input x-model.number="item.qty" :name="'items[' + index + '][qty]'" type="number" :min="item.qty_actual == null ? 1 : Math.max(1, Math.ceil(item.qty_actual))" step="1" max="999999999999" inputmode="numeric" :readonly="item.legacy_service" required class="mt-1.5 min-h-11 w-full rounded-md border border-ink-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-ink-700 dark:bg-ink-950">
                             </label>
                             <div><p class="text-[10px] font-bold uppercase text-ink-500">Qty aktual</p><p class="mt-3 text-xs font-semibold" x-text="item.qty_actual == null ? 'Belum direkap' : new Intl.NumberFormat('id-ID').format(item.qty_actual)"></p><p class="mt-1 text-[10px] text-ink-400">Tidak diubah di sini</p></div>
                         </div>

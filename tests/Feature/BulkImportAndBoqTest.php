@@ -510,35 +510,37 @@ class BulkImportAndBoqTest extends TestCase
         app(BoqImportService::class)->process($batch, $admin);
 
         $batch->refresh();
-        $this->assertSame('completed', $batch->status);
+        $this->assertSame('failed', $batch->status);
         $this->assertSame(4, $batch->total_rows);
-        $this->assertSame(1, $batch->success_rows);
+        $this->assertSame(0, $batch->success_rows);
         $this->assertSame('TIF-10', $batch->metadata['package_detected']);
-        $this->assertSame(3, $batch->metadata['skipped_count']);
+        $this->assertSame(2, $batch->metadata['skipped_count']);
         $this->assertSame(1, $batch->metadata['material_count']);
         $this->assertSame(0, $batch->metadata['service_count']);
         $this->assertEquals(200, $batch->metadata['grand_total']);
-        $this->assertDatabaseHas('qe_boqs', [
-            'qe_lop_id' => $lop->id_qe_lops,
-            'package_id' => $package->id_package,
-            'item_count' => 1,
-            'grand_total' => 200,
-        ]);
-        $this->assertDatabaseHas('designators', ['code' => 'M-ACTUAL', 'item_name' => 'Material terpakai']);
+        $this->assertStringContainsString('J-ACTUAL', $batch->error_message);
+        $this->assertStringContainsString('CAPEX', $batch->error_message);
+        $this->assertDatabaseMissing('qe_boqs', ['qe_lop_id' => $lop->id_qe_lops]);
+        $this->assertDatabaseMissing('designators', ['code' => 'M-ACTUAL', 'item_name' => 'Material terpakai']);
         $this->assertDatabaseMissing('designators', ['code' => 'J-ACTUAL', 'item_name' => 'Jasa terpakai']);
-        $this->assertDatabaseCount('qe_boq_items', 1);
-        $this->assertSame(3, $batch->rows()->where('status', 'skipped')->count());
-        $this->assertStringContainsString('program ini hanya MATERIAL', $batch->rows()->where('reference', 'J-ACTUAL')->value('message'));
+        $this->assertDatabaseCount('qe_boq_items', 0);
+        $this->assertSame(2, $batch->rows()->where('status', 'skipped')->count());
+        $this->assertDatabaseHas('qe_import_rows', ['import_batch_id' => $batch->getKey(), 'reference' => 'J-ACTUAL', 'status' => 'failed']);
+        $this->assertDatabaseHas('qe_import_rows', ['import_batch_id' => $batch->getKey(), 'reference' => 'M-ACTUAL', 'status' => 'cancelled']);
+        $this->assertStringContainsString('CAPEX', $batch->rows()->where('reference', 'J-ACTUAL')->value('message'));
 
         $this->actingAs($admin)->get(route('imports.show', $batch))
             ->assertOk()
             ->assertSee('Hasil Import BOQ')
             ->assertSee('3DMO_QEREC_INP3124092601_FEEDER')
             ->assertSee('TIF-10')
-            ->assertSee('Grand Total')
+            ->assertSee('Total file')
             ->assertSee('VOL')
             ->assertSee('M-ACTUAL')
-            ->assertDontSee('J-ACTUAL')
+            ->assertSee('J-ACTUAL')
+            ->assertSee('Ditolak')
+            ->assertSee('Tidak disimpan')
+            ->assertSee('JASA hanya boleh diimpor untuk LOP beranggaran CAPEX')
             ->assertDontSee('M-BLANK')
             ->assertDontSee('J-ZERO');
     }

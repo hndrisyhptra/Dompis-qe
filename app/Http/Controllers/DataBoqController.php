@@ -84,6 +84,9 @@ class DataBoqController extends Controller
                 'qty_actual' => $item->qty_actual === null ? null : (float) $item->qty_actual,
                 'code' => $item->designator?->code,
                 'name' => $item->designator?->item_name,
+                'type' => $item->designator?->type?->code,
+                'legacy_service' => ! $lop->includesBoqServices()
+                    && mb_strtoupper((string) $item->designator?->type?->code) === 'JASA',
                 'existing' => true,
                 'can_delete' => MaterialReservationRules::removable($item, $lop->evidences->contains('designator_id', $item->designator_id)),
             ])->values());
@@ -91,7 +94,7 @@ class DataBoqController extends Controller
 
         $boqs = $query->latest()->paginate(15)->withQueryString();
         $boqs->getCollection()->each(function (QeBoq $boq): void {
-            $items = $boq->items->filter(fn ($item) => $boq->lop->program_type->allowsBoqType($item->type, $item->designator_code))->values();
+            $items = $boq->items->filter(fn ($item) => $boq->lop->allowsBoqType($item->type))->values();
             $boq->setAttribute('program_items', $items);
             $boq->setAttribute('program_total', (float) $items->sum('total_price'));
         });

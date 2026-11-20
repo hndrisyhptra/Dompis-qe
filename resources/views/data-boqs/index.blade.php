@@ -75,7 +75,7 @@
                                 $reservationEditable = $lop->reservation_editable;
                                 $reservationItems = $lop->reservation_editor_items;
                             @endphp
-                            <tr x-data="boqEditor('{{ base64_encode($reservationItems->toJson()) }}', null, { materialOnly: true, allServices: true, maxItems: 100 })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                            <tr x-data="boqEditor('{{ base64_encode($reservationItems->toJson()) }}', null, { materialOnly: true, allServices: {{ $lop->includesBoqServices() ? 'true' : 'false' }}, maxItems: 100 })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                                 <td class="px-5 py-4"><p class="flex flex-wrap items-baseline gap-2"><span class="font-bold">{{ $lop->incident }}</span><span class="shrink-0 whitespace-nowrap text-[10px] font-semibold tabular-nums text-ink-400" title="Tanggal laporan incident">{{ $lop->reported_date ?: '—' }}</span></p><p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $lop->nama_lop }}</p><span class="mt-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Reservasi Teknisi</span></td>
                                 <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $summary['package']?->code ?? '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $summary['item_count'] }} item aktual</p></td>
                                 <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format($summary['service_total'], 0, ',', '.') }}</td>
@@ -124,12 +124,15 @@
                                 'designator_id' => (string) $item->designator_id,
                                 'qty' => (int) round((float) $item->qty),
                                 'unit_price' => (float) $item->unit_price,
+                                'code' => $item->designator_code,
+                                'name' => $item->item_name,
+                                'legacy_service' => ! $boq->lop->includesBoqServices() && $item->type === 'JASA',
                             ])->values();
                             $serviceTotal = $boq->program_items->where('type', 'JASA')->sum('total_price');
                             $materialTotal = $boq->program_items->where('type', 'MATERIAL')->sum('total_price');
                         @endphp
 
-                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}', null, { materialOnly: {{ $boq->lop->program_type->includesBoqServices() ? 'false' : 'true' }} })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
+                        <tr x-data="boqEditor('{{ base64_encode($initialItems->toJson()) }}', null, { materialOnly: {{ $boq->lop->includesBoqServices() ? 'false' : 'true' }}, allServices: {{ $boq->lop->includesBoqServices() ? 'true' : 'false' }} })" class="transition hover:bg-ink-50/70 dark:hover:bg-ink-800/40">
                             <td class="px-5 py-4">
                                 <p class="flex flex-wrap items-baseline gap-2">
                                     <span class="font-bold">{{ $boq->lop->incident }}</span>
@@ -138,7 +141,7 @@
                                 <p class="mt-1 max-w-xs truncate text-xs text-ink-500">{{ $boq->lop->nama_lop }}</p>
                                 <span class="mt-2 block"><x-lop-status-badge :status="$boq->lop->status_lop" /></span>
                             </td>
-                            <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $boq->program_items->count() }} item · {{ $boq->lop->program_type->includesBoqServices() ? 'Material + Jasa' : 'Material + jasa khusus jika ada' }}</p></td>
+                            <td class="px-5 py-4 text-center"><p class="text-xs font-semibold text-ink-700 dark:text-ink-200">{{ $boq->package?->code ?: '—' }}</p><p class="mt-1 text-[11px] text-ink-500">{{ $boq->program_items->count() }} item · {{ $boq->lop->includesBoqServices() ? 'Material + Jasa' : 'Material saja' }}</p></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format((float) $serviceTotal, 0, ',', '.') }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-xs tabular-nums text-ink-700 dark:text-ink-200">Rp {{ number_format((float) $materialTotal, 0, ',', '.') }}</td>
                             <td class="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold tabular-nums text-ink-900 dark:text-white">Rp {{ number_format($boq->program_total, 0, ',', '.') }}</td>
@@ -235,22 +238,23 @@
                                                     <template x-for="(item, index) in items" :key="index">
                                                         <div class="rounded-2xl border border-ink-200 bg-white p-4 shadow-sm transition hover:border-ink-300 dark:border-ink-700 dark:bg-ink-900 dark:hover:border-ink-600">
                                                             <div class="mb-3 flex items-center justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800">
-                                                                <div class="min-w-0"><p class="text-[10px] font-extrabold uppercase tracking-wider text-ink-400">Item <span x-text="index + 1"></span></p><p class="mt-0.5 truncate text-xs font-bold text-ink-700 dark:text-ink-200" x-text="selectedCode(item.designator_id)"></p></div>
-                                                                <button type="button" @click="requestDrop(index)" x-show="items.length > 1" aria-label="Hapus item designator" title="Hapus item designator" class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-red-100 px-2.5 text-[10px] font-bold text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20">
+                                                                <div class="min-w-0"><p class="text-[10px] font-extrabold uppercase tracking-wider text-ink-400">Item <span x-text="index + 1"></span></p><p class="mt-0.5 truncate text-xs font-bold text-ink-700 dark:text-ink-200" x-text="selectedCode(item.designator_id)"></p><p x-show="item.legacy_service" class="mt-1 text-[10px] font-semibold text-amber-700">Jasa lama · snapshot dipertahankan</p></div>
+                                                                <button type="button" @click="requestDrop(index)" x-show="items.length > 1" :disabled="item.legacy_service" aria-label="Hapus item designator" title="Hapus item designator" class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-red-100 px-2.5 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900 dark:hover:bg-red-950/20">
                                                                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7.5h12m-10.5 0 .75 12h7.5l.75-12M9.75 7.5V4.875h4.5V7.5"/></svg> Hapus
                                                                 </button>
                                                             </div>
                                                             <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_120px_180px]">
                                                                 <div>
-                                                                    @include('data-boqs._designator-picker')
+                                                                    <template x-if="item.legacy_service"><input type="hidden" :name="'items[' + index + '][designator_id]'" :value="item.designator_id"></template>
+                                                                    <template x-if="!item.legacy_service">@include('data-boqs._designator-picker')</template>
                                                                 </div>
                                                                 <label class="text-[10px] font-bold uppercase text-ink-400">
                                                                     Qty
-                                                                    <input x-model.number="item.qty" :name="'items[' + index + '][qty]'" type="number" min="1" step="1" inputmode="numeric" required class="mt-1.5 min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
+                                                                    <input x-model.number="item.qty" :name="'items[' + index + '][qty]'" type="number" min="1" step="1" inputmode="numeric" :readonly="item.legacy_service" required class="mt-1.5 min-h-11 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950">
                                                                 </label>
                                                                 <label class="text-[10px] font-bold uppercase text-ink-400">
                                                                     Harga satuan
-                                                                    <span class="relative mt-1.5 block"><span class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-xs font-bold text-ink-400">Rp</span><input x-model="item.unit_price" :name="'items[' + index + '][unit_price]'" type="number" min="0" step="0.01" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white pl-9 pr-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></span>
+                                                                    <span class="relative mt-1.5 block"><span class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-xs font-bold text-ink-400">Rp</span><input x-model="item.unit_price" :name="'items[' + index + '][unit_price]'" type="number" min="0" step="0.01" :readonly="item.legacy_service" class="min-h-11 w-full rounded-xl border border-ink-200 bg-white pl-9 pr-3 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15 dark:border-ink-700 dark:bg-ink-950"></span>
                                                                 </label>
                                                             </div>
                                                         </div>

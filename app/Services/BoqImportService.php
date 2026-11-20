@@ -99,8 +99,13 @@ class BoqImportService
             $rawQty = trim((string) ($row['qty'] ?? ''));
             $status = 'ready';
 
-            $excluded = ! $lop->program_type->allowsBoqType($row['type'], $code);
-            if ($excluded || $rawQty === '' || ($qty !== null && $qty <= 0)) {
+            $excluded = ! $lop->allowsNewBoqType($row['type']);
+            $rejectedService = $excluded && $row['type'] === 'JASA' && $rawQty !== '' && ($qty === null || $qty > 0);
+            if ($rejectedService) {
+                $messages[] = 'JASA hanya boleh diimpor untuk LOP beranggaran CAPEX. Hapus baris jasa atau ubah anggaran LOP menjadi CAPEX sebelum import.';
+                $errors[$row['row_number']] = implode(' ', $messages);
+                $status = 'error';
+            } elseif ($excluded || $rawQty === '' || ($qty !== null && $qty <= 0)) {
                 $status = 'skipped';
                 $totals['skipped_count']++;
             } else {
@@ -145,7 +150,10 @@ class BoqImportService
                 'total_price' => $total,
                 'status' => $status,
                 'exists' => $designators->has($code) && ! $designators->get($code)->trashed(),
-                'message' => $excluded ? 'Item JASA diabaikan: program ini hanya MATERIAL.' : ($errors[$row['row_number']] ?? null),
+                'message' => $rejectedService
+                    ? ($errors[$row['row_number']] ?? null)
+                    : ($excluded ? 'Item JASA dilewati karena hanya LOP beranggaran CAPEX yang menerima jasa.' : ($errors[$row['row_number']] ?? null)),
+                'failure_reason' => $rejectedService ? 'opex_service_not_allowed' : null,
             ];
 
             $processedRows = $index + 1;
@@ -172,26 +180,51 @@ class BoqImportService
         }
 
         if ($errors !== []) {
+            $blockingServices = collect($normalizedRows)
+                ->filter(fn (array $row) => ($row['failure_reason'] ?? null) === 'opex_service_not_allowed')
+                ->values();
+            $blockingSummary = $blockingServices
+                ->map(fn (array $row) => "baris {$row['row_number']} ({$row['designator']})")
+                ->implode(', ');
+            $batchError = $blockingServices->isNotEmpty()
+                ? 'Import ditolak karena JASA hanya boleh digunakan pada LOP beranggaran CAPEX. Ditemukan pada '.$blockingSummary.'. Seluruh file dibatalkan; tidak ada BOQ yang disimpan.'
+                : 'BOQ tidak disimpan karena validasi file gagal. Periksa pesan pada baris yang ditolak.';
+            $rejectedServiceTotal = (float) $blockingServices->sum(fn (array $row) => max(0, (float) $row['qty']) * max(0, (float) $row['unit_price']));
+            $fileTotal = (float) $totals['grand_total'] + $rejectedServiceTotal;
             $resultRows = [];
             foreach ($normalizedRows as $row) {
-                $isSkipped = $row['status'] === 'skipped';
+                $rowStatus = match ($row['status']) {
+                    'skipped' => 'skipped',
+                    'error' => 'failed',
+                    default => 'cancelled',
+                };
+                $rowMessage = match ($rowStatus) {
+                    'skipped' => $row['message'] ?? 'VOL kosong atau 0, item tidak dipakai.',
+                    'failed' => $errors[$row['row_number']] ?? 'Baris ini tidak memenuhi validasi BOQ.',
+                    default => 'Baris ini valid, tetapi tidak disimpan karena seluruh import dibatalkan.',
+                };
                 $resultRows[] = [
                     'import_batch_id' => $batch->id_import_batch,
                     'row_number' => $row['row_number'],
-                    'status' => $isSkipped ? 'skipped' : 'failed',
+                    'status' => $rowStatus,
                     'reference' => $row['designator'],
-                    'message' => $isSkipped
-                        ? ($row['message'] ?? 'VOL kosong atau 0 — item tidak dipakai.')
-                        : ($errors[$row['row_number']] ?? 'Import dibatalkan karena terdapat kesalahan pada baris lain.'),
+                    'message' => $rowMessage,
                     'payload' => $row,
                 ];
             }
             $this->rowWriter->insert($batch, $resultRows);
 
             $batch->update([
-                'failed_rows' => collect($normalizedRows)->whereIn('status', ['ready', 'error'])->count(),
+                'failed_rows' => collect($normalizedRows)->where('status', 'error')->count(),
+                'metadata' => [
+                    ...($batch->metadata ?? []),
+                    'cancelled_count' => collect($normalizedRows)->where('status', 'ready')->count(),
+                    'rejected_service_count' => $blockingServices->count(),
+                    'rejected_service_total' => $rejectedServiceTotal,
+                    'file_total' => $fileTotal,
+                ],
                 'status' => 'failed',
-                'error_message' => 'BOQ tidak disimpan karena validasi file gagal.',
+                'error_message' => $batchError,
                 'completed_at' => now(),
             ]);
 
@@ -234,7 +267,7 @@ class BoqImportService
                     'status' => $isSkipped ? 'skipped' : 'success',
                     'reference' => $row['designator'],
                     'message' => $isSkipped
-                        ? ($row['message'] ?? 'VOL kosong atau 0 — item tidak dipakai.')
+                        ? ($row['message'] ?? 'VOL kosong atau 0, item tidak dipakai.')
                         : 'Item BOQ berhasil disimpan.',
                     'payload' => $row,
                     'result' => $isSkipped ? null : ['boq_id' => $boq->id_boq],

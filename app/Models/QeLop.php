@@ -142,6 +142,25 @@ class QeLop extends Model
         return [strtolower(trim((string) $raw))];
     }
 
+    public function includesBoqServices(): bool
+    {
+        return $this->budget_type === LopBudgetType::CAPEX;
+    }
+
+    public function allowsNewBoqType(string $type): bool
+    {
+        $type = mb_strtoupper(trim($type));
+
+        return $type === 'MATERIAL' || ($type === 'JASA' && $this->includesBoqServices());
+    }
+
+    public function allowsBoqType(string $type): bool
+    {
+        $type = mb_strtoupper(trim($type));
+
+        return $type === 'MATERIAL' || ($type === 'JASA' && $this->includesBoqServices());
+    }
+
     /**
      * Segment pertama (compat helper untuk program non-relok atau display singkat).
      */

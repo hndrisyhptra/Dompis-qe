@@ -55,7 +55,7 @@ class ReservationBoqService
             if ($reservation === null) {
                 throw ValidationException::withMessages(['items' => 'Reservasi teknisi belum tersedia.']);
             }
-            $reservation->setRelation('items', $reservation->items()->with('designator')->lockForUpdate()->get());
+            $reservation->setRelation('items', $reservation->items()->with('designator.type')->lockForUpdate()->get());
             if (! hash_equals(self::version($reservation), $version)) {
                 throw ValidationException::withMessages(['items' => 'Reservasi telah berubah sejak halaman dibuka. Muat ulang Data BOQ agar perubahan teknisi tidak tertimpa.']);
             }
@@ -64,18 +64,30 @@ class ReservationBoqService
             $targets = collect($items)->keyBy(fn ($item) => (int) $item['designator_id']);
             $existingIds = $reservation->items->pluck('designator_id')->map(fn ($id) => (int) $id);
             $newIds = $targets->keys()->diff($existingIds);
-            $eligibleIds = ReservedDesignatorRules::apply(Designator::whereIn('id_designator', $newIds))->pluck('id_designator');
+            $eligibleIds = ReservedDesignatorRules::apply(
+                Designator::whereIn('id_designator', $newIds),
+                $lockedLop->includesBoqServices(),
+            )->pluck('id_designator');
             if ($eligibleIds->count() !== $newIds->count()) {
-                throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima designator bertipe MATERIAL atau JASA yang masih tersedia.']);
+                throw ValidationException::withMessages(['items' => 'Jasa hanya dapat direservasi untuk LOP beranggaran CAPEX; program OPEX hanya menerima MATERIAL.']);
             }
             $evidenceIds = $lockedLop->evidences()->whereNotNull('designator_id')->pluck('designator_id')->map(fn ($id) => (int) $id);
 
             foreach ($reservation->items as $item) {
                 $target = $targets->get((int) $item->designator_id);
                 if ($target === null) {
+                    if (! $lockedLop->includesBoqServices()
+                        && mb_strtoupper((string) $item->designator?->type?->code) === 'JASA') {
+                        throw ValidationException::withMessages(['items' => 'Jasa lama pada LOP OPEX hanya dapat dipertahankan dan tidak dapat dihapus.']);
+                    }
                     MaterialReservationRules::assertRemovable($item, $evidenceIds->contains((int) $item->designator_id));
                     $item->delete();
                 } else {
+                    if (! $lockedLop->includesBoqServices()
+                        && mb_strtoupper((string) $item->designator?->type?->code) === 'JASA'
+                        && (int) $item->qty !== (int) $target['qty']) {
+                        throw ValidationException::withMessages(['items' => 'Jasa lama pada LOP OPEX hanya dapat dipertahankan dan tidak dapat diubah.']);
+                    }
                     MaterialReservationRules::assertQuantity($item, (int) $target['qty']);
                     $item->update(['qty' => (int) $target['qty']]);
                 }

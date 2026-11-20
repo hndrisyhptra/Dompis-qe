@@ -22,9 +22,11 @@ class ReservedDesignatorRules
         return in_array(mb_strtoupper(trim($type)), ['MATERIAL', 'JASA'], true);
     }
 
-    public static function apply(Builder $query): Builder
+    public static function apply(Builder $query, bool $includeServices = true): Builder
     {
-        return $query->whereHas('type', fn (Builder $type) => $type->whereIn(DB::raw('UPPER(TRIM(code))'), ['MATERIAL', 'JASA']));
+        $types = $includeServices ? ['MATERIAL', 'JASA'] : ['MATERIAL'];
+
+        return $query->whereHas('type', fn (Builder $type) => $type->whereIn(DB::raw('UPPER(TRIM(code))'), $types));
     }
 
     public static function matchKey(?string $code): string
@@ -47,8 +49,10 @@ class ReservedDesignatorRules
     public static function workflowItems(QeLop $lop): Collection
     {
         $lop->loadMissing(['materialReservation.items.designator.type', 'boq.items.designator.type']);
-        $items = $lop->materialReservation?->items ?? collect();
+        $items = ($lop->materialReservation?->items ?? collect())
+            ->filter(fn (QeMaterialReservationItem $item) => $lop->allowsBoqType($item->designator?->type?->code ?? 'MATERIAL'));
         $missing = ($lop->boq?->items ?? collect())->filter(fn ($item) => mb_strtoupper(trim((string) $item->type)) === 'JASA'
+            && $lop->allowsBoqType($item->type)
             && $item->designator_id !== null && ! $items->contains('designator_id', $item->designator_id));
 
         return $items->concat($missing->map(fn ($item) => (new QeMaterialReservationItem([

@@ -681,7 +681,7 @@ window.lopForm = (options = {}) => ({
     },
 
     syncProgramRules(regenerate = true) {
-        this.form.budget_type = this.form.program_type ? (this.form.program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX') : '';
+        this.form.budget_type = this.form.program_type ? (['relok_utilitas', 'kuratif'].includes(this.form.program_type) ? 'CAPEX' : 'OPEX') : '';
         if (this.supportsMultipleSegments() && this.form.segments.length === 0) {
             this.form.segments = [this.form.segment || (this.form.program_type === 'relok_tiang' ? 'tiang' : '')].filter(Boolean);
         }
@@ -1420,7 +1420,7 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
         items: withSearch(JSON.parse(JSON.stringify(initialItems))),
         // Daftar master designator disisipkan sekali per halaman, bukan sekali
         // untuk setiap baris BOQ. Ini menjaga HTML tetap kecil saat pagination penuh.
-        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL' || (settings.allServices ? option.type === 'JASA' : option.fixed_actual === true)),
+        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL' || (settings.allServices && option.type === 'JASA')),
 
         openEdit() {
             this.items = withSearch(
@@ -1489,20 +1489,30 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
             const selected = this.options.find(
                 (option) => String(option.id) === String(selectedId),
             );
+            const legacy = this.items.find(
+                (item) => String(item.designator_id) === String(selectedId),
+            );
 
             return selected
                 ? `${selected.code} · ${selected.name}`
-                : "Belum memilih designator";
+                : legacy?.code
+                  ? `${legacy.code} · ${legacy.name}`
+                  : "Belum memilih designator";
         },
 
         selectedOptionLabel(selectedId) {
             const selected = this.options.find(
                 (option) => String(option.id) === String(selectedId),
             );
+            const legacy = this.items.find(
+                (item) => String(item.designator_id) === String(selectedId),
+            );
 
             return selected
                 ? `${selected.code} · ${selected.name}`
-                : "Pilih designator";
+                : legacy?.code
+                  ? `${legacy.code} · ${legacy.name}`
+                  : "Pilih designator";
         },
 
         toggleOptions(targetItem) {

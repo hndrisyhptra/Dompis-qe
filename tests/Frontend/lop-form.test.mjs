@@ -43,11 +43,11 @@ for (const program of ['recovery', 'preventive', 'relok_utilitas', 'relok_tiang'
 test('mengganti program mempertahankan lima segmen dan mengikuti budget otomatis', () => {
     const model = form('recovery');
     model.form.segments = ['feeder', 'distribusi', 'odc', 'odp', 'tiang'];
-    for (const program of ['preventive', 'relok_utilitas', 'relok_tiang', 'recovery']) {
+    for (const program of ['preventive', 'relok_utilitas', 'kuratif', 'relok_tiang', 'recovery']) {
         model.form.program_type = program;
         model.syncProgramRules();
         assert.equal(model.form.segments.length, 5);
-        assert.equal(model.form.budget_type, program === 'relok_utilitas' ? 'CAPEX' : 'OPEX');
+        assert.equal(model.form.budget_type, ['relok_utilitas', 'kuratif'].includes(program) ? 'CAPEX' : 'OPEX');
         assert.match(model.form.nama_lop, /FEEDER_DISTRIBUSI_ODC_ODP_TIANG/);
     }
 });

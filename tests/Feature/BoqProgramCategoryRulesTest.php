@@ -40,7 +40,7 @@ class BoqProgramCategoryRulesTest extends TestCase
             $designators[$code] = Designator::create(['code' => $code, 'item_name' => $code.' description', 'unit' => 'pcs', 'designator_type_id' => DesignatorType::where('code', $type)->value('id_designator_type'), 'created_by' => $owner->getKey()]);
             DesignatorPackagePrice::create(['designator_id' => $designators[$code]->getKey(), 'package_id' => $package->getKey(), 'price' => $price]);
         }
-        $lop = QeLop::create(['incident' => 'BOQ-RULE', 'nama_lop' => 'BOQ Category Rules', 'program_type' => $program, 'status_lop' => 'completed', 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'branch' => $branch->name, 'created_by' => $owner->getKey()]);
+        $lop = QeLop::create(['incident' => 'BOQ-RULE', 'nama_lop' => 'BOQ Category Rules', 'program_type' => $program, 'budget_type' => ProgramType::from($program)->budgetType()->value, 'status_lop' => 'completed', 'branch_id' => $branch->getKey(), 'service_area_id' => $sa->getKey(), 'sto' => $sa->workzone, 'branch' => $branch->name, 'created_by' => $owner->getKey()]);
         $boq = QeBoq::create(['qe_lop_id' => $lop->getKey(), 'package_id' => $package->getKey(), 'source' => 'import', 'status' => 'ready', 'created_by' => $owner->getKey(), 'grand_total' => 9000, 'item_count' => 2]);
         foreach (['M-BASE' => ['MATERIAL', 10], 'J-BASE' => ['JASA', 30]] as $code => [$type, $price]) {
             $boq->items()->create(['designator_id' => $designators[$code]->getKey(), 'designator_code' => $code, 'item_name' => 'SNAPSHOT '.$code, 'unit' => 'pcs', 'type' => $type, 'qty' => 10, 'unit_price' => $price, 'total_price' => 10 * $price]);
@@ -62,22 +62,24 @@ class BoqProgramCategoryRulesTest extends TestCase
     {
         $f = $this->fixture($program);
         $lop = $f['lop'];
+        $hasServices = (ProgramType::tryFrom($program)?->includesBoqServices() ?? false);
         $utilitas = $program === 'relok_utilitas';
-        $expectedActual = $utilitas ? 107.0 : 40.0;
-        $expectedPlan = $program === 'recovery' ? 0.0 : ($utilitas ? 400.0 : 100.0);
+        $expectedActual = $utilitas ? 107.0 : ($hasServices ? 100.0 : 40.0);
+        $expectedPlan = $program === 'recovery' ? 0.0 : ($hasServices ? 400.0 : 100.0);
         $projection = app(LopBoqProjectionService::class);
         $actual = $projection->report($lop, 'actual');
         $this->assertSame($expectedActual, $actual['grand']['total_actual']);
-        $this->assertSame($utilitas ? ['J-BASE', 'M-BASE', 'M-EXTRA', 'J-EXTRA'] : ['M-BASE', 'M-EXTRA'], array_column($actual['lines'], 'designator_code'));
+        $expectedCodes = $utilitas ? ['J-BASE', 'M-BASE', 'M-EXTRA', 'J-EXTRA'] : ($hasServices ? ['J-BASE', 'M-BASE', 'M-EXTRA'] : ['M-BASE', 'M-EXTRA']);
+        $this->assertSame($expectedCodes, array_column($actual['lines'], 'designator_code'));
         $this->assertSame($expectedPlan, (float) ($projection->report($lop, 'plan')['grand']['total_plan'] ?? 0));
         $rows = iterator_to_array(app(DataBoqExportService::class)->rows($f['owner']));
-        $this->assertCount($utilitas ? 4 : 2, $rows);
+        $this->assertCount(count($expectedCodes), $rows);
         $this->assertSame($expectedActual, (float) array_sum(array_column($rows, 10)));
         $book = app(AissBoqExportService::class)->workbook($lop);
         try {
             $sheet = $book->getActiveSheet();
-            $this->assertSame(($utilitas ? 4 : 2) + 1, $sheet->getHighestRow());
-            $materialRow = $utilitas ? 3 : 2;
+            $this->assertSame(count($expectedCodes) + 1, $sheet->getHighestRow());
+            $materialRow = $hasServices ? 3 : 2;
             $this->assertSame('M-BASE', $sheet->getCell('B'.$materialRow)->getValue());
             $this->assertSame(10.0, $sheet->getCell('F'.$materialRow)->getValue());
         } finally {
@@ -86,7 +88,7 @@ class BoqProgramCategoryRulesTest extends TestCase
         $this->actingAs($f['owner'])->get(route('revenue.index'))->assertOk()
             ->assertViewHas('stats', fn ($stats) => $stats['plan_value'] === $expectedPlan && $stats['actual_value'] === $expectedActual)
             ->assertViewHas('programRows', fn ($rows) => $rows->firstWhere('program', $program)['actual_value'] === $expectedActual);
-        $this->get(route('data-boqs.index'))->assertOk()->assertViewHas('boqs', fn ($boqs) => $boqs->first()->program_items->count() === ($utilitas ? 2 : 1) && $boqs->first()->program_total === ($utilitas ? 400.0 : 100.0))
+        $this->get(route('data-boqs.index'))->assertOk()->assertViewHas('boqs', fn ($boqs) => $boqs->first()->program_items->count() === ($hasServices ? 2 : 1) && $boqs->first()->program_total === ($hasServices ? 400.0 : 100.0))
             ->assertSee('detailLaporanTab('.$lop->getKey().', '.($program === 'recovery' ? 'false' : 'true').')', false);
         $this->assertSame('9000.00', $f['boq']->fresh()->grand_total);
         $this->assertCount(2, $f['boq']->fresh()->items);
@@ -141,12 +143,13 @@ class BoqProgramCategoryRulesTest extends TestCase
     {
         $f = $this->fixture('preventive');
         $f['lop']->update(['status_lop' => 'draft']);
+        $f['boq']->items()->where('designator_id', $f['designators']['J-BASE']->getKey())->delete();
         $items = [['designator_id' => $f['designators']['M-BASE']->getKey(), 'qty' => 2, 'unit_price' => 10], ['designator_id' => $f['designators']['J-BASE']->getKey(), 'qty' => 2, 'unit_price' => 30]];
         try {
             app(BoqService::class)->save($f['lop'], $items, $f['package'], $f['owner']);
             $this->fail('Manual service input should be rejected.');
         } catch (ValidationException) {
-            $this->assertCount(2, $f['boq']->fresh()->items);
+            $this->assertCount(1, $f['boq']->fresh()->items);
         }
         $boq = app(BoqService::class)->save($f['lop'], $items, $f['package'], $f['owner'], 'import');
         $this->assertCount(1, $boq->items);

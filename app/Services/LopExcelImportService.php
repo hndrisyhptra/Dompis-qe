@@ -249,8 +249,13 @@ class LopExcelImportService
             }
 
             $status = 'ok';
-            $excluded = ! (ProgramType::tryFrom($program) ?? ProgramType::RECOVERY)->allowsBoqType($type, $code);
-            if ($excluded || $vol === null || $vol <= 0) {
+            $excluded = ! (ProgramType::tryFrom($program) ?? ProgramType::RECOVERY)->allowsNewBoqType($type);
+            $rejectedService = $excluded && $type === 'JASA' && trim((string) $row['vol']) !== '' && ($vol === null || $vol > 0);
+            if ($rejectedService) {
+                $rowErrors[] = 'JASA hanya dapat diimpor untuk LOP beranggaran CAPEX.';
+                $errors[] = "Baris {$row['line']}: ".implode(', ', $rowErrors);
+                $status = 'error';
+            } elseif ($excluded || $vol === null || $vol <= 0) {
                 // VOL kosong/0 = tidak dipakai (bukan error)
                 $status = 'skipped';
                 $skippedCount++;
@@ -261,10 +266,10 @@ class LopExcelImportService
                 $rowErrors[] = 'uraian/satuan kosong — dibutuhkan untuk membuat designator baru';
             }
 
-            if ($excluded) {
+            if ($excluded && ! $rejectedService) {
                 $rowErrors = [];
             }
-            if ($rowErrors) {
+            if ($rowErrors && ! $rejectedService) {
                 $errors[] = "Baris {$row['line']}: ".implode(', ', $rowErrors);
                 $status = 'error';
             }

@@ -109,7 +109,13 @@
         @endif
     @elseif ($step === 1)
         @php
-            $materialRows = $state['items']->values()->map(fn ($item, $index) => ['designator_id' => (string) $item->designator_id, 'qty' => (int) round((float) $item->qty), 'open' => $index === 0]);
+            $materialRows = $state['items']->values()->map(fn ($item, $index) => [
+                'designator_id' => (string) $item->designator_id,
+                'qty' => (int) round((float) $item->qty),
+                'open' => $index === 0,
+                'label' => $item->designator->code.' · '.$item->designator->item_name,
+                'legacy_service' => ! $lop->includesBoqServices() && mb_strtoupper((string) $item->designator?->type?->code) === 'JASA',
+            ]);
             if ($materialRows->isEmpty()) $materialRows = collect([['designator_id' => '', 'qty' => 1, 'open' => true]]);
             $materialOptions = $designators->map(fn ($d) => [
                 'id' => (string) $d->id_designator,
@@ -118,7 +124,7 @@
             ])->values();
         @endphp
         <section class="mt-5" x-data="{ items: {{ Illuminate\Support\Js::from($materialRows) }}, materials: {{ Illuminate\Support\Js::from($materialOptions) }} }">
-            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material dan jasa</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih designator bertipe MATERIAL atau JASA. Semua item yang direservasi wajib memiliki evidence Progress/After dan qty aktual.</p></div>
+            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material{{ $lop->includesBoqServices() ? ' dan jasa' : '' }}</h2><p class="mt-1 text-xs leading-5 text-ink-500">{{ $lop->includesBoqServices() ? 'LOP CAPEX dapat memilih designator MATERIAL atau JASA.' : 'LOP OPEX hanya dapat memilih designator MATERIAL.' }} Semua item yang direservasi wajib memiliki evidence Progress/After dan qty aktual.</p></div>
             <div class="mb-3 flex items-center justify-between gap-3 rounded-2xl border {{ $reservationPackage['package'] ? 'border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30' }} px-4 py-3">
                 <div><p class="text-[9px] font-extrabold uppercase tracking-wider {{ $reservationPackage['package'] ? 'text-blue-600 dark:text-blue-300' : 'text-amber-600 dark:text-amber-300' }}">Paket harga reservasi</p><p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white">{{ $reservationPackage['package']?->name ?? $reservationPackage['expected_code'] ?? 'Belum tersedia' }}</p></div>
                 <span class="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-bold text-ink-600 shadow-sm dark:bg-ink-900/70 dark:text-ink-300">{{ $reservationPackage['source'] }}</span>
@@ -132,14 +138,14 @@
                                 <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-xs font-extrabold text-brand-700 dark:bg-brand-900/20 dark:text-brand-300" x-text="index + 1"></span>
                                 <span class="min-w-0 flex-1">
                                     <span class="block truncate text-xs font-bold text-ink-800 dark:text-ink-100"
-                                          x-text="(materials.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item material'"></span>
-                                        <span class="mt-1 block text-[10px] text-ink-400" x-text="item.designator_id ? 'Tap untuk ubah designator' : 'Belum memilih designator'"></span>
+                                          x-text="(materials.find(m => String(m.id) === String(item.designator_id)) || {}).label || item.label || 'Pilih item material'"></span>
+                                    <span class="mt-1 block text-[10px] text-ink-400" x-text="item.legacy_service ? 'Jasa lama · hanya dapat dipertahankan' : (item.designator_id ? 'Tap untuk ubah designator' : 'Belum memilih designator')"></span>
                                 </span>
                                 <span class="shrink-0 rounded-lg bg-ink-100 px-2 py-1 text-[10px] font-extrabold text-ink-600 dark:bg-ink-800 dark:text-ink-300"><span x-text="item.qty || 0"></span> qty</span>
                                 <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform" :class="item.open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25L12 15.75 4.5 8.25"/></svg>
                             </button>
-                            <button type="button" @click="items.splice(index, 1)" x-show="items.length > 1"
-                                    class="grid w-10 shrink-0 place-items-center rounded-xl text-ink-400 hover:bg-brand-50 hover:text-brand-600" aria-label="Hapus material">
+                            <button type="button" @click="items.splice(index, 1)" x-show="items.length > 1" :disabled="item.legacy_service"
+                                    class="grid w-10 shrink-0 place-items-center rounded-xl text-ink-400 hover:bg-brand-50 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40" :aria-label="item.legacy_service ? 'Jasa lama tidak dapat dihapus dari workflow aktif' : 'Hapus item reservasi'" :title="item.legacy_service ? 'Jasa lama dipertahankan agar workflow berjalan tidak berubah' : 'Hapus item reservasi'">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
@@ -150,9 +156,9 @@
                                      @click.outside="pickerOpen = false" @keydown.escape="pickerOpen = false">
                                     <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Item designator</label>
                                     <input type="hidden" :name="`items[${index}][designator_id]`" :value="item.designator_id">
-                                    <button type="button" @click="pickerOpen = !pickerOpen"
+                                    <button type="button" @click="pickerOpen = !pickerOpen" :disabled="item.legacy_service"
                                             class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-3 py-2 text-left text-xs dark:border-ink-700 dark:bg-ink-800"
-                                            :class="item.designator_id ? 'text-ink-900 dark:text-ink-50' : 'text-ink-400'">
+                                            :class="item.legacy_service ? 'cursor-not-allowed bg-ink-50 text-ink-500 dark:bg-ink-900' : (item.designator_id ? 'text-ink-900 dark:text-ink-50' : 'text-ink-400')">
                                             <span class="line-clamp-2" x-text="(all.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item designator'"></span>
                                     </button>
                                     <div x-show="pickerOpen" x-cloak x-transition.opacity
@@ -173,7 +179,7 @@
                                 </div>
                                 <div>
                                     <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Quantity</label>
-                                    <input type="number" min="1" step="1" inputmode="numeric" x-model.number="item.qty" :name="`items[${index}][qty]`" required
+                                    <input type="number" min="1" step="1" inputmode="numeric" x-model.number="item.qty" :name="`items[${index}][qty]`" :readonly="item.legacy_service" required
                                            class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-3 text-sm font-bold dark:border-ink-700 dark:bg-ink-800">
                                 </div>
                             </div>

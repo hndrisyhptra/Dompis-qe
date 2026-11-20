@@ -42,7 +42,7 @@ class LopBoqProjectionService
         try {
             $packages = $lops->map(fn (QeLop $lop) => $this->packageFor($lop))->filter()->unique('id_package');
             $items = $lops->flatMap(fn (QeLop $lop) => $lop->materialReservation?->items ?? collect());
-            $serviceCodes = $lops->filter(fn (QeLop $lop) => $lop->program_type->includesBoqServices())
+            $serviceCodes = $lops->filter(fn (QeLop $lop) => $lop->program_type->usesAutomaticServicePairing())
                 ->flatMap(fn (QeLop $lop) => $lop->materialReservation?->items ?? collect())
                 ->map(fn ($item) => $this->serviceCode($item->designator?->code))->filter()->unique()->values();
             $services = $serviceCodes->isEmpty() ? collect() : Designator::query()->with('type')
@@ -127,7 +127,7 @@ class LopBoqProjectionService
     /** @return Collection<int, array<string, mixed>> */
     private function planLines(QeLop $lop): Collection
     {
-        return ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type, $item->designator_code))->map(fn (QeBoqItem $item): array => [
+        return ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->allowsBoqType($item->type))->map(fn (QeBoqItem $item): array => [
             'designator_id' => $item->designator_id,
             'designator_code' => $item->designator_code,
             'designator_name' => $item->item_name,
@@ -149,13 +149,13 @@ class LopBoqProjectionService
     private function actualLines(QeLop $lop, ?Package $package, bool $hasPlan): Collection
     {
         $reservationItems = ($lop->materialReservation?->items ?? collect())
-            ->filter(fn (QeMaterialReservationItem $item) => ReservedDesignatorRules::eligible($item->designator?->type?->code ?? 'MATERIAL', $item->designator?->code))->values();
+            ->filter(fn (QeMaterialReservationItem $item) => $lop->allowsBoqType($item->designator?->type?->code ?? 'MATERIAL'))->values();
         $reservationByBase = $reservationItems->keyBy(
             fn (QeMaterialReservationItem $item): string => $this->baseCode($item->designator?->code),
         );
 
         if ($hasPlan) {
-            $planItems = ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->program_type->allowsBoqType($item->type, $item->designator_code));
+            $planItems = ($lop->boq?->items ?? collect())->filter(fn (QeBoqItem $item) => $lop->allowsBoqType($item->type));
             $coveredBases = $planItems
                 ->map(fn (QeBoqItem $item): string => $this->baseCode($item->designator_code))
                 ->filter()->unique();
@@ -181,10 +181,10 @@ class LopBoqProjectionService
             $extra = $reservationItems->filter(fn (QeMaterialReservationItem $item): bool => ! $coveredBases->contains($this->baseCode($item->designator?->code))
             );
 
-            return $lines->concat($this->reservationLines($extra, $package, $lop->program_type->includesBoqServices()))->values();
+            return $lines->concat($this->reservationLines($extra, $package, $lop->program_type->usesAutomaticServicePairing()))->values();
         }
 
-        return $this->reservationLines($reservationItems, $package, $lop->program_type->includesBoqServices());
+        return $this->reservationLines($reservationItems, $package, $lop->program_type->usesAutomaticServicePairing());
     }
 
     /**
@@ -219,9 +219,11 @@ class LopBoqProjectionService
                 ->pluck('price', 'designator_id');
         }
 
-        $reservedBaseCodes = $items->map(fn (QeMaterialReservationItem $item): string => $this->baseCode($item->designator?->code));
+        $reservedServiceCodes = $items
+            ->filter(fn (QeMaterialReservationItem $item): bool => mb_strtoupper((string) $item->designator?->type?->code) === 'JASA')
+            ->map(fn (QeMaterialReservationItem $item): string => mb_strtoupper(trim((string) $item->designator?->code)));
 
-        return $items->flatMap(function (QeMaterialReservationItem $item) use ($includeServicePair, $serviceDesignators, $prices, $reservedBaseCodes): array {
+        return $items->flatMap(function (QeMaterialReservationItem $item) use ($includeServicePair, $serviceDesignators, $prices, $reservedServiceCodes): array {
             $material = $item->designator;
             $rows = [$this->line(
                 designatorId: $item->designator_id,
@@ -240,7 +242,7 @@ class LopBoqProjectionService
             }
 
             $service = $serviceDesignators->get(mb_strtoupper($serviceCode));
-            if ($service === null || $reservedBaseCodes->contains($this->baseCode($serviceCode))) {
+            if ($service === null || $reservedServiceCodes->contains(mb_strtoupper(trim($serviceCode)))) {
                 return $rows;
             }
 

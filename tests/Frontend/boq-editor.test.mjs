@@ -20,19 +20,19 @@ function editor(settings = {}, available = options) {
     ]), encode(available), settings);
 }
 
-test('pengecualian jasa khusus berasal dari flag server tanpa membuka jasa lain', () => {
+test('jasa ditutup untuk OPEX meski designator jasa termasuk pengecualian aktual', () => {
     const actual = editor({ materialOnly: true }, [...options, { id: 4, code: 'J-Coring', name: 'Coring', type: 'JASA', fixed_actual: true }]);
-    assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-Coring']);
-    assert.equal(actual.filteredOptions('Coring', '').length, 1);
+    assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE']);
+    assert.equal(actual.filteredOptions('Coring', '').length, 0);
 });
 
-test('editor reservasi menyediakan semua jasa dan editor plan mempertahankan pengecualian jasa khusus', () => {
+test('CAPEX menyediakan semua jasa dan editor OPEX tetap material saja', () => {
     const actual = editor({ materialOnly: true, allServices: true, maxItems: 100 });
     assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-KEEP']);
     assert.deepEqual(Array.from(actual.filteredOptions('feeder', ''), value => value.code), ['M-KEEP']);
     assert.equal(actual.filteredOptions('Jasa', '').length, 1);
     const plan = editor({ materialOnly: true }, [...options, { id: 4, code: 'J-Coring', name: 'Coring', type: 'JASA', fixed_actual: true }]);
-    assert.deepEqual(Array.from(plan.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-Coring']);
+    assert.deepEqual(Array.from(plan.options, value => value.code), ['M-KEEP', 'M-REMOVE']);
     assert.equal(editor().options.length, 3);
 });
 

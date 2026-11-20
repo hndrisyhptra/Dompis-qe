@@ -93,7 +93,7 @@ class TechnicianController extends Controller
             'canEditBaBongkar' => $canEditBaBongkar,
             'showBoqReview' => $showBoqReview,
             'reservationPackage' => $this->workflowService->reservationPackage($qe_lop),
-            'designators' => ! $readOnly && $requestedStep === 1 ? ReservedDesignatorRules::apply(Designator::query())
+            'designators' => ! $readOnly && $requestedStep === 1 ? ReservedDesignatorRules::apply(Designator::query(), $qe_lop->budget_type?->value === 'CAPEX')
                 ->orderBy('code')->get() : collect(),
         ]);
     }

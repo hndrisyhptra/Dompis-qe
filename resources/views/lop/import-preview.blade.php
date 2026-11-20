@@ -134,9 +134,9 @@
                 </div>
                 <div>
                     <span class="block text-sm font-medium text-ink-700 dark:text-ink-300 mb-1.5">Jenis Anggaran</span>
-                    <input type="hidden" name="budget_type" :value="program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX'">
+                    <input type="hidden" name="budget_type" :value="['relok_utilitas', 'kuratif'].includes(program_type) ? 'CAPEX' : 'OPEX'">
                     <div class="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-800">
-                        <span class="font-semibold" x-text="program_type === 'relok_utilitas' ? 'CAPEX' : 'OPEX'"></span>
+                        <span class="font-semibold" x-text="['relok_utilitas', 'kuratif'].includes(program_type) ? 'CAPEX' : 'OPEX'"></span>
                         <span class="text-xs text-ink-500">· Otomatis sesuai program</span>
                     </div>
                     @error('budget_type')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror

@@ -39,16 +39,46 @@ class BoqService
             if (! MaterialReservationRules::editable($lop)) {
                 throw ValidationException::withMessages(['boq' => 'BOQ terkunci karena LOP Completed. Reset LOP terlebih dahulu.']);
             }
-            $eligible = array_values(array_filter($normalized, fn (array $item) => $lop->program_type->allowsBoqType($item['type'], $item['designator_code'])));
-            if (count($eligible) !== count($normalized) && ! in_array($source, ['import', 'legacy_import'], true)) {
-                throw ValidationException::withMessages(['items' => 'Program ini menerima MATERIAL serta J-CO-OF, J-Coring, J-OS-SM-1. JASA lainnya hanya untuk QE Relok Utilitas.']);
-            }
-            $normalized = $eligible;
-            if ($normalized === []) {
-                throw ValidationException::withMessages(['items' => 'Tidak ada item BOQ yang sesuai dengan program LOP.']);
-            }
             $boq = QeBoq::withTrashed()->firstOrNew(['qe_lop_id' => $lop->id_qe_lops]);
             $before = $boq->exists ? $this->snapshot($boq->load('items')) : null;
+            $existingItems = collect($before['items'] ?? [])->keyBy('designator_id');
+            $legacyServices = $existingItems->filter(fn (array $item) => mb_strtoupper($item['type']) === 'JASA'
+                && ! $lop->allowsNewBoqType($item['type'])
+                && ReservedDesignatorRules::fixedActual($item['code'] ?? null));
+            $eligible = [];
+            $excluded = [];
+
+            foreach ($normalized as $item) {
+                if ($lop->allowsNewBoqType($item['type'])) {
+                    $eligible[] = $item;
+
+                    continue;
+                }
+
+                $legacy = $legacyServices->get($item['designator_id']);
+                if ($legacy === null) {
+                    $excluded[] = $item;
+
+                    continue;
+                }
+
+                if ((int) $legacy['qty'] !== (int) $item['qty']
+                    || abs((float) $legacy['unit_price'] - (float) $item['unit_price']) >= 0.01) {
+                    throw ValidationException::withMessages(['items' => 'Jasa legacy pada LOP OPEX hanya dipertahankan dari snapshot lama dan tidak dapat diedit.']);
+                }
+
+                $eligible[] = $legacy;
+                $legacyServices->forget($item['designator_id']);
+            }
+
+            // Snapshot jasa OPEX lama tetap ada di BOQ dan dibuat read-only.
+            $normalized = collect($eligible)->concat($legacyServices->values())->values()->all();
+            if ($excluded !== [] && ! in_array($source, ['import', 'legacy_import'], true)) {
+                throw ValidationException::withMessages(['items' => 'Designator JASA hanya dapat ditambahkan pada LOP beranggaran CAPEX.']);
+            }
+            if ($normalized === []) {
+                throw ValidationException::withMessages(['items' => 'Tidak ada item BOQ yang sesuai dengan program dan anggaran LOP.']);
+            }
 
             if ($boq->trashed()) {
                 $boq->restore();
@@ -149,7 +179,7 @@ class BoqService
 
         $lop->loadMissing(['boq.items', 'materialReservation.items']);
         $materialItems = $lop->boq?->items
-            ->filter(fn ($item) => ReservedDesignatorRules::eligible($item->type, $item->designator_code))
+            ->filter(fn ($item) => $lop->allowsBoqType($item->type))
             ->map(fn ($item) => [
                 'designator_id' => $item->designator_id,
                 'qty' => $item->qty,
@@ -215,7 +245,7 @@ class BoqService
 
         $reservation = $lop->materialReservation;
         $targetItems = $lop->boq?->items
-            ->filter(fn ($item) => ReservedDesignatorRules::eligible($item->type, $item->designator_code))
+            ->filter(fn ($item) => $lop->allowsBoqType($item->type))
             ->keyBy('designator_id') ?? collect();
         $evidenceDesignatorIds = $lop->evidences()
             ->whereNotNull('designator_id')
@@ -350,6 +380,7 @@ class BoqService
             'items' => $boq->items->map(fn ($item) => [
                 'designator_id' => $item->designator_id,
                 'code' => $item->designator_code,
+                'type' => mb_strtoupper((string) $item->type),
                 'qty' => (int) round((float) $item->qty),
                 'unit_price' => (float) $item->unit_price,
             ])->values()->all(),

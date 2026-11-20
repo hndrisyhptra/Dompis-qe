@@ -74,9 +74,21 @@ class TechnicianWorkflowService
     {
         $this->assertActiveAssignment($lop, $technician);
 
-        $lop->loadMissing(['boq.items', 'materialReservation.items']);
+        $lop->loadMissing(['boq.items', 'materialReservation.items.designator.type']);
         $targets = collect($items)->keyBy('designator_id');
-        foreach (($lop->boq?->items ?? collect())->filter(fn ($item) => mb_strtoupper(trim((string) $item->type)) === 'JASA' && $item->designator_id !== null) as $item) {
+        if (! $lop->includesBoqServices()) {
+            foreach ($lop->materialReservation?->items ?? collect() as $reservedItem) {
+                if (mb_strtoupper((string) $reservedItem->designator?->type?->code) === 'JASA' && ! $targets->has($reservedItem->designator_id)) {
+                    $targets->put($reservedItem->designator_id, [
+                        'designator_id' => $reservedItem->designator_id,
+                        'qty' => (int) $reservedItem->qty,
+                    ]);
+                }
+            }
+        }
+        foreach (($lop->boq?->items ?? collect())->filter(fn ($item) => $item->designator_id !== null
+            && mb_strtoupper(trim((string) $item->type)) === 'JASA'
+            && $lop->includesBoqServices()) as $item) {
             if (! $targets->has($item->designator_id)) {
                 $reserved = $lop->materialReservation?->items->firstWhere('designator_id', $item->designator_id);
                 $targets->put($item->designator_id, ['designator_id' => $item->designator_id, 'qty' => (int) ($reserved?->qty ?? $item->qty)]);
@@ -87,11 +99,18 @@ class TechnicianWorkflowService
             throw ValidationException::withMessages(['items' => 'Maksimal 100 designator MATERIAL/JASA termasuk item dari BOQ Plan.']);
         }
         $ids = collect($items)->pluck('designator_id');
-        $eligibleCount = ReservedDesignatorRules::apply(Designator::query()->whereIn('id_designator', $ids))
-            ->count();
+        $eligibleIds = ReservedDesignatorRules::apply(
+            Designator::query()->whereIn('id_designator', $ids),
+            $lop->includesBoqServices(),
+        )->pluck('id_designator');
+        $legacyServiceIds = $lop->materialReservation?->items
+            ->filter(fn ($item) => ! $lop->includesBoqServices()
+                && mb_strtoupper((string) $item->designator?->type?->code) === 'JASA')
+            ->pluck('designator_id') ?? collect();
+        $eligibleCount = $eligibleIds->merge($legacyServiceIds->intersect($ids))->unique()->count();
 
         if ($eligibleCount !== $ids->unique()->count()) {
-            throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima designator bertipe MATERIAL atau JASA.']);
+            throw ValidationException::withMessages(['items' => 'Jasa hanya dapat direservasi untuk LOP beranggaran CAPEX; program OPEX hanya menerima MATERIAL.']);
         }
 
         $packageSelection = $this->reservationPackage($lop);
@@ -110,7 +129,7 @@ class TechnicianWorkflowService
                 ['technician_id' => $technician->id_user, 'status' => 'draft']
             );
 
-            $existing = $reservation->items()->with('designator')->lockForUpdate()->get()->keyBy('designator_id');
+            $existing = $reservation->items()->with('designator.type')->lockForUpdate()->get()->keyBy('designator_id');
             $targets = collect($items)->keyBy('designator_id');
             $evidenceIds = $lop->evidences()->whereNotNull('designator_id')->pluck('designator_id');
             foreach ($existing as $id => $item) {
@@ -122,6 +141,11 @@ class TechnicianWorkflowService
             foreach ($targets as $id => $item) {
                 $old = $existing->get($id);
                 if ($old !== null) {
+                    if (! $lop->includesBoqServices()
+                        && mb_strtoupper((string) $old->designator?->type?->code) === 'JASA'
+                        && (int) $old->qty !== (int) $item['qty']) {
+                        throw ValidationException::withMessages(['items' => 'Jasa pada reservasi LOP OPEX hanya dapat dipertahankan sebagai data lama dan tidak dapat diubah.']);
+                    }
                     MaterialReservationRules::assertQuantity($old, (int) $item['qty']);
                     $old->update(['qty' => (int) $item['qty']]);
                 } else {

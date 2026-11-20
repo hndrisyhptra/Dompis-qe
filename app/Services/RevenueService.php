@@ -416,7 +416,7 @@ class RevenueService
             ->whereNull('usage_reservations.deleted_at')
             ->whereRaw("COALESCE(UPPER(usage_types.code), 'MATERIAL') IN ('MATERIAL', 'JASA')")
             ->select(['usage_reservations.qe_lop_id', 'usage_items.designator_id', 'usage_items.qty_actual', 'usage_designators.code']);
-        $eligible = $this->eligibleTypeSql('item_lops.program_type', 'value_boq_items.type', 'value_boq_items.designator_code');
+        $eligible = $this->eligibleTypeSql('item_lops.budget_type', 'value_boq_items.type');
         $baseMatch = $this->baseCodeSql('value_usage.code').' = '.$this->baseCodeSql('value_boq_items.designator_code');
         $itemTotals = DB::table('qe_boq_items as value_boq_items')
             ->join('qe_boqs as item_boqs', 'item_boqs.id_boq', '=', 'value_boq_items.qe_boq_id')
@@ -444,14 +444,14 @@ class RevenueService
         $packageSql = "CASE WHEN value_boqs.id_boq IS NOT NULL THEN COALESCE(value_boqs.package_id, value_lops.package_id) ELSE {$regionalPackageSql} END";
         $servicePair = $this->baseCodeSql('value_services.code').' = '.$this->baseCodeSql('value_designators.code');
         $coveredBase = $this->baseCodeSql('covered_items.designator_code').' = '.$this->baseCodeSql('value_designators.code');
-        $servicePrograms = $this->serviceProgramsSql();
+        $automaticServicePrograms = $this->automaticServicePairProgramsSql();
         $reservationTotals = DB::table('qe_material_reservations as value_reservations')
             ->join('qe_material_reservation_items as value_items', 'value_items.reservation_id', '=', 'value_reservations.id_reservation')
             ->join('qe_lops as value_lops', 'value_lops.id_qe_lops', '=', 'value_reservations.qe_lop_id')
             ->leftJoin('qe_boqs as value_boqs', fn ($join) => $join->on('value_boqs.qe_lop_id', '=', 'value_lops.id_qe_lops')->whereNull('value_boqs.deleted_at'))
             ->leftJoin('designators as value_designators', 'value_designators.id_designator', '=', 'value_items.designator_id')
             ->leftJoin('designator_types as value_types', 'value_types.id_designator_type', '=', 'value_designators.designator_type_id')
-            ->leftJoin('designators as value_services', fn ($join) => $join->whereRaw("value_lops.program_type IN ({$servicePrograms})")
+            ->leftJoin('designators as value_services', fn ($join) => $join->where('value_lops.budget_type', 'CAPEX')->whereRaw("value_lops.program_type IN ({$automaticServicePrograms})")
                 ->whereRaw('NOT ('.ReservedDesignatorRules::specialSql('value_services.code').')')
                 ->whereRaw("SUBSTR(UPPER(TRIM(value_designators.code)), 1, 2) = 'M-' AND SUBSTR(UPPER(TRIM(value_services.code)), 1, 2) = 'J-'")
                 ->whereRaw($servicePair)->whereNull('value_services.deleted_at')
@@ -459,7 +459,7 @@ class RevenueService
                     ->from('qe_material_reservation_items as paired_items')
                     ->join('designators as paired_designators', 'paired_designators.id_designator', '=', 'paired_items.designator_id')
                     ->whereColumn('paired_items.reservation_id', 'value_items.reservation_id')
-                    ->whereRaw($this->baseCodeSql('paired_designators.code').' = '.$this->baseCodeSql('value_services.code'))))
+                    ->whereRaw('UPPER(TRIM(paired_designators.code)) = UPPER(TRIM(value_services.code))')))
             ->leftJoin('branches as value_branches', function ($join): void {
                 $join->on('value_branches.id_branch', '=', 'value_lops.branch_id')
                     ->orOn(function ($legacy): void {
@@ -477,10 +477,10 @@ class RevenueService
             ->select('value_reservations.qe_lop_id')
             ->selectRaw('COUNT(value_items.id_reservation_item) as extra_count')
             ->selectRaw('SUM(COALESCE(value_items.qty_actual, value_items.qty) * (COALESCE(value_prices.price, 0) + COALESCE(service_prices.price, 0))) as actual_total')
-            ->whereRaw("COALESCE(UPPER(value_types.code), 'MATERIAL') IN ('MATERIAL', 'JASA')")
+            ->whereRaw("(COALESCE(UPPER(value_types.code), 'MATERIAL') = 'MATERIAL' OR (value_lops.budget_type = 'CAPEX' AND UPPER(value_types.code) = 'JASA'))")
             ->whereNotExists(fn ($covered) => $covered->selectRaw('1')->from('qe_boq_items as covered_items')
                 ->whereColumn('covered_items.qe_boq_id', 'value_boqs.id_boq')->whereNull('covered_items.deleted_at')
-                ->whereRaw($this->eligibleTypeSql('value_lops.program_type', 'covered_items.type', 'covered_items.designator_code'))->whereRaw($coveredBase))
+                ->whereRaw($this->eligibleTypeSql('value_lops.budget_type', 'covered_items.type'))->whereRaw($coveredBase))
             ->whereNull('value_reservations.deleted_at')
             ->whereNull('value_lops.deleted_at')
             ->groupBy('value_reservations.qe_lop_id');
@@ -503,11 +503,10 @@ class RevenueService
     {
         $material = $this->snapshotSql(['material.total', 'totals.material_total', 'material_total']);
         $grand = $this->snapshotSql(['grand_total', 'totals.grand_total']);
-        $services = $this->serviceProgramsSql();
 
         // Total lama tanpa kategori tidak dapat dianggap material secara otomatis.
         return "CASE WHEN revenue_item_totals.raw_item_count IS NOT NULL THEN COALESCE(revenue_item_totals.item_total, 0)
-            WHEN qe_lops.program_type IN ({$services}) THEN COALESCE(NULLIF(revenue_boqs.grand_total, 0), {$grand}, 0)
+            WHEN qe_lops.budget_type = 'CAPEX' THEN COALESCE(NULLIF(revenue_boqs.grand_total, 0), {$grand}, 0)
             ELSE COALESCE({$material}, 0) END";
     }
 
@@ -519,14 +518,14 @@ class RevenueService
             ELSE {$this->boqValueSql()} END";
     }
 
-    private function serviceProgramsSql(): string
+    private function automaticServicePairProgramsSql(): string
     {
-        return collect(ProgramType::cases())->filter(fn (ProgramType $program) => $program->includesBoqServices())->map(fn (ProgramType $program) => "'{$program->value}'")->implode(',');
+        return collect(ProgramType::cases())->filter(fn (ProgramType $program) => $program->usesAutomaticServicePairing())->map(fn (ProgramType $program) => "'{$program->value}'")->implode(',');
     }
 
-    private function eligibleTypeSql(string $program, string $type, string $code): string
+    private function eligibleTypeSql(string $budget, string $type): string
     {
-        return "(UPPER(TRIM({$type})) = 'MATERIAL' OR ({$program} IN ({$this->serviceProgramsSql()}) AND UPPER(TRIM({$type})) = 'JASA') OR ".ReservedDesignatorRules::specialSql($code).')';
+        return "(UPPER(TRIM({$type})) = 'MATERIAL' OR ({$budget} = 'CAPEX' AND UPPER(TRIM({$type})) = 'JASA'))";
     }
 
     private function baseCodeSql(string $column): string
@@ -548,7 +547,7 @@ class RevenueService
         $material = $this->snapshotSql(['material.total', 'totals.material_total', 'material_total']);
         $grand = $this->snapshotSql(['grand_total', 'totals.grand_total']);
 
-        return "qe_lops.program_type NOT IN ({$this->serviceProgramsSql()}) AND revenue_item_totals.raw_item_count IS NULL
+        return "COALESCE(qe_lops.budget_type, 'OPEX') <> 'CAPEX' AND revenue_item_totals.raw_item_count IS NULL
             AND {$material} IS NULL AND COALESCE(revenue_boqs.grand_total, {$grand}, 0) > 0";
     }
 }

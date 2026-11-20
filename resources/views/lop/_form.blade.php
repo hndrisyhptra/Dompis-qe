@@ -219,7 +219,7 @@
                 <input type="hidden" name="budget_type" :value="form.budget_type">
                 <div class="flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 dark:border-ink-700 dark:bg-ink-800">
                     <span class="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-ink-900 dark:bg-ink-900 dark:text-white" x-text="form.budget_type || 'Pilih program'"></span>
-                    <p class="text-xs leading-5 text-ink-500 dark:text-ink-400">Otomatis: QE Relok Utilitas menggunakan CAPEX, program lainnya OPEX.</p>
+                    <p class="text-xs leading-5 text-ink-500 dark:text-ink-400">Otomatis: QE Relok Utilitas dan QE Kuratif menggunakan CAPEX; program lainnya OPEX.</p>
                 </div>
                 @error('budget_type')<p class="mt-1.5 text-sm text-brand-600 dark:text-brand-400">{{ $message }}</p>@enderror
             </div>
