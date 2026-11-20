@@ -82,7 +82,7 @@
                             $inseraCount = $lop->evidences->filter(fn ($evidence) => $evidence->category === \App\Enums\EvidenceCategory::INSERA)->count();
                         @endphp
                         <tr x-data="{ detail: false, remove: false, actionsOpen: false, actionsPosition: { top: 8, left: 8 }, toggleActions(button) { if (this.actionsOpen) { this.actionsOpen = false; return; } this.actionsOpen = true; this.$nextTick(() => { const anchor = button.getBoundingClientRect(); const menu = document.getElementById('lop-actions-{{ $lop->id_qe_lops }}'); if (!menu) return; const size = menu.getBoundingClientRect(); const gap = 6; const below = anchor.bottom + size.height + gap <= window.innerHeight - 8; this.actionsPosition = { top: below ? anchor.bottom + gap : Math.max(8, anchor.top - size.height - gap), left: Math.max(8, Math.min(anchor.right - size.width, window.innerWidth - size.width - 8)) }; }); } }" @click.window="if (actionsOpen && !$event.target.closest('#lop-action-toggle-{{ $lop->id_qe_lops }}, #lop-actions-{{ $lop->id_qe_lops }}')) actionsOpen = false" @keydown.escape.window="actionsOpen = false" @scroll.window="actionsOpen = false" @resize.window="actionsOpen = false" class="align-middle transition hover:bg-brand-50/40 dark:hover:bg-ink-800/40">
-                            <td class="px-4 py-3.5"><p class="font-semibold text-red-800 dark:text-red-300">{{ $lop->incident }}</p><p class="mt-1 truncate text-xs font-medium text-ink-700 dark:text-ink-200" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p><p class="mt-1 text-[11px] tabular-nums text-ink-400">Tanggal laporan {{ $lop->reported_date ?: '—' }}</p></td>
+                            <td class="px-4 py-3.5"><p class="font-semibold text-red-800 dark:text-red-300">{{ $lop->incident }}</p><p class="mt-1 truncate text-xs font-medium text-ink-700 dark:text-ink-200" title="{{ $lop->nama_lop }}">{{ $lop->nama_lop }}</p><p class="mt-1 text-[11px] tabular-nums text-ink-400">Reported Date {{ $lop->reported_date ?: 'kosong' }}</p></td>
                             <td class="px-4 py-3.5"><p class="font-medium text-ink-800 dark:text-ink-100">{{ $lop->branch ?: 'Belum terpetakan' }}</p><p class="mt-1 text-xs text-ink-500 dark:text-ink-400">STO {{ $lop->sto ?: '—' }}</p></td>
                             <td class="px-4 py-3.5 text-sm text-ink-700 dark:text-ink-200">{{ $lop->program_type->label() }}</td>
                             <td class="px-4 py-3.5 text-center"><x-lop-status-badge :status="$lop->status_lop" /></td>
@@ -125,7 +125,84 @@
                                     </template>
                                 </div>
 
-                            <div x-show="detail" x-cloak @keydown.escape.window="detail=false" class="fixed inset-0 z-90 flex items-end justify-center bg-ink-950/60 p-4 sm:items-center" @click.self="detail=false"><section role="dialog" aria-modal="true" aria-labelledby="lop-detail-title-{{ $lop->id_qe_lops }}" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-md border border-ink-200 bg-white p-5 shadow-2xl dark:border-ink-700 dark:bg-ink-900 sm:p-6"><header class="flex items-center justify-between gap-3 border-b border-ink-100 pb-3 dark:border-ink-800"><div class="min-w-0"><p class="text-xs font-semibold text-ink-500 dark:text-ink-400">Detail LOP</p><h3 id="lop-detail-title-{{ $lop->id_qe_lops }}" class="mt-1 truncate text-base font-semibold">{{ $lop->incident }}</h3></div><button type="button" aria-label="Tutup detail LOP" title="Tutup detail LOP" @click="detail=false" class="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-ink-200 text-ink-600 hover:bg-ink-50 dark:border-ink-700 dark:text-ink-300 dark:hover:bg-ink-800">×</button></header><dl class="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">@foreach(['Nama LOP'=>$lop->nama_lop,'STO'=>$lop->sto,'Branch'=>$lop->branch,'Area'=>$lop->area,'Program'=>$lop->program_type->label(),'Segmen'=>$lop->segmentLabel(),'ID IHLD'=>$lop->ihld_id ?: '—','Dibuat oleh'=>$lop->creator?->name ?? '—'] as $label=>$value)<div><dt class="text-xs text-ink-500 dark:text-ink-400">{{ $label }}</dt><dd class="mt-1 text-sm font-medium text-ink-900 dark:text-white">{{ $value ?: '—' }}</dd></div>@endforeach</dl><div class="mt-5 border-t border-ink-100 pt-4 dark:border-ink-800"><h4 class="text-sm font-semibold">Deskripsi Pekerjaan</h4><p class="mt-2 whitespace-pre-line text-sm leading-6 text-ink-700 dark:text-ink-200">{{ $lop->job_description ?: '—' }}</p></div></section></div>
+                            <div x-show="detail" x-cloak @keydown.escape.window="detail=false" class="fixed inset-0 z-90 flex items-end justify-center bg-ink-950/60 p-2 sm:items-center sm:p-4" @click.self="detail=false">
+                                @php
+                                    $detailBoqCount = $lop->boq?->item_count ?? $lop->materialReservation?->items->count() ?? 0;
+                                    $detailBoqTotal = $lop->boq?->grand_total;
+                                @endphp
+                                <section role="dialog" aria-modal="true" aria-labelledby="lop-detail-title-{{ $lop->id_qe_lops }}" class="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-2xl dark:border-ink-700 dark:bg-ink-900">
+                                    <header class="relative overflow-hidden border-b border-ink-100 bg-ink-50 px-12 py-5 text-center dark:border-ink-800 dark:bg-ink-950/50 sm:px-16 sm:py-6">
+                                        <button type="button" aria-label="Tutup detail LOP" title="Tutup detail LOP" @click="detail=false" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-lg border border-ink-200 bg-white text-ink-600 transition hover:bg-ink-100 focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-300 dark:hover:bg-ink-800">×</button>
+                                        <p class="text-[11px] font-bold uppercase tracking-[.16em] text-brand-600 dark:text-brand-400">Detail pekerjaan</p>
+                                        <h3 id="lop-detail-title-{{ $lop->id_qe_lops }}" class="mt-2 wrap-break-word text-lg font-extrabold leading-snug text-ink-900 dark:text-white sm:text-xl">{{ $lop->nama_lop }}</h3>
+                                        <p class="mt-1.5 font-mono text-sm font-semibold text-ink-600 dark:text-ink-300">{{ $lop->incident }}</p>
+                                        <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                                            <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-700 shadow-sm dark:bg-ink-800 dark:text-ink-200">{{ $lop->program_type->label() }}</span>
+                                            <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink-700 shadow-sm dark:bg-ink-800 dark:text-ink-200">Anggaran {{ $lop->budget_type?->label() ?? 'Belum ditentukan' }}</span>
+                                            <x-lop-status-badge :status="$lop->status_lop" />
+                                        </div>
+                                    </header>
+
+                                    <div class="overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+                                        <div class="grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
+                                            <div class="space-y-6">
+                                                <section>
+                                                    <div class="mb-3 flex items-center justify-between gap-3"><h4 class="text-sm font-bold text-ink-900 dark:text-white">Lokasi pekerjaan</h4><span class="text-xs text-ink-500 dark:text-ink-400">{{ $lop->segmentLabel() }}</span></div>
+                                                    <dl class="divide-y divide-ink-100 rounded-lg border border-ink-100 dark:divide-ink-800 dark:border-ink-800">
+                                                        @foreach(['Branch'=>$lop->branch ?: 'Belum diisi','Area'=>$lop->area ?: 'Belum diisi','STO'=>$lop->sto ?: 'Belum diisi','ID IHLD'=>$lop->ihld_id ?: 'Belum tersedia','Reported Date'=>$lop->reported_date ? \Illuminate\Support\Carbon::parse($lop->reported_date)->format('d M Y') : 'Belum tersedia'] as $label=>$value)
+                                                            <div class="flex items-center justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-ink-500 dark:text-ink-400">{{ $label }}</dt><dd class="wrap-break-word text-right text-sm font-semibold text-ink-800 dark:text-ink-100">{{ $value }}</dd></div>
+                                                        @endforeach
+                                                    </dl>
+                                                </section>
+
+                                                <section>
+                                                    <h4 class="mb-3 text-sm font-bold text-ink-900 dark:text-white">Penugasan</h4>
+                                                    <div class="flex items-center gap-3 rounded-lg border border-ink-100 p-3.5 text-left dark:border-ink-800">
+                                                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">{{ $lop->activeAssignment?->technician?->name ? mb_strtoupper(mb_substr($lop->activeAssignment->technician->name, 0, 1)) : '?' }}</span>
+                                                        <div class="min-w-0 flex-1 text-left"><p class="text-[11px] text-ink-500 dark:text-ink-400">Teknisi aktif</p><p class="mt-0.5 truncate text-sm font-bold text-ink-900 dark:text-white">{{ $lop->activeAssignment?->technician?->name ?? 'Belum ditugaskan' }}</p>@if($lop->activeAssignment?->assigned_at)<p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">Ditugaskan {{ $lop->activeAssignment->assigned_at->format('d M Y, H:i') }}</p>@endif</div>
+                                                    </div>
+                                                </section>
+
+                                                <section>
+                                                    <h4 class="mb-3 text-sm font-bold text-ink-900 dark:text-white">Deskripsi pekerjaan</h4>
+                                                    <p class="whitespace-pre-line rounded-lg bg-ink-50 px-4 py-3.5 text-sm leading-6 text-ink-700 dark:bg-ink-950/50 dark:text-ink-200">{{ $lop->job_description ?: 'Belum ada deskripsi pekerjaan.' }}</p>
+                                                </section>
+                                            </div>
+
+                                            <aside class="space-y-5">
+                                                <section class="rounded-lg border border-ink-100 p-4 dark:border-ink-800">
+                                                    <h4 class="text-sm font-bold text-ink-900 dark:text-white">Status</h4>
+                                                    <dl class="mt-3 space-y-3">
+                                                        <div class="flex items-center justify-between gap-3"><dt class="text-xs text-ink-500 dark:text-ink-400">AISS</dt><dd><x-aiss-status :status="$lop->status_aiss" /></dd></div>
+                                                        @if($lop->status_project)<div class="flex items-center justify-between gap-3"><dt class="text-xs text-ink-500 dark:text-ink-400">Proyek</dt><dd class="text-sm font-semibold text-ink-800 dark:text-ink-100">{{ $lop->status_project->label() }}</dd></div>@endif
+                                                    </dl>
+                                                </section>
+
+                                                <section class="rounded-lg border border-ink-100 bg-ink-50/70 p-4 dark:border-ink-800 dark:bg-ink-950/30">
+                                                    <h4 class="text-sm font-bold text-ink-900 dark:text-white">BOQ</h4>
+                                                    <p class="mt-3 text-2xl font-extrabold tabular-nums text-ink-900 dark:text-white">{{ number_format((int) $detailBoqCount, 0, ',', '.') }} <span class="text-sm font-semibold text-ink-500 dark:text-ink-400">item</span></p>
+                                                    <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">{{ $lop->boq ? 'BOQ Plan' : ($detailBoqCount > 0 ? 'Reservasi Teknisi' : 'Belum ada BOQ atau reservasi') }}</p>
+                                                    @if($detailBoqTotal !== null)<p class="mt-3 border-t border-ink-200 pt-3 text-sm font-bold text-ink-800 dark:border-ink-700 dark:text-ink-100">Total Rp {{ number_format((float) $detailBoqTotal, 0, ',', '.') }}</p>@endif
+                                                </section>
+
+                                                <section class="rounded-lg border border-ink-100 p-4 dark:border-ink-800">
+                                                    <h4 class="text-sm font-bold text-ink-900 dark:text-white">Dibuat oleh</h4>
+                                                    <p class="mt-2 text-sm font-semibold text-ink-800 dark:text-ink-100">{{ $lop->creator?->name ?? 'Tidak diketahui' }}</p>
+                                                    <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{{ $lop->created_at?->format('d M Y, H:i') ?? 'Waktu tidak tersedia' }}</p>
+                                                    <p class="mt-3 border-t border-ink-100 pt-3 text-[11px] text-ink-500 dark:border-ink-800 dark:text-ink-400">Terakhir diperbarui {{ $lop->updated_at?->format('d M Y, H:i') ?? 'belum tersedia' }}</p>
+                                                </section>
+                                            </aside>
+                                        </div>
+
+                                        @if(filled($lop->ticket_summary))
+                                            <section class="mt-6 border-t border-ink-100 pt-5 dark:border-ink-800">
+                                                <h4 class="text-sm font-bold text-ink-900 dark:text-white">Ringkasan tiket</h4>
+                                                <pre class="mt-2 whitespace-pre-wrap wrap-break-word rounded-lg bg-ink-50 p-4 font-mono text-xs leading-5 text-ink-700 dark:bg-ink-950/50 dark:text-ink-200">{{ $lop->ticket_summary }}</pre>
+                                            </section>
+                                        @endif
+                                    </div>
+                                </section>
+                            </div>
                             @can('delete', $lop)<x-lop-delete-modal :$lop />@endcan
                             @if ($lop->status_lop !== \App\Enums\LopStatus::COMPLETED) @can('uploadEvidence', $lop)<x-admin-insera-modal :id="'insera-'.$lop->id_qe_lops" :$lop />@endcan @endif
                             @if($lop->program_type->usesProjectStatus()) @can('uploadEvidence', $lop)<x-request-letter-modal :id="'request-letter-'.$lop->id_qe_lops" :$lop />@endcan @endif

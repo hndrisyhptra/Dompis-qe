@@ -40,7 +40,7 @@ class DataLopController extends Controller
 
         $filters = $this->data->filters($request->validated());
         $query = $this->data->query($request->user(), $filters)
-            ->with(['creator', 'boq', 'materialReservation.items', 'evidences.uploader']);
+            ->with(['creator', 'activeAssignment.technician', 'boq', 'materialReservation.items', 'evidences.uploader']);
 
         $branchQuery = Branch::query()->orderBy('name');
         if ($request->user()->hasRole(UserRole::ADMIN)) {
