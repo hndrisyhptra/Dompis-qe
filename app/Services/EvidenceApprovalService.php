@@ -57,14 +57,14 @@ class EvidenceApprovalService
                 throw ValidationException::withMessages(['review' => 'Material Tiba QE Relok Utilitas belum lengkap. Setiap item material BOQ Plan wajib memiliki evidence yang approved. Foto global lama tidak menggantikan evidence per item.']);
             }
 
-            $specialItems = ReservedDesignatorRules::workflowItems($lop)
-                ->filter(fn ($item) => ReservedDesignatorRules::fixedActual($item->designator?->code));
-            foreach ($specialItems as $item) {
+            $serviceItems = ReservedDesignatorRules::workflowItems($lop)
+                ->filter(fn ($item) => mb_strtoupper((string) $item->designator?->type?->code) === 'JASA');
+            foreach ($serviceItems as $item) {
                 $proof = $lop->evidences->where('designator_id', $item->designator_id)->where('status', EvidenceStatus::APPROVED);
                 if (! $item->exists || ! ReservedDesignatorRules::actualComplete($item)
                     || $proof->where('category', EvidenceCategory::PROGRESS)->isEmpty()
                     || $proof->where('category', EvidenceCategory::AFTER)->isEmpty()) {
-                    throw ValidationException::withMessages(['review' => 'Jasa khusus wajib qty aktual sesuai reservasi serta evidence Progress dan After yang approved. Minta teknisi melengkapi terlebih dahulu.']);
+                    throw ValidationException::withMessages(['review' => 'Setiap jasa wajib memiliki qty aktual dan evidence Progress serta After yang approved. Minta teknisi melengkapi terlebih dahulu.']);
                 }
             }
 

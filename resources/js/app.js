@@ -1420,7 +1420,7 @@ window.boqEditor = (encodedItems, encodedOptions, settings = {}) => {
         items: withSearch(JSON.parse(JSON.stringify(initialItems))),
         // Daftar master designator disisipkan sekali per halaman, bukan sekali
         // untuk setiap baris BOQ. Ini menjaga HTML tetap kecil saat pagination penuh.
-        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL' || option.fixed_actual === true),
+        options: JSON.parse(atob(sharedOptions)).filter(option => !settings.materialOnly || option.type === 'MATERIAL' || (settings.allServices ? option.type === 'JASA' : option.fixed_actual === true)),
 
         openEdit() {
             this.items = withSearch(

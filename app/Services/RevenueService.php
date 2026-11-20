@@ -414,7 +414,7 @@ class RevenueService
             ->leftJoin('designators as usage_designators', 'usage_designators.id_designator', '=', 'usage_items.designator_id')
             ->leftJoin('designator_types as usage_types', 'usage_types.id_designator_type', '=', 'usage_designators.designator_type_id')
             ->whereNull('usage_reservations.deleted_at')
-            ->whereRaw("(COALESCE(UPPER(usage_types.code), 'MATERIAL') = 'MATERIAL' OR ".ReservedDesignatorRules::specialSql('usage_designators.code').')')
+            ->whereRaw("COALESCE(UPPER(usage_types.code), 'MATERIAL') IN ('MATERIAL', 'JASA')")
             ->select(['usage_reservations.qe_lop_id', 'usage_items.designator_id', 'usage_items.qty_actual', 'usage_designators.code']);
         $eligible = $this->eligibleTypeSql('item_lops.program_type', 'value_boq_items.type', 'value_boq_items.designator_code');
         $baseMatch = $this->baseCodeSql('value_usage.code').' = '.$this->baseCodeSql('value_boq_items.designator_code');
@@ -454,7 +454,12 @@ class RevenueService
             ->leftJoin('designators as value_services', fn ($join) => $join->whereRaw("value_lops.program_type IN ({$servicePrograms})")
                 ->whereRaw('NOT ('.ReservedDesignatorRules::specialSql('value_services.code').')')
                 ->whereRaw("SUBSTR(UPPER(TRIM(value_designators.code)), 1, 2) = 'M-' AND SUBSTR(UPPER(TRIM(value_services.code)), 1, 2) = 'J-'")
-                ->whereRaw($servicePair)->whereNull('value_services.deleted_at'))
+                ->whereRaw($servicePair)->whereNull('value_services.deleted_at')
+                ->whereNotExists(fn ($reservedService) => $reservedService->selectRaw('1')
+                    ->from('qe_material_reservation_items as paired_items')
+                    ->join('designators as paired_designators', 'paired_designators.id_designator', '=', 'paired_items.designator_id')
+                    ->whereColumn('paired_items.reservation_id', 'value_items.reservation_id')
+                    ->whereRaw($this->baseCodeSql('paired_designators.code').' = '.$this->baseCodeSql('value_services.code'))))
             ->leftJoin('branches as value_branches', function ($join): void {
                 $join->on('value_branches.id_branch', '=', 'value_lops.branch_id')
                     ->orOn(function ($legacy): void {
@@ -472,7 +477,7 @@ class RevenueService
             ->select('value_reservations.qe_lop_id')
             ->selectRaw('COUNT(value_items.id_reservation_item) as extra_count')
             ->selectRaw('SUM(COALESCE(value_items.qty_actual, value_items.qty) * (COALESCE(value_prices.price, 0) + COALESCE(service_prices.price, 0))) as actual_total')
-            ->whereRaw("(COALESCE(UPPER(value_types.code), 'MATERIAL') = 'MATERIAL' OR ".ReservedDesignatorRules::specialSql('value_designators.code').')')
+            ->whereRaw("COALESCE(UPPER(value_types.code), 'MATERIAL') IN ('MATERIAL', 'JASA')")
             ->whereNotExists(fn ($covered) => $covered->selectRaw('1')->from('qe_boq_items as covered_items')
                 ->whereColumn('covered_items.qe_boq_id', 'value_boqs.id_boq')->whereNull('covered_items.deleted_at')
                 ->whereRaw($this->eligibleTypeSql('value_lops.program_type', 'covered_items.type', 'covered_items.designator_code'))->whereRaw($coveredBase))

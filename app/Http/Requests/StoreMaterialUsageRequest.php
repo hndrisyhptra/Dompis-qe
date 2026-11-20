@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use App\Support\ReservedDesignatorRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Rekap qty material aktual yang terpakai per designator (Step 5).
+ * Rekap qty aktual material/jasa yang terpakai per designator (Step 5).
  * qty_actual wajib untuk SETIAP item reservasi dan tidak boleh melebihi
  * qty yang direservasi.
  */
@@ -22,7 +21,15 @@ class StoreMaterialUsageRequest extends FormRequest
         return [
             'usage' => ['required', 'array', 'min:1', 'max:100'],
             'usage.*.designator_id' => ['required', 'integer', 'distinct'],
-            'usage.*.qty_actual' => ['required', 'numeric', 'gte:0', 'max:999999999999.999'],
+            'usage.*.qty_actual' => ['required', 'integer', 'min:0', 'max:999999999999'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'usage.*.qty_actual.integer' => 'Qty aktual harus berupa bilangan bulat tanpa desimal.',
+            'usage.*.qty_actual.min' => 'Qty aktual minimal 0.',
         ];
     }
 
@@ -50,18 +57,13 @@ class StoreMaterialUsageRequest extends FormRequest
                         'Qty terpakai tidak boleh melebihi qty reservasi ('.rtrim(rtrim(number_format($reserved->get($designatorId), 3, '.', ''), '0'), '.').').',
                     );
                 }
-                $item = $lop?->materialReservation?->items->firstWhere('designator_id', $designatorId);
-                if (ReservedDesignatorRules::fixedActual($item?->designator?->code)
-                    && $qtyActual !== $reserved->get($designatorId)) {
-                    $validator->errors()->add("usage.{$i}.qty_actual", 'Qty aktual designator khusus wajib sama dengan qty reservasi/BOQ Plan.');
-                }
             }
 
             if ($reserved->isNotEmpty()) {
                 $submitted = collect($this->input('usage', []))->pluck('designator_id')->map(fn ($id) => (int) $id);
 
                 if ($reserved->keys()->diff($submitted)->isNotEmpty()) {
-                    $validator->errors()->add('usage', 'Qty terpakai wajib diisi untuk semua material yang direservasi.');
+                    $validator->errors()->add('usage', 'Qty terpakai wajib diisi untuk semua item yang direservasi.');
                 }
             }
         }];

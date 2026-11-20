@@ -19,13 +19,12 @@ class ReservedDesignatorRules
 
     public static function eligible(string $type, ?string $code): bool
     {
-        return mb_strtoupper(trim($type)) === 'MATERIAL' || self::fixedActual($code);
+        return in_array(mb_strtoupper(trim($type)), ['MATERIAL', 'JASA'], true);
     }
 
     public static function apply(Builder $query): Builder
     {
-        return $query->where(fn (Builder $q) => $q->whereRelation('type', 'code', 'MATERIAL')
-            ->orWhereIn(DB::raw('UPPER(TRIM(code))'), self::FIXED_ACTUAL_CODES));
+        return $query->whereHas('type', fn (Builder $type) => $type->whereIn(DB::raw('UPPER(TRIM(code))'), ['MATERIAL', 'JASA']));
     }
 
     public static function matchKey(?string $code): string
@@ -42,15 +41,14 @@ class ReservedDesignatorRules
 
     public static function actualComplete(QeMaterialReservationItem $item): bool
     {
-        return $item->qty_actual !== null && (! self::fixedActual($item->designator?->code)
-            || (float) $item->qty_actual === (float) $item->qty);
+        return $item->qty_actual !== null;
     }
 
     public static function workflowItems(QeLop $lop): Collection
     {
-        $lop->loadMissing(['materialReservation.items.designator', 'boq.items.designator']);
+        $lop->loadMissing(['materialReservation.items.designator.type', 'boq.items.designator.type']);
         $items = $lop->materialReservation?->items ?? collect();
-        $missing = ($lop->boq?->items ?? collect())->filter(fn ($item) => self::fixedActual($item->designator_code)
+        $missing = ($lop->boq?->items ?? collect())->filter(fn ($item) => mb_strtoupper(trim((string) $item->type)) === 'JASA'
             && $item->designator_id !== null && ! $items->contains('designator_id', $item->designator_id));
 
         return $items->concat($missing->map(fn ($item) => (new QeMaterialReservationItem([

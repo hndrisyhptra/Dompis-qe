@@ -76,7 +76,7 @@ class TechnicianWorkflowService
 
         $lop->loadMissing(['boq.items', 'materialReservation.items']);
         $targets = collect($items)->keyBy('designator_id');
-        foreach (($lop->boq?->items ?? collect())->filter(fn ($item) => ReservedDesignatorRules::fixedActual($item->designator_code) && $item->designator_id !== null) as $item) {
+        foreach (($lop->boq?->items ?? collect())->filter(fn ($item) => mb_strtoupper(trim((string) $item->type)) === 'JASA' && $item->designator_id !== null) as $item) {
             if (! $targets->has($item->designator_id)) {
                 $reserved = $lop->materialReservation?->items->firstWhere('designator_id', $item->designator_id);
                 $targets->put($item->designator_id, ['designator_id' => $item->designator_id, 'qty' => (int) ($reserved?->qty ?? $item->qty)]);
@@ -84,14 +84,14 @@ class TechnicianWorkflowService
         }
         $items = $targets->values()->all();
         if (count($items) > 100) {
-            throw ValidationException::withMessages(['items' => 'Maksimal 100 designator termasuk jasa khusus dari BOQ Plan.']);
+            throw ValidationException::withMessages(['items' => 'Maksimal 100 designator MATERIAL/JASA termasuk item dari BOQ Plan.']);
         }
         $ids = collect($items)->pluck('designator_id');
-        $materialCount = ReservedDesignatorRules::apply(Designator::query()->whereIn('id_designator', $ids))
+        $eligibleCount = ReservedDesignatorRules::apply(Designator::query()->whereIn('id_designator', $ids))
             ->count();
 
-        if ($materialCount !== $ids->unique()->count()) {
-            throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima MATERIAL dan jasa khusus J-CO-OF, J-Coring, J-OS-SM-1.']);
+        if ($eligibleCount !== $ids->unique()->count()) {
+            throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima designator bertipe MATERIAL atau JASA.']);
         }
 
         $packageSelection = $this->reservationPackage($lop);
@@ -174,8 +174,7 @@ class TechnicianWorkflowService
                 }
 
                 $item->update([
-                    'qty_actual' => ReservedDesignatorRules::fixedActual($item->designator?->code)
-                        ? (float) $item->qty : min((float) $row['qty_actual'], (float) $item->qty),
+                    'qty_actual' => min((float) $row['qty_actual'], (float) $item->qty),
                 ]);
             }
         });

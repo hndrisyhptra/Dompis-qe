@@ -64,9 +64,9 @@ class ReservationBoqService
             $targets = collect($items)->keyBy(fn ($item) => (int) $item['designator_id']);
             $existingIds = $reservation->items->pluck('designator_id')->map(fn ($id) => (int) $id);
             $newIds = $targets->keys()->diff($existingIds);
-            $materialIds = ReservedDesignatorRules::apply(Designator::whereIn('id_designator', $newIds))->pluck('id_designator');
-            if ($materialIds->count() !== $newIds->count()) {
-                throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima MATERIAL serta J-CO-OF, J-Coring, J-OS-SM-1 yang masih tersedia.']);
+            $eligibleIds = ReservedDesignatorRules::apply(Designator::whereIn('id_designator', $newIds))->pluck('id_designator');
+            if ($eligibleIds->count() !== $newIds->count()) {
+                throw ValidationException::withMessages(['items' => 'Reservasi hanya menerima designator bertipe MATERIAL atau JASA yang masih tersedia.']);
             }
             $evidenceIds = $lockedLop->evidences()->whereNotNull('designator_id')->pluck('designator_id')->map(fn ($id) => (int) $id);
 

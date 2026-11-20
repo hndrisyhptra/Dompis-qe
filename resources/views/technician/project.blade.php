@@ -118,7 +118,7 @@
             ])->values();
         @endphp
         <section class="mt-5" x-data="{ items: {{ Illuminate\Support\Js::from($materialRows) }}, materials: {{ Illuminate\Support\Js::from($materialOptions) }} }">
-            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih material atau jasa khusus J-CO-OF, J-Coring, J-OS-SM-1. Jasa khusus wajib evidence Progress/After dan qty aktual mengikuti reservasi. Jasa lainnya tetap mengikuti aturan program.</p></div>
+            <div class="mb-3"><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 1</p><h2 class="mt-1 text-lg font-extrabold">Reservasi material dan jasa</h2><p class="mt-1 text-xs leading-5 text-ink-500">Pilih designator bertipe MATERIAL atau JASA. Semua item yang direservasi wajib memiliki evidence Progress/After dan qty aktual.</p></div>
             <div class="mb-3 flex items-center justify-between gap-3 rounded-2xl border {{ $reservationPackage['package'] ? 'border-blue-200 bg-blue-50 dark:border-blue-900/60 dark:bg-blue-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30' }} px-4 py-3">
                 <div><p class="text-[9px] font-extrabold uppercase tracking-wider {{ $reservationPackage['package'] ? 'text-blue-600 dark:text-blue-300' : 'text-amber-600 dark:text-amber-300' }}">Paket harga reservasi</p><p class="mt-1 text-sm font-extrabold text-ink-900 dark:text-white">{{ $reservationPackage['package']?->name ?? $reservationPackage['expected_code'] ?? 'Belum tersedia' }}</p></div>
                 <span class="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-[9px] font-bold text-ink-600 shadow-sm dark:bg-ink-900/70 dark:text-ink-300">{{ $reservationPackage['source'] }}</span>
@@ -133,7 +133,7 @@
                                 <span class="min-w-0 flex-1">
                                     <span class="block truncate text-xs font-bold text-ink-800 dark:text-ink-100"
                                           x-text="(materials.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item material'"></span>
-                                    <span class="mt-1 block text-[10px] text-ink-400" x-text="item.designator_id ? 'Tap untuk ubah material' : 'Belum memilih designator'"></span>
+                                        <span class="mt-1 block text-[10px] text-ink-400" x-text="item.designator_id ? 'Tap untuk ubah designator' : 'Belum memilih designator'"></span>
                                 </span>
                                 <span class="shrink-0 rounded-lg bg-ink-100 px-2 py-1 text-[10px] font-extrabold text-ink-600 dark:bg-ink-800 dark:text-ink-300"><span x-text="item.qty || 0"></span> qty</span>
                                 <svg class="h-4 w-4 shrink-0 text-ink-400 transition-transform" :class="item.open && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25L12 15.75 4.5 8.25"/></svg>
@@ -153,7 +153,7 @@
                                     <button type="button" @click="pickerOpen = !pickerOpen"
                                             class="mt-1 min-h-11 w-full rounded-xl border border-ink-100 bg-white px-3 py-2 text-left text-xs dark:border-ink-700 dark:bg-ink-800"
                                             :class="item.designator_id ? 'text-ink-900 dark:text-ink-50' : 'text-ink-400'">
-                                        <span class="line-clamp-2" x-text="(all.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item designator'"></span>
+                                            <span class="line-clamp-2" x-text="(all.find(m => String(m.id) === String(item.designator_id)) || {}).label || 'Pilih item designator'"></span>
                                     </button>
                                     <div x-show="pickerOpen" x-cloak x-transition.opacity
                                          class="absolute left-0 right-0 z-20 mt-2 rounded-xl border border-ink-100 bg-white p-2 shadow-xl dark:border-ink-700 dark:bg-ink-800">
@@ -216,7 +216,7 @@
         </section>
     @elseif ($step === 4)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 4</p><h2 class="mt-1 text-lg font-extrabold">Evidence Progress</h2><p class="mt-1 text-xs leading-5 text-ink-500">Dokumentasi proses instalasi untuk setiap material yang direservasi.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 4</p><h2 class="mt-1 text-lg font-extrabold">Evidence Progress</h2><p class="mt-1 text-xs leading-5 text-ink-500">Dokumentasi proses instalasi untuk setiap item yang direservasi.</p></div>
             @foreach ($state['items'] as $item)
                 <x-technician-evidence-uploader :lop="$lop" category="progress" :designator-id="$item->designator_id"
                     :title="'Progress · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(int) round((float) $item->qty).' '.$item->designator->unit"
@@ -229,7 +229,7 @@
         </section>
     @elseif ($step === 5)
         <section class="mt-5 space-y-4">
-            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 5</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir setiap material dan rekap aktual. Capture Logic Slot Port opsional.</p></div>
+            <div><p class="text-[11px] font-bold uppercase tracking-[.14em] text-brand-600 dark:text-brand-400">Step 5</p><h2 class="mt-1 text-lg font-extrabold">Evidence After</h2><p class="mt-1 text-xs leading-5 text-ink-500">Lengkapi hasil akhir setiap item dan isi qty aktual material maupun jasa. Capture Logic Slot Port opsional.</p></div>
             @foreach ($state['items'] as $item)
                 <x-technician-evidence-uploader :lop="$lop" category="after" :designator-id="$item->designator_id"
                     :title="'After · '.$item->designator->code" :description="$item->designator->item_name.' · Qty '.(int) round((float) $item->qty).' '.$item->designator->unit"
@@ -238,7 +238,7 @@
 
             <x-technician-evidence-uploader :lop="$lop" category="slot_port" title="Capture Logic Slot Port" description="Screenshot Detail Slot Port OLT" :existing="$evidenceFor('slot_port')" />
 
-            {{-- Rekap qty material aktual yang terpakai per designator --}}
+            {{-- Rekap qty aktual yang terpakai per designator --}}
             @php
                 $usageRows = $state['items']->map(fn ($item) => [
                     'designator_id' => (string) $item->designator_id,
@@ -246,14 +246,13 @@
                     'name' => $item->designator->item_name,
                     'unit' => $item->designator->unit,
                     'reserved' => (int) round((float) $item->qty),
-                    'fixed_actual' => \App\Support\ReservedDesignatorRules::fixedActual($item->designator->code),
-                    'actual' => \App\Support\ReservedDesignatorRules::fixedActual($item->designator->code) ? (float) $item->qty : ($item->qty_actual !== null ? (float) $item->qty_actual : ''),
+                    'actual' => $item->qty_actual !== null ? (float) $item->qty_actual : '',
                 ])->values();
             @endphp
-            <section x-data="{ usage: {{ Illuminate\Support\Js::from($usageRows) }}, get invalid() { return this.usage.some(u => u.actual === '' || u.actual === null || Number(u.actual) < 0 || Number(u.actual) > u.reserved); } }"
+            <section x-data="{ usage: {{ Illuminate\Support\Js::from($usageRows) }}, get invalid() { return this.usage.some(u => u.actual === '' || u.actual === null || !Number.isInteger(Number(u.actual)) || Number(u.actual) < 0 || Number(u.actual) > u.reserved); } }"
                      class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900">
-                <p class="text-sm font-bold">Rekap material terpakai</p>
-                <p class="mt-1 text-xs text-ink-500">Isi qty yang benar-benar terpakai per material. Maksimal sebesar qty reservasi.</p>
+                <p class="text-sm font-bold">Rekap material dan jasa terpakai</p>
+                <p class="mt-1 text-xs text-ink-500">Isi qty yang benar-benar terpakai per item. Maksimal sebesar qty reservasi.</p>
                 <form method="POST" action="{{ route('technician.projects.material-usage', $lop) }}" class="mt-3 space-y-2.5">@csrf @method('PUT')
                     <template x-for="(u, i) in usage" :key="u.designator_id">
                         <div class="rounded-xl border border-ink-100 p-3 dark:border-ink-800">
@@ -263,14 +262,12 @@
                             <div class="mt-2 flex items-end gap-3">
                                 <div class="min-w-0">
                                     <label class="text-[10px] font-bold uppercase tracking-wide text-ink-400">Terpakai</label>
-                                    <input type="number" min="0" step="0.001" :max="u.reserved" x-model="u.actual" required
-                                           :readonly="u.fixed_actual"
+                                    <input type="number" min="0" step="1" inputmode="numeric" :max="u.reserved" x-model="u.actual" required
                                            :name="`usage[${i}][qty_actual]`"
                                            class="mt-1 min-h-11 w-28 rounded-xl border bg-white px-2 text-sm font-bold dark:bg-ink-800"
                                            :class="(u.actual !== '' && Number(u.actual) > u.reserved) ? 'border-brand-400' : 'border-ink-100 dark:border-ink-700'">
                                 </div>
                                 <div class="pb-2 text-[11px] text-ink-500">
-                                    <p x-show="u.fixed_actual" class="mb-1 font-semibold text-brand-600">Otomatis sesuai qty reservasi/BOQ Plan</p>
                                     <span>Reservasi <span class="font-bold" x-text="u.reserved"></span> <span x-text="u.unit"></span></span>
                                     <template x-if="u.actual !== '' && Number(u.actual) >= 0 && Number(u.actual) < u.reserved">
                                         <span class="ml-2 rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">Sisa <span x-text="+(u.reserved - Number(u.actual)).toFixed(3)"></span> <span x-text="u.unit"></span></span>
@@ -287,13 +284,13 @@
                     </template>
                     <button type="submit" :disabled="invalid"
                             :class="invalid ? 'bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' : 'bg-ink-900 text-white dark:bg-ink-700'"
-                            class="min-h-11 w-full rounded-xl text-xs font-extrabold transition">Simpan rekap material</button>
+                            class="min-h-11 w-full rounded-xl text-xs font-extrabold transition">Simpan rekap qty</button>
                 </form>
             </section>
 
             @php $canSubmit = $state['step2Complete'] && $state['step3Complete'] && $state['step4Complete'] && $state['step5Complete']; @endphp
             <div class="rounded-2xl border border-ink-100 bg-white p-4 dark:border-ink-800 dark:bg-ink-900" x-data="{ showSubmitConfirm: false }">
-                <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Capture slot port tersedia.' : 'Capture slot port opsional — belum diupload.' }} {{ $state['materialUsageComplete'] ? 'Rekap material lengkap.' : 'Rekap qty material belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
+                <div class="flex items-center justify-between"><div><p class="text-sm font-bold">Checklist akhir</p><p class="mt-1 text-xs text-ink-500">{{ $state['missingAfter']->isEmpty() ? 'Evidence after lengkap.' : $state['missingAfter']->count().' designator belum ada evidence after.' }} {{ $state['slotPortComplete'] ? 'Capture slot port tersedia.' : 'Capture slot port opsional — belum diupload.' }} {{ $state['materialUsageComplete'] ? 'Rekap qty lengkap.' : 'Rekap qty belum lengkap.' }}</p></div><span class="grid h-9 w-9 place-items-center rounded-full {{ $state['step5Complete'] ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300' }}">{{ $state['step5Complete'] ? '✓' : '!' }}</span></div>
                 <button type="button" @click="window.location.href = @js(route('technician.projects.show', [$lop, 'step' => 6]))" @disabled(! $canSubmit)
                         class="mt-4 min-h-12 w-full rounded-2xl text-sm font-extrabold {{ $canSubmit ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20' : 'cursor-not-allowed bg-ink-200 text-ink-400 dark:bg-ink-800 dark:text-ink-500' }}">Lanjut BA Bongkar →</button>
 

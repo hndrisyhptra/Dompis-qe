@@ -62,7 +62,7 @@ class BulkLopTemplateService
             ['Variasi program', 'Contoh: qe recovery, qe_recovery, QE RECOVERY, qe-relok-tiang. Nama/kode pada Referensi Program diterima. Jangan gabungkan beberapa program dalam satu sel.'],
             ['segment', 'Pilih 1–5 segmen untuk SEMUA program. Pisahkan dengan |, contoh feeder|distribusi|odc|odp|tiang. Koma/titik koma juga diterima. Urutan menjadi urutan pada Nama LOP.'],
             ['Segmen tersedia', implode(', ', array_map(fn (LopSegment $segment) => $segment->value, LopSegment::cases())).'. Mini OLT juga diterima sebagai mini_olt.'],
-            ['budget_type', 'Otomatis CAPEX untuk QE Relok Utilitas, OPEX untuk Recovery/Preventive/Relok Tiang. Boleh kosong; nilai kiriman selalu mengikuti program.'],
+            ['budget_type', 'Otomatis CAPEX untuk QE Relok Utilitas dan Kuratif; OPEX untuk Recovery, Preventive, dan Relok Tiang. Boleh kosong; nilai kiriman selalu mengikuti program.'],
             ['job_description', 'Deskripsi pekerjaan wajib, maksimal 2000 karakter.'],
             ['ihld_id', 'ID IHLD opsional, maksimal 100 karakter. Dapat diisi kemudian lewat edit LOP.'],
             ['nama_lop', 'Opsional, maksimal 255 karakter. Kosong agar sistem generate memakai format Nama LOP aktif.'],

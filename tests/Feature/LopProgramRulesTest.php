@@ -51,6 +51,7 @@ class LopProgramRulesTest extends TestCase
 
     public function test_manual_create_and_edit_force_budget_and_preserve_multiple_tiang_segments(): void
     {
+        $this->assertSame(LopBudgetType::CAPEX, ProgramType::KURATIF->budgetType());
         $this->fakeIncidentTickets(['INC-PROGRAM-0' => 'GAMAS', 'INC-PROGRAM-1' => 'GAMAS', 'INC-PROGRAM-3' => 'NON NUMBERING']);
         [$admin] = $this->actors();
         $this->actingAs($admin)->get(route('lop.create'))->assertOk()->assertSee('QE Relok Tiang')->assertDontSee('type="radio" name="budget_type"', false);
@@ -98,7 +99,7 @@ class LopProgramRulesTest extends TestCase
             ->assertRedirect();
         $batch = QeImportBatch::firstOrFail();
         app(BulkLopImportService::class)->process($batch, $admin);
-        $this->assertSame(16, $batch->refresh()->success_rows);
+        $this->assertSame(count($expected), $batch->refresh()->success_rows);
         $this->assertSame(2, $batch->failed_rows);
         foreach ($expected as $incident => $program) {
             $lop = QeLop::where('incident', $incident)->firstOrFail();
@@ -114,6 +115,7 @@ class LopProgramRulesTest extends TestCase
         $this->assertStringContainsString('tiang|odp', $template);
         $this->assertStringContainsString('CAPEX', $template);
         $this->assertStringContainsString('OPEX', $template);
+        $this->assertStringContainsString('Kuratif', $template);
     }
 
     public function test_new_program_supports_assignment_dashboard_and_revenue_without_scope_changes(): void

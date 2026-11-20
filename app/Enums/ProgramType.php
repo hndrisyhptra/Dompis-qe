@@ -57,7 +57,9 @@ enum ProgramType: string
 
     public function budgetType(): LopBudgetType
     {
-        return $this === self::RELOK_UTILITAS ? LopBudgetType::CAPEX : LopBudgetType::OPEX;
+        return in_array($this, [self::RELOK_UTILITAS, self::KURATIF], true)
+            ? LopBudgetType::CAPEX
+            : LopBudgetType::OPEX;
     }
 
     public function includesBoqServices(): bool

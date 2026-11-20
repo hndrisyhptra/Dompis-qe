@@ -26,11 +26,13 @@ test('pengecualian jasa khusus berasal dari flag server tanpa membuka jasa lain'
     assert.equal(actual.filteredOptions('Coring', '').length, 1);
 });
 
-test('editor reservasi hanya mencari material sementara editor plan tetap mencakup jasa', () => {
-    const actual = editor({ materialOnly: true, maxItems: 100 });
-    assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE']);
+test('editor reservasi menyediakan semua jasa dan editor plan mempertahankan pengecualian jasa khusus', () => {
+    const actual = editor({ materialOnly: true, allServices: true, maxItems: 100 });
+    assert.deepEqual(Array.from(actual.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-KEEP']);
     assert.deepEqual(Array.from(actual.filteredOptions('feeder', ''), value => value.code), ['M-KEEP']);
-    assert.equal(actual.filteredOptions('Jasa', '').length, 0);
+    assert.equal(actual.filteredOptions('Jasa', '').length, 1);
+    const plan = editor({ materialOnly: true }, [...options, { id: 4, code: 'J-Coring', name: 'Coring', type: 'JASA', fixed_actual: true }]);
+    assert.deepEqual(Array.from(plan.options, value => value.code), ['M-KEEP', 'M-REMOVE', 'J-Coring']);
     assert.equal(editor().options.length, 3);
 });
 

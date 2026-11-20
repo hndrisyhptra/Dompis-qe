@@ -124,17 +124,17 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $reservation = app(BoqService::class)->syncReservation($lop, $this->tech);
         $this->assertCount(4, $reservation->items);
         foreach ($reservation->items as $item) {
-            $item->update(['qty_actual' => ReservedDesignatorRules::fixedActual($item->designator->code) ? 3 : 2]);
+            $item->update(['qty_actual' => 1]);
         }
         $actual = app(LopBoqProjectionService::class)->report($lop->fresh(), 'actual');
         $this->assertCount(4, $actual['lines']);
-        $this->assertSame(49.0, $actual['grand']['total_actual']);
+        $this->assertSame(17.0, $actual['grand']['total_actual']);
         foreach ($actual['lines'] as $line) {
-            $this->assertSame(ReservedDesignatorRules::fixedActual($line['designator_code']) ? 3.0 : 2.0, $line['qty_actual']);
+            $this->assertSame(1.0, $line['qty_actual']);
         }
         $rows = iterator_to_array(app(DataBoqExportService::class)->rows($this->admin));
         $this->assertCount(4, $rows);
-        $this->assertSame(49.0, (float) array_sum(array_column($rows, 10)));
+        $this->assertSame(17.0, (float) array_sum(array_column($rows, 10)));
         $expectedPlan = $program === 'recovery' ? 0.0 : 65.0;
         foreach ([
             $this->admin,
@@ -144,7 +144,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
             User::factory()->role('ADMIN')->create(['admin_scope_type' => 'service_area', 'service_area_id' => $this->sa->getKey()]),
         ] as $actor) {
             $this->actingAs($actor)->get(route('revenue.index'))->assertOk()
-                ->assertViewHas('stats', fn ($stats) => $stats['actual_value'] === 49.0 && $stats['plan_value'] === $expectedPlan);
+                ->assertViewHas('stats', fn ($stats) => $stats['actual_value'] === 17.0 && $stats['plan_value'] === $expectedPlan);
         }
     }
 
@@ -169,12 +169,12 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $reservation = $lop->materialReservation()->create(['technician_id' => $this->tech->getKey(), 'status' => 'submitted']);
         foreach (collect($this->designators)->except('J-OTHER') as $code => $designator) {
             $special = ReservedDesignatorRules::fixedActual($code);
-            $reservation->items()->create(['designator_id' => $designator->getKey(), 'qty' => $special ? 3 : 10, 'qty_actual' => $special ? 3 : 2]);
+            $reservation->items()->create(['designator_id' => $designator->getKey(), 'qty' => $special ? 3 : 10, 'qty_actual' => 1]);
         }
         $actual = app(LopBoqProjectionService::class)->report($lop, 'actual');
         $this->assertCount(4, $actual['lines']);
-        $this->assertSame(11000.0, $actual['grand']['total_actual']);
-        $this->actingAs($this->admin)->get(route('revenue.index'))->assertOk()->assertViewHas('stats', fn ($stats) => $stats['plan_value'] === 0.0 && $stats['actual_value'] === 11000.0);
+        $this->assertSame(4000.0, $actual['grand']['total_actual']);
+        $this->actingAs($this->admin)->get(route('revenue.index'))->assertOk()->assertViewHas('stats', fn ($stats) => $stats['plan_value'] === 0.0 && $stats['actual_value'] === 4000.0);
         $this->assertDatabaseCount('qe_boqs', 0);
     }
 
@@ -190,7 +190,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $this->assertDatabaseHas('qe_material_reservation_items', ['designator_id' => $this->designators['J-Coring']->getKey(), 'qty' => 3]);
     }
 
-    public function test_approval_cannot_complete_special_services_without_own_approved_progress_after_and_exact_actual(): void
+    public function test_approval_requires_each_service_actual_and_approved_progress_after(): void
     {
         $lop = $this->lop('waiting_approval');
         $this->plan($lop);
@@ -199,7 +199,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $this->assertSame('waiting_approval', $lop->fresh()->status_lop->value);
         $reservation = app(BoqService::class)->syncReservation($lop->fresh(), $this->tech);
         foreach ($reservation->items as $item) {
-            $item->update(['qty_actual' => (float) $item->qty]);
+            $item->update(['qty_actual' => 1]);
             $this->evidence($lop, 'progress', $item->designator, 'approved');
             $this->evidence($lop, 'after', $item->designator, 'approved');
         }
@@ -207,7 +207,7 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $this->assertSame('completed', $lop->fresh()->status_lop->value);
     }
 
-    public function test_special_reservations_require_their_own_progress_after_and_fixed_actual(): void
+    public function test_service_reservations_allow_partial_actual_and_require_their_own_progress_after(): void
     {
         $lop = $this->lop();
         $workflow = app(TechnicianWorkflowService::class);
@@ -222,11 +222,16 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         foreach (['J-CO-OF', 'J-Coring', 'J-OS-SM-1'] as $code) {
             $this->evidence($lop, 'progress', $this->designators[$code]);
         }
-        $this->get(route('technician.projects.show', [$lop, 'step' => 5]))->assertOk()->assertSee(':readonly="u.fixed_actual"', false)->assertSee('Otomatis sesuai qty reservasi/BOQ Plan');
+        $this->get(route('technician.projects.show', [$lop, 'step' => 5]))->assertOk()->assertDontSee(':readonly="u.fixed_actual"', false)->assertSee('Rekap material dan jasa terpakai');
         $usage = array_map(fn ($item) => ['designator_id' => $item['designator_id'], 'qty_actual' => 3], $items);
-        $usage[1]['qty_actual'] = 0;
+        $usage[1]['qty_actual'] = 1.5;
         $this->put(route('technician.projects.material-usage', $lop), ['usage' => $usage])->assertSessionHasErrors('usage.1.qty_actual');
-        $usage[1]['qty_actual'] = 3;
+        $usage[1]['qty_actual'] = 1;
+        $this->put(route('technician.projects.material-usage', $lop), ['usage' => $usage])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('qe_material_reservation_items', ['designator_id' => $items[1]['designator_id'], 'qty_actual' => 1]);
+        $usage[1]['qty_actual'] = 4;
+        $this->put(route('technician.projects.material-usage', $lop), ['usage' => $usage])->assertSessionHasErrors('usage.1.qty_actual');
+        $usage[1]['qty_actual'] = 1;
         $this->put(route('technician.projects.material-usage', $lop), ['usage' => $usage])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertCount(4, $workflow->state($lop->fresh())['missingAfter']);
         foreach (collect($this->designators)->except('J-OTHER') as $designator) {
@@ -237,16 +242,46 @@ class TechnicianSpecialDesignatorAndEvidenceTest extends TestCase
         $this->assertSame('waiting_approval', $lop->fresh()->status_lop->value);
     }
 
-    public function test_special_manual_boq_is_allowed_but_other_services_still_rejected(): void
+    #[DataProvider('programs')]
+    public function test_all_service_designators_are_available_to_technicians_and_count_as_actual(string $program): void
     {
-        $lop = $this->lop();
+        $lop = $this->lop('progress', $program);
         $id = $this->designators['J-Coring']->getKey();
         $boq = app(BoqService::class)->save($lop, [['designator_id' => $id, 'qty' => 2, 'unit_price' => 5]], $this->package, $this->admin);
         $this->assertSame('J-Coring', $boq->items->first()->designator_code);
         $this->assertDatabaseHas('qe_material_reservation_items', ['designator_id' => $id, 'qty' => 2]);
-        $this->actingAs($this->tech)->put(route('technician.projects.materials', $lop), ['items' => [['designator_id' => $this->designators['J-OTHER']->getKey(), 'qty' => 2]]])->assertSessionHasErrors('items');
+        $this->actingAs($this->tech)->get(route('technician.projects.show', [$lop, 'step' => 1]))->assertOk()->assertSee('J-OTHER');
+        $this->actingAs($this->tech)->put(route('technician.projects.materials', $lop), ['items' => [
+            ['designator_id' => $this->designators['J-OTHER']->getKey(), 'qty' => 2],
+        ]])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('qe_material_reservation_items', ['designator_id' => $this->designators['J-OTHER']->getKey(), 'qty' => 2]);
+        $this->assertContains('J-OTHER', collect(app(LopBoqProjectionService::class)->report($lop->fresh(), 'actual')['lines'])->pluck('designator_code')->all());
         $this->assertFalse(ReservedDesignatorRules::fixedActual('J-Coring-other'));
         $this->assertTrue(ReservedDesignatorRules::fixedActual(' j-coring '));
+    }
+
+    public function test_explicit_service_reservation_does_not_duplicate_relok_utilitas_service_pair(): void
+    {
+        $lop = $this->lop('completed', 'relok_utilitas');
+        $reservation = $lop->materialReservation()->create(['technician_id' => $this->tech->getKey(), 'status' => 'submitted']);
+        $reservation->items()->create(['designator_id' => $this->designators['M-CO-OF']->getKey(), 'qty' => 3, 'qty_actual' => 2]);
+        $reservation->items()->create(['designator_id' => $this->designators['J-CO-OF']->getKey(), 'qty' => 3, 'qty_actual' => 1]);
+
+        $actual = app(LopBoqProjectionService::class)->report($lop, 'actual');
+        $this->assertCount(2, $actual['lines']);
+        $this->assertSame(3000.0, $actual['grand']['total_actual']);
+        $this->actingAs($this->admin)->get(route('revenue.index'))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['actual_value'] === 3000.0);
+    }
+
+    public function test_additional_reserved_jasa_is_counted_in_recovery_revenue(): void
+    {
+        $lop = $this->lop('completed', 'recovery');
+        $reservation = $lop->materialReservation()->create(['technician_id' => $this->tech->getKey(), 'status' => 'submitted']);
+        $reservation->items()->create(['designator_id' => $this->designators['J-OTHER']->getKey(), 'qty' => 2, 'qty_actual' => 1]);
+
+        $this->actingAs($this->admin)->get(route('revenue.index'))->assertOk()
+            ->assertViewHas('stats', fn ($stats) => $stats['actual_value'] === 1000.0);
     }
 
     public function test_optional_choices_persist_for_both_categories_with_actor_history_and_no_dummy_evidence(): void

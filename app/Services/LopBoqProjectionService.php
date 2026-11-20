@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
 /**
  * Membentuk tampilan read-only BOQ Plan, BOQ Actual, dan Sisa Material per LOP.
  *
- * Reservasi berisi MATERIAL dan tiga jasa khusus yang wajib evidence. Relok Utilitas memakai JASA
+ * Reservasi berisi MATERIAL dan JASA yang wajib evidence. Relok Utilitas memakai JASA
  * pasangan virtual dari pola M-... -> J-... sehingga tidak
  * mengotori reservasi dan evidence per material.
  */
@@ -219,7 +219,9 @@ class LopBoqProjectionService
                 ->pluck('price', 'designator_id');
         }
 
-        return $items->flatMap(function (QeMaterialReservationItem $item) use ($includeServicePair, $serviceDesignators, $prices): array {
+        $reservedBaseCodes = $items->map(fn (QeMaterialReservationItem $item): string => $this->baseCode($item->designator?->code));
+
+        return $items->flatMap(function (QeMaterialReservationItem $item) use ($includeServicePair, $serviceDesignators, $prices, $reservedBaseCodes): array {
             $material = $item->designator;
             $rows = [$this->line(
                 designatorId: $item->designator_id,
@@ -238,7 +240,7 @@ class LopBoqProjectionService
             }
 
             $service = $serviceDesignators->get(mb_strtoupper($serviceCode));
-            if ($service === null) {
+            if ($service === null || $reservedBaseCodes->contains($this->baseCode($serviceCode))) {
                 return $rows;
             }
 
